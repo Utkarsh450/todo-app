@@ -6,6 +6,7 @@ import type { Env } from './config/env.js';
 import { AppError } from './lib/errors.js';
 import type { Logger } from './lib/logger.js';
 import type { Db } from './lib/prisma.js';
+import { calendarRoutes } from './modules/calendar/calendar.routes.js';
 import { healthRoutes } from './modules/health/health.routes.js';
 import { projectRoutes } from './modules/projects/projects.routes.js';
 import { reminderRoutes } from './modules/reminders/reminders.routes.js';
@@ -57,6 +58,7 @@ export async function buildApp({ env, db, logger }: AppDeps): Promise<FastifyIns
   await app.register(projectRoutes, { prefix: '/api' });
   await app.register(taskRoutes, { prefix: '/api' });
   await app.register(reminderRoutes, { prefix: '/api' });
+  await app.register(calendarRoutes, { prefix: '/api' });
 
   app.addHook('onClose', async () => {
     await db.$disconnect();
