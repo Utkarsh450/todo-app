@@ -9,6 +9,7 @@ import type { Db } from './lib/prisma.js';
 import { calendarRoutes } from './modules/calendar/calendar.routes.js';
 import { habitRoutes } from './modules/habits/habits.routes.js';
 import { healthRoutes } from './modules/health/health.routes.js';
+import { insightRoutes } from './modules/insights/insights.routes.js';
 import { noteRoutes } from './modules/notes/notes.routes.js';
 import { projectRoutes } from './modules/projects/projects.routes.js';
 import { reminderRoutes } from './modules/reminders/reminders.routes.js';
@@ -63,6 +64,7 @@ export async function buildApp({ env, db, logger }: AppDeps): Promise<FastifyIns
   await app.register(calendarRoutes, { prefix: '/api' });
   await app.register(habitRoutes, { prefix: '/api' });
   await app.register(noteRoutes, { prefix: '/api' });
+  await app.register(insightRoutes, { prefix: '/api' });
 
   app.addHook('onClose', async () => {
     await db.$disconnect();
