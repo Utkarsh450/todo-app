@@ -21,7 +21,10 @@ export const createReminderBody = z.object({
   enabled: z.boolean().optional(),
 });
 
-export const updateReminderBody = createReminderBody.partial().refine((v) => Object.keys(v).length > 0, 'at least one field is required');
+/** Updates may also clear (`null`) or set the snooze, which is how a repeating reminder rolls forward. */
+export const updateReminderBody = createReminderBody
+  .extend({ snoozedUntil: z.coerce.date().nullable().optional() })
+  .partial().refine((v) => Object.keys(v).length > 0, 'at least one field is required');
 
 /** Snooze either by a number of minutes from now, or until an explicit time. */
 export const snoozeBody = z.union([

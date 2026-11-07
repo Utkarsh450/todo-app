@@ -88,6 +88,14 @@ describe('reminders API (integration)', () => {
     expect(g.thisWeek.map((x: { title: string }) => x.title)).toEqual(['Weekly review']);
   });
 
+  it('rolls a repeating reminder forward and clears its snooze', async () => {
+    const rem = await create({ title: 'Drink water', remindAt: '2026-11-07T14:00:00Z', repeatRule: 'Every 2 Hours' });
+    await ctx.app.inject({ method: 'POST', url: `/api/reminders/${rem.id}/snooze`, payload: { minutes: 30 } });
+    const res = await ctx.app.inject({ method: 'PATCH', url: `/api/reminders/${rem.id}`, payload: { remindAt: '2026-11-07T16:00:00Z', snoozedUntil: null } });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({ remindAt: '2026-11-07T16:00:00.000Z', snoozedUntil: null });
+  });
+
   it('cascades when the linked task is deleted and 404s for unknown ids', async () => {
     const task = (await ctx.app.inject({ method: 'POST', url: '/api/tasks', payload: { title: 'Ship' } })).json();
     await create({ title: '1h before', remindAt: '2026-11-07T13:00:00Z', taskId: task.id });
