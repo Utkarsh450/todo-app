@@ -1,8 +1,12 @@
 package com.utkarsh.todo.feature.tasks.domain
 
 import java.time.Instant
+import kotlinx.coroutines.flow.Flow
 
 interface TasksRepository {
+    /** Emits after any successful write so screens showing tasks can reload. */
+    val changes: Flow<Unit>
+
     /** Non-archived tasks due in [from, to), ordered by due time. */
     suspend fun dueBetween(from: Instant, to: Instant): Result<List<Task>>
     suspend fun search(query: String): Result<List<Task>>

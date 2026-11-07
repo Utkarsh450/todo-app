@@ -12,6 +12,9 @@ import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -25,6 +28,7 @@ import androidx.navigation.compose.rememberNavController
 import com.utkarsh.todo.core.designsystem.component.NavBarItem
 import com.utkarsh.todo.core.designsystem.component.PaperNavBar
 import com.utkarsh.todo.core.designsystem.theme.Paper
+import com.utkarsh.todo.feature.quickadd.ui.QuickAddSheet
 import com.utkarsh.todo.feature.today.ui.TodayRoute
 import kotlin.reflect.KClass
 
@@ -41,6 +45,7 @@ private val topLevel = listOf(
 @Composable
 fun AppNavHost(modifier: Modifier = Modifier) {
     val nav = rememberNavController()
+    var showQuickAdd by rememberSaveable { mutableStateOf(false) }
     val entry by nav.currentBackStackEntryAsState()
     val selected = topLevel.firstOrNull { t -> entry?.destination?.hasRoute(t.type) == true }?.key
 
@@ -64,10 +69,11 @@ fun AppNavHost(modifier: Modifier = Modifier) {
                         restoreState = true
                     }
                 },
-                onAdd = { /* quick add sheet arrives with the quick-add UI */ },
+                onAdd = { showQuickAdd = true },
             )
         }
     }
+    if (showQuickAdd) QuickAddSheet(onDismiss = { showQuickAdd = false })
 }
 
 @Composable

@@ -59,6 +59,7 @@ class TodayViewModel @Inject constructor(
 
     init {
         refresh()
+        viewModelScope.launch { tasks.changes.collect { load(clearError = false) } }
     }
 
     fun refresh() = load(clearError = true)

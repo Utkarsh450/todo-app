@@ -14,6 +14,7 @@ import com.utkarsh.todo.feature.today.domain.TodayView
 import com.utkarsh.todo.feature.today.ui.TodayViewModel
 import io.mockk.coEvery
 import io.mockk.coVerify
+import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
 import java.time.Clock
@@ -21,6 +22,7 @@ import java.time.Instant
 import java.time.ZoneId
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -38,6 +40,7 @@ class TodayViewModelTest {
     private val clock = Clock.fixed(Instant.parse("2026-11-07T04:30:00Z"), zone) // Sat 7 Nov, 10:00 IST
     private val range = clock.dayRange()
 
+    private val changes = MutableSharedFlow<Unit>()
     private val tasks = mockk<TasksRepository>()
     private val projects = mockk<ProjectsRepository>()
 
@@ -55,6 +58,7 @@ class TodayViewModelTest {
     fun setUp() {
         Dispatchers.setMain(UnconfinedTestDispatcher())
         coEvery { projects.projects() } returns Result.success(listOf(Project("p1", "Design", "#935EDF")))
+        every { tasks.changes } returns changes
     }
 
     @After
@@ -181,6 +185,16 @@ class TodayViewModelTest {
 
         assertNull(vm.uiState.value.undo)
         assertEquals(emptyList<String>(), vm.uiState.value.items.map { it.id })
+    }
+
+    @Test
+    fun `reloads when another screen changes tasks`() = runTest {
+        val vm = viewModel(task("a"))
+        coEvery { tasks.dueBetween(range.start, range.end) } returns Result.success(listOf(task("a"), task("new", dueIso = "2026-11-07T12:00:00Z")))
+
+        changes.emit(Unit)
+
+        assertEquals(listOf("a", "new"), vm.uiState.value.items.map { it.id })
     }
 
     @Test
