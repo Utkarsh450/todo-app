@@ -1,0 +1,78 @@
+package com.utkarsh.todo.core.navigation
+
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.CheckBox
+import androidx.compose.material.icons.outlined.Insights
+import androidx.compose.material.icons.outlined.Notifications
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.unit.dp
+import androidx.navigation.NavDestination.Companion.hasRoute
+import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.rememberNavController
+import com.utkarsh.todo.core.designsystem.component.NavBarItem
+import com.utkarsh.todo.core.designsystem.component.PaperNavBar
+import com.utkarsh.todo.core.designsystem.theme.Paper
+import com.utkarsh.todo.feature.today.ui.TodayRoute
+import kotlin.reflect.KClass
+
+private data class TopLevel(val key: String, val label: String, val route: Destination, val type: KClass<out Destination>, val icon: ImageVector)
+
+private val topLevel = listOf(
+    TopLevel("today", "Today", Destination.Today, Destination.Today::class, Icons.Outlined.CheckBox),
+    TopLevel("calendar", "Calendar", Destination.Calendar, Destination.Calendar::class, Icons.Outlined.CalendarMonth),
+    TopLevel("reminders", "Reminders", Destination.Reminders, Destination.Reminders::class, Icons.Outlined.Notifications),
+    TopLevel("insights", "Insights", Destination.Insights, Destination.Insights::class, Icons.Outlined.Insights),
+)
+
+/** App shell: bottom [PaperNavBar] plus the navigation graph. */
+@Composable
+fun AppNavHost(modifier: Modifier = Modifier) {
+    val nav = rememberNavController()
+    val entry by nav.currentBackStackEntryAsState()
+    val selected = topLevel.firstOrNull { t -> entry?.destination?.hasRoute(t.type) == true }?.key
+
+    Column(modifier.fillMaxSize()) {
+        NavHost(nav, startDestination = Destination.Today, modifier = Modifier.weight(1f)) {
+            composable<Destination.Today> { TodayRoute(onOpenTask = { nav.navigate(Destination.TaskDetail(it)) }) }
+            composable<Destination.Calendar> { Placeholder("Calendar") }
+            composable<Destination.Reminders> { Placeholder("Reminders") }
+            composable<Destination.Insights> { Placeholder("Insights") }
+            composable<Destination.TaskDetail> { Placeholder("Task") }
+        }
+        if (selected != null) {
+            PaperNavBar(
+                items = topLevel.map { NavBarItem(it.key, it.label, it.icon) },
+                selectedKey = selected,
+                onSelect = { key ->
+                    val target = topLevel.first { it.key == key }.route
+                    nav.navigate(target) {
+                        popUpTo(nav.graph.findStartDestination().id) { saveState = true }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
+                },
+                onAdd = { /* quick add sheet arrives with the quick-add UI */ },
+            )
+        }
+    }
+}
+
+@Composable
+private fun Placeholder(name: String) {
+    Box(Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
+        Text(name, style = Paper.type.display, color = Paper.colors.muted)
+    }
+}
