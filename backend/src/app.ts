@@ -7,6 +7,7 @@ import { AppError } from './lib/errors.js';
 import type { Logger } from './lib/logger.js';
 import type { Db } from './lib/prisma.js';
 import { healthRoutes } from './modules/health/health.routes.js';
+import { projectRoutes } from './modules/projects/projects.routes.js';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -51,6 +52,7 @@ export async function buildApp({ env, db, logger }: AppDeps): Promise<FastifyIns
   app.setNotFoundHandler((_request, reply) => reply.status(404).send({ error: 'NOT_FOUND', message: 'Route not found' }));
 
   await app.register(healthRoutes, { prefix: '/api' });
+  await app.register(projectRoutes, { prefix: '/api' });
 
   app.addHook('onClose', async () => {
     await db.$disconnect();
