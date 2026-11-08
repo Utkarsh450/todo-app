@@ -9,3 +9,31 @@ export const breakdownBody = z.object({
 });
 
 export const breakdownResponse = z.object({ subtasks: z.array(z.string()) });
+
+const validTimeZone = (value: string) => {
+  try {
+    new Intl.DateTimeFormat('en-GB', { timeZone: value });
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+export const assistBody = z.object({
+  message: z.string().trim().min(1).max(500),
+  /** IANA name such as "Asia/Kolkata", so times in the answer match the person's day. */
+  timeZone: z.string().refine(validTimeZone, 'unknown time zone').default('UTC'),
+});
+
+const suggestionBase = { taskId: z.uuid(), taskTitle: z.string(), reason: z.string() };
+
+export const assistResponse = z.object({
+  reply: z.string(),
+  suggestions: z.array(
+    z.discriminatedUnion('kind', [
+      z.object({ kind: z.literal('MOVE'), ...suggestionBase, dueAt: z.date() }),
+      z.object({ kind: z.literal('SPLIT'), ...suggestionBase, steps: z.array(z.string()) }),
+      z.object({ kind: z.literal('PRIORITY'), ...suggestionBase, priority: z.enum(['URGENT', 'HIGH', 'NORMAL', 'LOW']) }),
+    ]),
+  ),
+});
