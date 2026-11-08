@@ -101,6 +101,7 @@ class CalendarViewModel @Inject constructor(
     init {
         load()
         viewModelScope.launch { tasks.changes.collect { load(showSpinner = false) } }
+        viewModelScope.launch { calendar.changes.collect { load(showSpinner = false) } }
     }
 
     fun previousMonth() = show(month.minusMonths(1))

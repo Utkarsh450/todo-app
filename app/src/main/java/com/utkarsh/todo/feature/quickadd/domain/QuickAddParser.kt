@@ -21,6 +21,8 @@ data class QuickAddResult(
     val priority: Priority?,
     val repeat: String?,
     val tokens: List<QuickAddToken>,
+    /** True when the day came with a clock time ("fri 3pm", "5pm"); false for a bare day or no date. */
+    val timeSpecified: Boolean = false,
 )
 
 /**
@@ -31,7 +33,11 @@ data class QuickAddResult(
  */
 class QuickAddParser @Inject constructor(private val clock: Clock) {
 
-    fun parse(input: String): QuickAddResult {
+    /**
+     * Only the token [kinds] are recognised; anything else stays in the title untouched, so a note or an
+     * event keeps words like "!high" or "every monday" that mean nothing to it.
+     */
+    fun parse(input: String, kinds: Set<TokenKind> = TokenKind.entries.toSet()): QuickAddResult {
         val spans = mutableListOf<IntRange>()
         val tokens = mutableListOf<QuickAddToken>()
         val claimed = StringBuilder(input) // matched ranges are blanked so later patterns cannot reuse them
@@ -43,39 +49,42 @@ class QuickAddParser @Inject constructor(private val clock: Clock) {
 
         // Repeat first: "every sunday" must not be read as a due day.
         var repeat: String? = null
-        REPEAT.find(claimed)?.let { m ->
+        REPEAT.takeIf { TokenKind.REPEAT in kinds }?.find(claimed)?.let { m ->
             repeat = m.value.trim().split(Regex("\\s+")).joinToString(" ") { it.replaceFirstChar(Char::uppercase) }
             tokens += QuickAddToken(TokenKind.REPEAT, repeat!!)
             claim(m)
         }
 
         var priority: Priority? = null
-        PRIORITY.find(claimed)?.let { m ->
+        PRIORITY.takeIf { TokenKind.PRIORITY in kinds }?.find(claimed)?.let { m ->
             priority = Priority.valueOf(m.groupValues[1].uppercase())
             tokens += QuickAddToken(TokenKind.PRIORITY, m.groupValues[1].lowercase().replaceFirstChar(Char::uppercase))
             claim(m)
         }
 
         var project: String? = null
-        PROJECT.find(claimed)?.let { m ->
+        PROJECT.takeIf { TokenKind.PROJECT in kinds }?.find(claimed)?.let { m ->
             project = m.groupValues[1]
             tokens += QuickAddToken(TokenKind.PROJECT, m.groupValues[1])
             claim(m)
         }
 
         var due: ZonedDateTime? = null
+        var timeSpecified = false
         val now = ZonedDateTime.now(clock)
-        val dayMatch = DAY.find(claimed)
+        val dayMatch = if (TokenKind.DAY in kinds) DAY.find(claimed) else null
         if (dayMatch != null) {
             val time = timeOf(dayMatch.groupValues[2], dayMatch.groupValues[3], dayMatch.groupValues[4])
             due = resolveDay(dayMatch.groupValues[1].lowercase(), time, now)
+            timeSpecified = time != null
             tokens += QuickAddToken(TokenKind.DAY, dayMatch.value.trim())
             claim(dayMatch)
-        } else {
+        } else if (TokenKind.DAY in kinds) {
             TIME.find(claimed)?.let { m ->
                 timeOf(m.groupValues[1], m.groupValues[2], m.groupValues[3])?.let { time ->
                     val today = now.with(time)
                     due = if (today.isAfter(now)) today else today.plusDays(1)
+                    timeSpecified = true
                     tokens += QuickAddToken(TokenKind.DAY, m.value.trim())
                     claim(m)
                 }
@@ -86,7 +95,7 @@ class QuickAddParser @Inject constructor(private val clock: Clock) {
             .fold(StringBuilder(input)) { sb, r -> sb.replace(r.first, r.last + 1, " ") }
             .toString().replace(Regex("\\s+"), " ").trim()
 
-        return QuickAddResult(title, due, project, priority, repeat, tokens)
+        return QuickAddResult(title, due, project, priority, repeat, tokens, timeSpecified)
     }
 
     private fun timeOf(hour: String, minute: String, meridiem: String): LocalTime? {

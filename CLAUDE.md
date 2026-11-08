@@ -50,7 +50,7 @@ pnpm build && node --env-file=.env dist/server.js
 pnpm prisma:migrate / prisma:deploy / prisma:seed
 ```
 Result files: `app/build/test-results/testDebugUnitTest/*.xml`, `app/build/outputs/androidTest-results/connected/debug/*.xml`.
-Test counts at last run: backend 57, Android unit 156, emulator 71 — all green.
+Test counts at last run: backend 57, Android unit 194, emulator 85 — all green.
 
 ## Database
 Local PostgreSQL 16 (Homebrew), browse with pgAdmin. Databases: `paper_todo` (dev) and `paper_todo_test` (tests; the
@@ -71,16 +71,15 @@ Screens: Today, Task page, Quick add, Planner (= Calendar "Week"), Calendar, Rem
 Done + tested + pushed: backend (all modules), design system, networking, projects, tasks, quick add (Task only), Today
 (blocks/plan, swipe+undo, habits, scratchpad), task detail, reminders (scheduling, repeat rules, boot receiver, UI),
 calendar (month + week timeline), insights, **customize** (Today block show/hide + reorder, paper background
-dots/lines/plain, cozy/compact density; DataStore-backed `SettingsRepository`; gear icon on Today opens it).
+dots/lines/plain, cozy/compact density; DataStore-backed `SettingsRepository`; gear icon on Today opens it),
+quick add **Task / Note / Event** (Note appends to today's scratchpad, Event -> calendar).
 
 **Remaining work (suggested order):**
-1. Quick add **Note** and **Event** types (design has the Task/Note/Event segmented control): Event -> `CalendarRepository.createEvent`
-   (already implemented), Note -> `NotesRepository.save`.
-2. Task detail: REMIND row (create a reminder 1h before due), notes editing, delete confirmation dialog, focus timer ("Focus · 25:00").
-3. Real fonts (see Design), launcher icon, release signing/R8 check, CI workflow.
-4. Offline support (currently every screen needs the backend), auth if the API is ever exposed (it is unauthenticated, single-user).
-5. Project management UI (API + repository exist; no screen yet).
-6. A true end-to-end instrumented test (Hilt test app + real backend) — today E2E was verified manually with `adb` + screenshots.
+1. Task detail: REMIND row (create a reminder 1h before due), notes editing, delete confirmation dialog, focus timer ("Focus · 25:00").
+2. Real fonts (see Design), launcher icon, release signing/R8 check, CI workflow.
+3. Offline support (currently every screen needs the backend), auth if the API is ever exposed (it is unauthenticated, single-user).
+4. Project management UI (API + repository exist; no screen yet).
+5. A true end-to-end instrumented test (Hilt test app + real backend) — today E2E was verified manually with `adb` + screenshots.
 
 ## Gotchas learned
 - Compose `performClick` on a tiny non-clickable node can hit a clickable neighbour (min touch target expansion); assert click actions instead.
@@ -93,5 +92,14 @@ dots/lines/plain, cozy/compact density; DataStore-backed `SettingsRepository`; g
 - `AppSettings.blockOrder` must list every `TodayBlock` exactly once (enforced in `init`); hidden blocks keep their slot.
   `hiddenBlocks` absent in DataStore means "never saved" (design default: scratchpad off), an empty set means "show all".
 - DataStore files must be opened once per process: in tests cancel the first store's scope before reopening the same file.
+- Quick add: `QuickAddType.kinds` decides which tokens `QuickAddParser.parse(text, kinds)` recognises. A Note is taken raw (no
+  parsing, line breaks kept), an Event only reads day/time + `#project`, so `!high` / `every …` stay in its title. An Event with a
+  day but no time is all-day; with a time it is one hour; with no date it starts at the next full hour.
+- `NotesRepository.append` must read the note before writing (the API's PUT replaces the whole text); it writes nothing if the read fails.
+- `changes` flows (`TasksRepository`, `CalendarRepository`, `NotesRepository`) only work because the impls are `@Singleton`.
+  `NoteViewModel` reloads on `changes` unless an edit is still waiting to be saved.
+- `QuickAddContent` shows the Task/Note/Event switch only when `onTypeChange` is passed; the Reminders sheet reuses it without one.
+- Integration tests that go through real Retrofit finish on other threads: wait with `withTimeout` instead of asserting at once,
+  and wait for the view-model's background project lookup before submitting (see `QuickAddIntegrationTest`).
 - A failed action must not have its error message cleared by the recovery reload (`TodayViewModel.load(clearError=false)`).
 - `adb shell input text '#x'` types `%23` unless quoted as `"input text '#x'"`.

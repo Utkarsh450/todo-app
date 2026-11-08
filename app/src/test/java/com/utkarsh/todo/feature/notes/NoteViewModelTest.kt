@@ -3,6 +3,7 @@ package com.utkarsh.todo.feature.notes
 import com.utkarsh.todo.feature.notes.domain.NotesRepository
 import com.utkarsh.todo.feature.notes.ui.NoteViewModel
 import io.mockk.coEvery
+import io.mockk.every
 import io.mockk.coVerify
 import io.mockk.mockk
 import java.time.Clock
@@ -11,6 +12,7 @@ import java.time.LocalDate
 import java.time.ZoneId
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.resetMain
@@ -29,9 +31,13 @@ class NoteViewModelTest {
     private val clock = Clock.fixed(Instant.parse("2026-11-07T04:30:00Z"), ZoneId.of("Asia/Kolkata"))
     private val today = LocalDate.of(2026, 11, 7)
     private val repository = mockk<NotesRepository>()
+    private val changes = MutableSharedFlow<Unit>()
 
     @Before
-    fun setUp() = Dispatchers.setMain(StandardTestDispatcher())
+    fun setUp() {
+        Dispatchers.setMain(StandardTestDispatcher())
+        every { repository.changes } returns changes
+    }
 
     @After
     fun tearDown() = Dispatchers.resetMain()
@@ -103,5 +109,33 @@ class NoteViewModelTest {
 
         assertEquals("offline", vm.uiState.value.error)
         assertTrue(vm.uiState.value.isLoaded)
+    }
+
+    @Test
+    fun `a note added from quick add shows up in the open scratchpad`() = runTest {
+        coEvery { repository.note(today) } returnsMany listOf(Result.success("Ask Sam"), Result.success("Ask Sam\nBuy milk"))
+        val vm = NoteViewModel(repository, clock)
+        runCurrent()
+        assertEquals("Ask Sam", vm.uiState.value.text)
+
+        changes.emit(Unit)
+        runCurrent()
+
+        assertEquals("Ask Sam\nBuy milk", vm.uiState.value.text)
+    }
+
+    @Test
+    fun `an outside change never overwrites text that is still waiting to be saved`() = runTest {
+        coEvery { repository.note(today) } returns Result.success("Ask Sam")
+        coEvery { repository.save(today, any()) } returns Result.success(Unit)
+        val vm = NoteViewModel(repository, clock)
+        runCurrent()
+
+        vm.onTextChange("Ask Sam about Room") // typed, save is pending
+        changes.emit(Unit)
+        runCurrent()
+
+        assertEquals("Ask Sam about Room", vm.uiState.value.text)
+        coVerify(exactly = 1) { repository.note(today) } // it did not even re-read the note
     }
 }

@@ -40,6 +40,7 @@ class CalendarViewModelTest {
     private val projects = mockk<ProjectsRepository>()
     private val tasks = mockk<TasksRepository>()
     private val changes = MutableSharedFlow<Unit>()
+    private val eventChanges = MutableSharedFlow<Unit>()
 
     private fun item(id: String, title: String, startIst: String, endIst: String? = null, project: String? = "p-eng", kind: AgendaKind = AgendaKind.EVENT, allDay: Boolean = false, done: Boolean = false) =
         AgendaItem(kind, id, title, ist(startIst), endIst?.let(::ist), allDay, project, done)
@@ -50,6 +51,7 @@ class CalendarViewModelTest {
     fun setUp() {
         Dispatchers.setMain(UnconfinedTestDispatcher())
         every { tasks.changes } returns changes
+        every { calendar.changes } returns eventChanges
         coEvery { projects.projects() } returns Result.success(listOf(Project("p-eng", "Engineering", "#2784D5"), Project("p-des", "Design", "#935EDF")))
     }
 
@@ -236,5 +238,16 @@ class CalendarViewModelTest {
         changes.emit(Unit)
 
         coVerify(exactly = 2) { calendar.agenda(any(), any()) }
+    }
+
+    @Test
+    fun `a newly created event shows up without leaving the screen`() = runTest {
+        val vm = viewModel()
+        coVerify(exactly = 1) { calendar.agenda(any(), any()) }
+
+        eventChanges.emit(Unit)
+
+        coVerify(exactly = 2) { calendar.agenda(any(), any()) }
+        assertEquals(false, vm.uiState.value.isLoading)
     }
 }

@@ -8,7 +8,9 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.ZonedDateTime
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class QuickAddParserTest {
@@ -128,5 +130,44 @@ class QuickAddParserTest {
         assertEquals("Work", r.projectName)
         assertEquals(Priority.NORMAL, r.priority)
         assertEquals("Every Friday", r.repeat)
+    }
+
+    @Test
+    fun `only the allowed kinds are recognised and the rest stay in the title`() {
+        val r = parser.parse("Fix bug !high #Design every week tomorrow 3pm", setOf(TokenKind.DAY))
+
+        assertEquals("Fix bug !high #Design every week", r.title)
+        assertEquals(listOf(TokenKind.DAY), r.tokens.map { it.kind })
+        assertEquals(at(8, 15), r.dueAt)
+        assertNull(r.priority)
+        assertNull(r.projectName)
+        assertNull(r.repeat)
+    }
+
+    @Test
+    fun `no allowed kinds leaves the text alone`() {
+        val r = parser.parse("Call tomorrow 5pm #x !high every day", emptySet())
+
+        assertEquals("Call tomorrow 5pm #x !high every day", r.title)
+        assertEquals(emptyList<Any>(), r.tokens)
+        assertNull(r.dueAt)
+        assertFalse(r.timeSpecified)
+    }
+
+    @Test
+    fun `a project is not recognised unless it is allowed`() {
+        val r = parser.parse("Plan #Design", setOf(TokenKind.DAY, TokenKind.PRIORITY))
+        assertEquals("Plan #Design", r.title)
+        assertNull(r.projectName)
+    }
+
+    @Test
+    fun `it reports whether a clock time came with the day`() {
+        assertTrue(parser.parse("Call tomorrow 9am").timeSpecified)
+        assertTrue(parser.parse("Call fri at 3:30pm").timeSpecified)
+        assertTrue(parser.parse("Call at 5pm").timeSpecified)
+        assertFalse(parser.parse("Call tomorrow").timeSpecified)
+        assertFalse(parser.parse("Call fri").timeSpecified)
+        assertFalse(parser.parse("Buy oat milk").timeSpecified)
     }
 }

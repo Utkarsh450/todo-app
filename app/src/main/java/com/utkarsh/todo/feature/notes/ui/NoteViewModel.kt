@@ -35,6 +35,13 @@ class NoteViewModel @Inject constructor(
                 .onSuccess { text -> _state.update { if (it.text.isEmpty()) it.copy(text = text, isLoaded = true) else it.copy(isLoaded = true) } }
                 .onFailure { e -> _state.update { it.copy(isLoaded = true, error = e.message ?: "Couldn't load note") } }
         }
+        // A note added from quick add changes the saved text; pick it up unless an edit is waiting to be saved.
+        viewModelScope.launch {
+            repository.changes.collect {
+                if (saveJob?.isActive == true) return@collect
+                repository.note(day).onSuccess { text -> _state.update { it.copy(text = text, isLoaded = true) } }
+            }
+        }
     }
 
     fun onTextChange(text: String) {

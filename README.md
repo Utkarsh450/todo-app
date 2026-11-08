@@ -7,7 +7,7 @@ A todo app with reminders, a calendar planner, habits and insights, styled after
 
 ## Features
 Today (pinned card, task list with swipe to move/archive and undo, Plan view, habit tracker, scratchpad) ·
-Task page with subtasks · Quick add that parses `fri 3pm #Design !high every monday` · Reminders (grouped, snooze, repeat,
+Task page with subtasks · Quick add (Task, Note or Event) that parses `fri 3pm #Design !high every monday` · Reminders (grouped, snooze, repeat,
 real device alarms, notifications, survive reboot) · Calendar month grid + week timeline · Insights heat-map, streak and
 weekly rhythm · Customize (choose, reorder and hide Today blocks, paper texture, row density).
 

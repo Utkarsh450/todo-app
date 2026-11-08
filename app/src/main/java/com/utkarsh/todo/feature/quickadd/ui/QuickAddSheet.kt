@@ -30,11 +30,13 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.utkarsh.todo.core.designsystem.component.MonoLabel
+import com.utkarsh.todo.core.designsystem.component.PaperSegmentedControl
 import com.utkarsh.todo.core.designsystem.component.RuledTextField
 import com.utkarsh.todo.core.designsystem.theme.Paper
 import com.utkarsh.todo.core.designsystem.theme.PaperRadius
 import com.utkarsh.todo.core.designsystem.theme.TokenColors
 import com.utkarsh.todo.feature.quickadd.domain.QuickAddToken
+import com.utkarsh.todo.feature.quickadd.domain.QuickAddType
 import com.utkarsh.todo.feature.quickadd.domain.TokenKind
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -49,7 +51,7 @@ fun QuickAddSheet(onDismiss: () -> Unit, viewModel: QuickAddViewModel = hiltView
         containerColor = Paper.colors.paper,
         shape = RoundedCornerShape(topStart = PaperRadius.sheet, topEnd = PaperRadius.sheet),
     ) {
-        QuickAddContent(state, viewModel::onTextChange, viewModel::submit)
+        QuickAddContent(state, viewModel::onTextChange, viewModel::submit, onTypeChange = viewModel::onTypeChange)
     }
 }
 
@@ -60,34 +62,47 @@ fun QuickAddContent(
     onTextChange: (String) -> Unit,
     onSubmit: () -> Unit,
     modifier: Modifier = Modifier,
-    destination: String = "→ Today's list",
-    placeholder: String = "What needs doing?",
-    submitLabel: String = "Add task",
+    /** When set, a Task / Note / Event switch is shown. The Reminders sheet reuses this content without it. */
+    onTypeChange: ((QuickAddType) -> Unit)? = null,
+    destination: String? = null,
+    placeholder: String? = null,
+    submitLabel: String? = null,
 ) {
     val colors = Paper.colors
+    val copy = state.type.copy()
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
 
     Column(modifier.fillMaxWidth().imePadding().navigationBarsPadding().padding(horizontal = 20.dp).padding(bottom = 16.dp)) {
-        MonoLabel(destination, Modifier.padding(bottom = 8.dp))
+        if (onTypeChange != null) {
+            PaperSegmentedControl(
+                options = QuickAddType.entries,
+                selected = state.type,
+                onSelect = onTypeChange,
+                labelOf = { it.copy().label },
+                modifier = Modifier.padding(bottom = 14.dp).testTag("quick-add-type"),
+            )
+        }
+        MonoLabel(destination ?: copy.destination, Modifier.padding(bottom = 8.dp))
         RuledTextField(
             value = state.text,
             onValueChange = onTextChange,
-            placeholder = placeholder,
+            placeholder = placeholder ?: copy.placeholder,
             focusRequester = focus,
             imeAction = ImeAction.Done,
             inputModifier = Modifier.testTag("quick-add-input"),
         )
         FlowRow(Modifier.padding(top = 14.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             state.parsed?.tokens?.forEach { TokenChip(it) }
+            if (state.isAllDayEvent) AllDayChip()
         }
         if (state.parsed?.tokens.isNullOrEmpty()) {
-            Text("Type “fri 3pm”, “#project”, “!high”, “every monday”", style = Paper.type.bodySmall, color = colors.muted, modifier = Modifier.padding(top = 14.dp))
+            Text(copy.hint, style = Paper.type.bodySmall, color = colors.muted, modifier = Modifier.padding(top = 14.dp))
         }
         state.error?.let { Text(it, style = Paper.type.bodySmall, color = colors.accent, modifier = Modifier.padding(top = 10.dp)) }
         Row(Modifier.fillMaxWidth().padding(top = 18.dp), horizontalArrangement = Arrangement.End) {
             Text(
-                text = if (state.isSaving) "Adding…" else submitLabel,
+                text = if (state.isSaving) "Adding…" else submitLabel ?: copy.submitLabel,
                 style = Paper.type.button,
                 color = colors.card,
                 modifier = Modifier
@@ -114,5 +129,42 @@ private fun TokenChip(token: QuickAddToken) {
         style = Paper.type.label,
         color = fg,
         modifier = Modifier.clip(RoundedCornerShape(7.dp)).background(bg).padding(horizontal = 10.dp, vertical = 6.dp),
+    )
+}
+
+@Composable
+private fun AllDayChip() {
+    Text(
+        text = "◷ All day",
+        style = Paper.type.label,
+        color = TokenColors.DayFg,
+        modifier = Modifier.clip(RoundedCornerShape(7.dp)).background(TokenColors.DayBg).padding(horizontal = 10.dp, vertical = 6.dp),
+    )
+}
+
+/** The words the sheet shows for each type. */
+private data class TypeCopy(val label: String, val destination: String, val placeholder: String, val hint: String, val submitLabel: String)
+
+private fun QuickAddType.copy(): TypeCopy = when (this) {
+    QuickAddType.TASK -> TypeCopy(
+        label = "Task",
+        destination = "→ Today's list",
+        placeholder = "What needs doing?",
+        hint = "Type “fri 3pm”, “#project”, “!high”, “every monday”",
+        submitLabel = "Add task",
+    )
+    QuickAddType.NOTE -> TypeCopy(
+        label = "Note",
+        destination = "→ Today's scratchpad",
+        placeholder = "Jot something down…",
+        hint = "Added to the end of today's scratchpad, exactly as you type it.",
+        submitLabel = "Add note",
+    )
+    QuickAddType.EVENT -> TypeCopy(
+        label = "Event",
+        destination = "→ Calendar",
+        placeholder = "What's happening?",
+        hint = "Type “fri 3pm” for a time, or just a day for an all-day event. “#project” works too.",
+        submitLabel = "Add event",
     )
 }

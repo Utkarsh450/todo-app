@@ -1,6 +1,7 @@
 package com.utkarsh.todo.feature.calendar.domain
 
 import java.time.Instant
+import kotlinx.coroutines.flow.Flow
 
 enum class AgendaKind { EVENT, TASK }
 
@@ -28,4 +29,7 @@ interface CalendarRepository {
     /** Events and dated tasks within [from, to). */
     suspend fun agenda(from: Instant, to: Instant): Result<List<AgendaItem>>
     suspend fun createEvent(event: NewEvent): Result<Unit>
+
+    /** Emits after an event was created, so an open calendar can reload. */
+    val changes: Flow<Unit>
 }
