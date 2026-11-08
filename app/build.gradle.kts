@@ -23,11 +23,37 @@ android {
         buildConfigField("String", "API_BASE_URL", "\"$apiBaseUrl\"")
     }
 
+    // Release signing comes from Gradle properties or environment variables, never from the repo:
+    //   RELEASE_STORE_FILE, RELEASE_STORE_PASSWORD, RELEASE_KEY_ALIAS, RELEASE_KEY_PASSWORD
+    // Without all four the release APK is built unsigned (app-release-unsigned.apk) and must be signed afterwards.
+    fun releaseSetting(name: String): String? = (project.findProperty(name) as String?) ?: System.getenv(name)
+    val releaseStoreFile = releaseSetting("RELEASE_STORE_FILE")
+    val releaseSigned = listOf("RELEASE_STORE_FILE", "RELEASE_STORE_PASSWORD", "RELEASE_KEY_ALIAS", "RELEASE_KEY_PASSWORD").all { !releaseSetting(it).isNullOrBlank() }
+    if (releaseSigned) {
+        signingConfigs {
+            create("release") {
+                storeFile = file(releaseStoreFile!!)
+                storePassword = releaseSetting("RELEASE_STORE_PASSWORD")
+                keyAlias = releaseSetting("RELEASE_KEY_ALIAS")
+                keyPassword = releaseSetting("RELEASE_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            if (releaseSigned) signingConfig = signingConfigs.getByName("release")
+        }
+        // The release build (R8 shrinking and optimising) signed with the automatic debug key, so it can be installed on an
+        // emulator to check that shrinking did not break anything. Never ship this one.
+        create("r8check") {
+            initWith(getByName("release"))
+            signingConfig = signingConfigs.getByName("debug")
+            matchingFallbacks += "release"
+            isDebuggable = false
         }
     }
 

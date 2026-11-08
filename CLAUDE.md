@@ -82,7 +82,7 @@ Focus (11) is built (`feature/focus/ui`; "Focus · 25:00" on the task page -> `D
 
 **Remaining work (suggested order):**
 1. ~~Task detail extras~~ done (REMIND row, notes editing, delete confirmation, Focus timer).
-2. ~~Real fonts, launcher icon~~ done. Still open: release signing/R8 check, CI workflow.
+2. ~~Real fonts, launcher icon, R8 check, CI workflow~~ done. Release signing is configured through env/Gradle properties (see README); the signed path and the GitHub workflows have not been run yet (no keystore, never pushed).
 3. ~~Offline reading~~ done (see Gotchas). Still open: auth if the API is ever exposed (it is unauthenticated, single-user).
 4. ~~Project management UI~~ done: Projects screen (Today ⋯ menu -> Projects) with progress, task ticking, make/rename/recolour/delete.
 5. A true end-to-end instrumented test (Hilt test app + real backend) — today E2E was verified manually with `adb` + screenshots.

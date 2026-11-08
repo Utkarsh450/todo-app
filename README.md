@@ -58,6 +58,13 @@ cd backend && pnpm typecheck && pnpm test                 # unit + integration (
 ./gradlew :app:connectedDebugAndroidTest                  # Compose UI + AlarmManager/notification tests on the emulator
 ```
 
+## Release
+`./gradlew :app:assembleRelease -PapiBaseUrl=https://your-server/api/` builds the shrunk (R8) APK. Signing details are never in the repo:
+set `RELEASE_STORE_FILE`, `RELEASE_STORE_PASSWORD`, `RELEASE_KEY_ALIAS`, `RELEASE_KEY_PASSWORD` (Gradle properties or environment) and the APK is
+signed; without all four you get `app-release-unsigned.apk`. `./gradlew :app:installR8check` installs the same shrunk build signed with the debug key,
+to try it on an emulator. GitHub Actions: `CI` (backend tests, Android unit tests + builds, emulator tests) runs on every push and pull request; `Release APK`
+is run by hand and needs the four secrets above plus `RELEASE_KEYSTORE_BASE64`.
+
 ## API (prefix `/api`)
 `GET /health` · `projects` · `tasks` (+ `/complete`, `/reopen`, `/subtasks`) · `subtasks/:id` · `reminders`
 (+ `/grouped`, `/:id/snooze`) · `events` · `calendar/agenda` · `habits` (+ `/:id/logs/:date`) · `notes/:date` ·
