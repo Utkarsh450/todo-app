@@ -1,0 +1,169 @@
+package com.utkarsh.todo.feature.insights
+
+import com.utkarsh.todo.feature.insights.domain.Heatmap
+import com.utkarsh.todo.feature.insights.domain.HeatmapDay
+import com.utkarsh.todo.feature.insights.domain.HeatmapMode
+import com.utkarsh.todo.feature.insights.domain.HeatmapSummary
+import com.utkarsh.todo.feature.insights.domain.InsightsRepository
+import com.utkarsh.todo.feature.insights.domain.heatLevel
+import com.utkarsh.todo.feature.insights.ui.HEATMAP_WEEKS
+import com.utkarsh.todo.feature.insights.ui.InsightsViewModel
+import io.mockk.coEvery
+import io.mockk.coVerify
+import io.mockk.mockk
+import java.time.Clock
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.setMain
+import org.junit.After
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Before
+import org.junit.Test
+
+@OptIn(ExperimentalCoroutinesApi::class)
+class InsightsViewModelTest {
+    private val zone = ZoneId.of("Asia/Kolkata")
+    private val clock = Clock.fixed(Instant.parse("2026-11-07T04:30:00Z"), zone) // Saturday 7 Nov 2026
+    private val today = LocalDate.of(2026, 11, 7)
+    private val firstDay = LocalDate.of(2026, 7, 5) // Sunday, 17 weeks before this week's Sunday (1 Nov)
+    private val repository = mockk<InsightsRepository>()
+
+    @Before
+    fun setUp() = Dispatchers.setMain(UnconfinedTestDispatcher())
+
+    @After
+    fun tearDown() = Dispatchers.resetMain()
+
+    private fun heatmap(mode: HeatmapMode = HeatmapMode.TASKS, counts: Map<LocalDate, Int> = emptyMap(), rhythm: List<Double> = List(7) { 0.0 }) = Heatmap(
+        mode,
+        generateSequence(firstDay) { it.plusDays(1) }.takeWhile { !it.isAfter(today) }.map { HeatmapDay(it, counts[it] ?: 0) }.toList(),
+        HeatmapSummary(total = counts.values.sum(), streak = 2, best = counts.values.maxOrNull() ?: 0, rhythm = rhythm),
+    )
+
+    private fun viewModel(data: Heatmap = heatmap()): InsightsViewModel {
+        coEvery { repository.heatmap(any(), any(), any(), any()) } returns Result.success(data)
+        return InsightsViewModel(repository, clock)
+    }
+
+    @Test
+    fun `heat level bands for tasks and per-habit steps for habits`() {
+        assertEquals(listOf(0, 1, 1, 2, 2, 3, 3, 4, 4), listOf(0, 1, 2, 3, 4, 5, 6, 7, 20).map { heatLevel(HeatmapMode.TASKS, it) })
+        assertEquals(listOf(0, 2, 3, 4, 4), listOf(0, 1, 2, 3, 9).map { heatLevel(HeatmapMode.HABITS, it) })
+        assertEquals(0, heatLevel(HeatmapMode.TASKS, -3))
+    }
+
+    @Test
+    fun `requests eighteen weeks ending today with the device offset`() {
+        viewModel()
+
+        coVerify { repository.heatmap(HeatmapMode.TASKS, firstDay, today, 330) } // IST is UTC+5:30
+    }
+
+    @Test
+    fun `builds eighteen sunday-first week columns and marks days after today as future`() {
+        val state = viewModel().uiState.value
+
+        assertEquals(HEATMAP_WEEKS, state.weeks.size)
+        assertTrue(state.weeks.all { it.size == 7 })
+        assertEquals(firstDay, state.weeks.first().first().date)
+        val lastWeek = state.weeks.last()
+        assertEquals(LocalDate.of(2026, 11, 1), lastWeek.first().date)
+        assertFalse(lastWeek[6].isFuture) // Saturday 7 Nov is today
+        assertEquals(today, lastWeek[6].date)
+        assertTrue(state.weeks.flatten().none { it.isFuture })
+    }
+
+    @Test
+    fun `today is selected initially and the summary shows its count`() {
+        val state = viewModel(heatmap(counts = mapOf(today to 3, LocalDate.of(2026, 11, 6) to 5))).uiState.value
+
+        assertEquals("Sat 7 Nov", state.selectedLabel)
+        assertEquals("3 tasks done", state.selectedValue)
+        assertEquals(today, state.weeks.flatten().single { it.isSelected }.date)
+        assertEquals(8, state.total)
+        assertEquals(5, state.best)
+        assertEquals(2, state.streak)
+    }
+
+    @Test
+    fun `selecting a past day updates the label but ignores future and out of range days`() {
+        val vm = viewModel(heatmap(counts = mapOf(LocalDate.of(2026, 11, 3) to 6)))
+
+        vm.select(LocalDate.of(2026, 11, 3))
+        assertEquals("Tue 3 Nov", vm.uiState.value.selectedLabel)
+        assertEquals("6 tasks done", vm.uiState.value.selectedValue)
+        assertEquals(3, vm.uiState.value.weeks.flatten().single { it.date == LocalDate.of(2026, 11, 3) }.level)
+
+        vm.select(LocalDate.of(2026, 11, 8)) // tomorrow
+        vm.select(LocalDate.of(2026, 1, 1)) // before the window
+        assertEquals("Tue 3 Nov", vm.uiState.value.selectedLabel)
+    }
+
+    @Test
+    fun `month labels appear on the first week of each month only`() {
+        val labels = viewModel().uiState.value.monthLabels
+
+        assertEquals(HEATMAP_WEEKS, labels.size)
+        assertEquals("Jul", labels.first()) // week of 5 Jul starts on day <= 7
+        assertTrue(labels.filter { it.isNotEmpty() }.toSet().containsAll(listOf("Aug", "Sep", "Oct", "Nov")))
+    }
+
+    @Test
+    fun `weekly rhythm is scaled to the busiest weekday and flags the peak`() {
+        val state = viewModel(heatmap(rhythm = listOf(1.0, 4.0, 2.0, 0.0, 4.0, 1.0, 0.5))).uiState.value
+
+        assertEquals(listOf("S", "M", "T", "W", "T", "F", "S"), state.rhythm.map { it.letter })
+        assertEquals(1f, state.rhythm[1].fraction, 0.001f)
+        assertEquals(0.5f, state.rhythm[2].fraction, 0.001f)
+        assertEquals(listOf(false, true, false, false, true, false, false), state.rhythm.map { it.isPeak })
+    }
+
+    @Test
+    fun `an all-zero rhythm has no peak and no division by zero`() {
+        val state = viewModel().uiState.value
+        assertTrue(state.rhythm.all { it.fraction == 0f && !it.isPeak })
+    }
+
+    @Test
+    fun `switching to habits reloads in that mode and changes the unit`() {
+        val vm = viewModel()
+        coEvery { repository.heatmap(HeatmapMode.HABITS, any(), any(), any()) } returns Result.success(heatmap(HeatmapMode.HABITS, mapOf(today to 2)))
+
+        vm.setMode(HeatmapMode.HABITS)
+
+        val state = vm.uiState.value
+        assertEquals("Habits", state.unit)
+        assertEquals("2 habits kept", state.selectedValue)
+        assertEquals(3, state.weeks.flatten().single { it.date == today }.level)
+        coVerify { repository.heatmap(HeatmapMode.HABITS, firstDay, today, 330) }
+    }
+
+    @Test
+    fun `choosing the current mode again does not refetch`() {
+        val vm = viewModel()
+        vm.setMode(HeatmapMode.TASKS)
+        coVerify(exactly = 1) { repository.heatmap(any(), any(), any(), any()) }
+    }
+
+    @Test
+    fun `load failure is reported and refresh recovers`() {
+        coEvery { repository.heatmap(any(), any(), any(), any()) } returns Result.failure(RuntimeException("offline"))
+        val vm = InsightsViewModel(repository, clock)
+        assertEquals("offline", vm.uiState.value.error)
+        assertTrue(vm.uiState.value.weeks.isEmpty())
+
+        coEvery { repository.heatmap(any(), any(), any(), any()) } returns Result.success(heatmap())
+        vm.refresh()
+
+        assertNull(vm.uiState.value.error)
+        assertEquals(HEATMAP_WEEKS, vm.uiState.value.weeks.size)
+    }
+}
