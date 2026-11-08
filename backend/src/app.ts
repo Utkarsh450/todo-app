@@ -5,7 +5,7 @@ import { serializerCompiler, validatorCompiler, hasZodFastifySchemaValidationErr
 import type { Env } from './config/env.js';
 import { createXaiClient, type AiClient } from './modules/ai/ai.client.js';
 import { aiRoutes } from './modules/ai/ai.routes.js';
-import { AppError } from './lib/errors.js';
+import { AppError, databaseProblem } from './lib/errors.js';
 import type { Logger } from './lib/logger.js';
 import type { Db } from './lib/prisma.js';
 import { calendarRoutes } from './modules/calendar/calendar.routes.js';
@@ -47,7 +47,7 @@ export async function buildApp({ env, db, logger, ai }: AppDeps): Promise<Fastif
   );
 
   await app.register(helmet);
-  await app.register(cors, { origin: true });
+  await app.register(cors, { origin: env.CORS_ORIGIN.length > 0 ? env.CORS_ORIGIN : false });
 
   app.addHook('onResponse', async (request, reply) => {
     logger.http('request', { method: request.method, url: request.url, status: reply.statusCode, ms: Math.round(reply.elapsedTime) });
@@ -60,6 +60,8 @@ export async function buildApp({ env, db, logger, ai }: AppDeps): Promise<Fastif
     if (error instanceof AppError) {
       return reply.status(error.statusCode).send({ error: error.code, message: error.message });
     }
+    const known = databaseProblem(error);
+    if (known) return reply.status(known.statusCode).send({ error: known.code, message: known.message });
     logger.error('unhandled error', { url: request.url, message: (error as Error).message, stack: (error as Error).stack });
     return reply.status(500).send({ error: 'INTERNAL_ERROR', message: 'Something went wrong' });
   });
