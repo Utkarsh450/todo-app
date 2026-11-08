@@ -9,7 +9,18 @@ A todo app with reminders, a calendar planner, habits and insights, styled after
 Today (pinned card, task list with swipe to move/archive and undo, Plan view, habit tracker, scratchpad) ·
 Task page with subtasks · Quick add (Task, Note or Event) that parses `fri 3pm #Design !high every monday` · Reminders (grouped, snooze, repeat,
 real device alarms, notifications, survive reboot) · Calendar month grid + week timeline · Insights heat-map, streak and
-weekly rhythm · Customize (choose, reorder and hide Today blocks, paper texture, row density).
+weekly rhythm · Customize (choose, reorder and hide Today blocks, paper texture, row density) · **Break it down**
+(on a task page, Grok suggests subtasks; you untick the ones you don't want, nothing is added until you confirm).
+
+## AI (Grok)
+AI calls go through the backend, so the key never lives on the phone. Get a key at <https://console.x.ai>, then put it
+in `backend/.env` and restart the backend:
+```
+XAI_API_KEY=your-key
+# optional: XAI_MODEL=grok-4.7   XAI_BASE_URL=https://api.x.ai/v1   XAI_TIMEOUT_MS=60000
+```
+Without a key everything else works; the Break it down sheet just says Grok isn't set up. If xAI renames the model,
+change `XAI_MODEL`. Never commit `.env`.
 
 ## Run it
 1. **Database** — PostgreSQL running locally (view it in pgAdmin). Create the databases once:
@@ -39,7 +50,7 @@ cd backend && pnpm typecheck && pnpm test                 # unit + integration (
 ## API (prefix `/api`)
 `GET /health` · `projects` · `tasks` (+ `/complete`, `/reopen`, `/subtasks`) · `subtasks/:id` · `reminders`
 (+ `/grouped`, `/:id/snooze`) · `events` · `calendar/agenda` · `habits` (+ `/:id/logs/:date`) · `notes/:date` ·
-`insights/heatmap`. Request/response shapes are the zod schemas in `backend/src/modules/*/*.schema.ts`.
+`insights/heatmap` · `ai/status` · `ai/breakdown`. Request/response shapes are the zod schemas in `backend/src/modules/*/*.schema.ts`.
 
 ## Layout
 See `CLAUDE.md` for the architecture, conventions, environment gotchas and the remaining-work list.

@@ -111,6 +111,29 @@ class TaskDetailViewModelTest {
     }
 
     @Test
+    fun `refresh picks up new subtasks without showing the spinner`() {
+        val vm = viewModel()
+        val withNew = base.copy(subtasks = base.subtasks + Subtask("s3", "t1", "Pack", false))
+        coEvery { tasks.get("t1") } returns Result.success(withNew)
+
+        vm.refresh()
+
+        assertEquals(listOf("s1", "s2", "s3"), vm.uiState.value.task!!.subtasks.map { it.id })
+        assertTrue(!vm.uiState.value.isLoading)
+    }
+
+    @Test
+    fun `a failed refresh keeps what is on screen`() {
+        val vm = viewModel()
+        coEvery { tasks.get("t1") } returns Result.failure(RuntimeException("offline"))
+
+        vm.refresh()
+
+        assertEquals(2, vm.uiState.value.task!!.subtasks.size)
+        assertNull(vm.uiState.value.error)
+    }
+
+    @Test
     fun `delete closes the screen on success`() = runTest {
         coEvery { tasks.delete("t1") } returns Result.success(Unit)
         val vm = viewModel()

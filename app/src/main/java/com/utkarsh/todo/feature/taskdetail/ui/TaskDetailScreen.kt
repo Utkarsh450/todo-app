@@ -25,6 +25,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -49,12 +50,20 @@ import com.utkarsh.todo.core.designsystem.theme.paperSurface
 import com.utkarsh.todo.core.designsystem.theme.PaperRadius
 import com.utkarsh.todo.core.designsystem.theme.PriorityColors
 import com.utkarsh.todo.core.designsystem.theme.parseHexColor
+import com.utkarsh.todo.feature.breakdown.ui.BreakdownSheet
 import com.utkarsh.todo.feature.tasks.domain.Priority
 
 @Composable
 fun TaskDetailRoute(onBack: () -> Unit, modifier: Modifier = Modifier, viewModel: TaskDetailViewModel = hiltViewModel()) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    var showBreakdown by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(viewModel) { viewModel.closed.collect { onBack() } }
+    if (showBreakdown) {
+        BreakdownSheet(onDismiss = {
+            showBreakdown = false
+            viewModel.refresh()
+        })
+    }
     TaskDetailScreen(
         state = state,
         onBack = onBack,
@@ -63,6 +72,7 @@ fun TaskDetailRoute(onBack: () -> Unit, modifier: Modifier = Modifier, viewModel
         onAddSubtask = viewModel::addSubtask,
         onDelete = viewModel::delete,
         onRetry = viewModel::load,
+        onBreakDown = { showBreakdown = true },
         modifier = modifier,
     )
 }
@@ -77,6 +87,7 @@ fun TaskDetailScreen(
     onDelete: () -> Unit,
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
+    onBreakDown: () -> Unit = {},
 ) {
     val colors = Paper.colors
     Column(modifier.fillMaxSize().paperSurface().statusBarsPadding()) {
@@ -87,7 +98,7 @@ fun TaskDetailScreen(
             if (task != null) MonoLabel("Delete", color = colors.accent, modifier = Modifier.clickable(onClick = onDelete).padding(8.dp).testTag("delete-task"))
         }
         when {
-            task != null -> Content(task, state.error, onToggleDone, onToggleSubtask, onAddSubtask)
+            task != null -> Content(task, state.error, onToggleDone, onToggleSubtask, onAddSubtask, onBreakDown)
             state.isLoading -> Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator(color = colors.ink) }
             else -> Column(Modifier.fillMaxSize().padding(24.dp), Arrangement.Center, Alignment.CenterHorizontally) {
                 Text("Couldn't open this task", style = Paper.type.headline, color = colors.ink)
@@ -99,7 +110,14 @@ fun TaskDetailScreen(
 }
 
 @Composable
-private fun Content(task: TaskDetailUi, error: String?, onToggleDone: () -> Unit, onToggleSubtask: (String) -> Unit, onAddSubtask: (String) -> Unit) {
+private fun Content(
+    task: TaskDetailUi,
+    error: String?,
+    onToggleDone: () -> Unit,
+    onToggleSubtask: (String) -> Unit,
+    onAddSubtask: (String) -> Unit,
+    onBreakDown: () -> Unit,
+) {
     val colors = Paper.colors
     Column(Modifier.fillMaxSize()) {
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp)) {
@@ -131,6 +149,10 @@ private fun Content(task: TaskDetailUi, error: String?, onToggleDone: () -> Unit
                 }
             }
             AddSubtaskField(onAddSubtask)
+            MonoLabel(
+                "✦ Break it down", color = colors.accent,
+                modifier = Modifier.padding(top = 6.dp).clickable(onClick = onBreakDown).padding(vertical = 10.dp).testTag("break-it-down"),
+            )
 
             if (task.notes.isNotBlank()) {
                 MonoLabel("Notes", Modifier.padding(top = 22.dp, bottom = 6.dp))

@@ -75,6 +75,11 @@ class TaskDetailViewModel @Inject constructor(
         }
     }
 
+    /** Re-reads the task without the spinner, e.g. after the Break it down sheet added subtasks. */
+    fun refresh() {
+        viewModelScope.launch { tasks.get(taskId).onSuccess { task -> _state.update { it.copy(task = toUi(task)) } } }
+    }
+
     fun toggleDone() {
         val task = _state.value.task ?: return
         mutate { tasks.setDone(taskId, !task.done) }

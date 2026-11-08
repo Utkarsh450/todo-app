@@ -50,7 +50,7 @@ pnpm build && node --env-file=.env dist/server.js
 pnpm prisma:migrate / prisma:deploy / prisma:seed
 ```
 Result files: `app/build/test-results/testDebugUnitTest/*.xml`, `app/build/outputs/androidTest-results/connected/debug/*.xml`.
-Test counts at last run: backend 57, Android unit 194, emulator 85 — all green.
+Test counts at last run: backend 92, Android unit 218, emulator 96 — all green.
 
 ## Database
 Local PostgreSQL 16 (Homebrew), browse with pgAdmin. Databases: `paper_todo` (dev) and `paper_todo_test` (tests; the
@@ -72,7 +72,10 @@ Done + tested + pushed: backend (all modules), design system, networking, projec
 (blocks/plan, swipe+undo, habits, scratchpad), task detail, reminders (scheduling, repeat rules, boot receiver, UI),
 calendar (month + week timeline), insights, **customize** (Today block show/hide + reorder, paper background
 dots/lines/plain, cozy/compact density; DataStore-backed `SettingsRepository`; gear icon on Today opens it),
-quick add **Task / Note / Event** (Note appends to today's scratchpad, Event -> calendar).
+quick add **Task / Note / Event** (Note appends to today's scratchpad, Event -> calendar),
+**AI Break it down** (task page -> bottom sheet; backend `modules/ai`, app `feature/ai` + `feature/breakdown`).
+AI uses **Grok (xAI)** via the backend only (`XAI_API_KEY`, `XAI_MODEL`, `XAI_BASE_URL`, `XAI_TIMEOUT_MS` in `backend/.env`).
+Design screens not built yet: Assistant (09), Brain dump (14), Focus (11), Projects (12), Search (13).
 
 **Remaining work (suggested order):**
 1. Task detail: REMIND row (create a reminder 1h before due), notes editing, delete confirmation dialog, focus timer ("Focus · 25:00").
@@ -82,6 +85,12 @@ quick add **Task / Note / Event** (Note appends to today's scratchpad, Event -> 
 5. A true end-to-end instrumented test (Hilt test app + real backend) — today E2E was verified manually with `adb` + screenshots.
 
 ## Gotchas learned
+- AI: the live Grok API was never called from tests (no key in the repo): tests use a fake `AiClient`, a fake `fetch`, and
+  MockWebServer. The default model `grok-4.7` and the chat-completions request shape come from xAI docs; if a real call fails,
+  check `XAI_MODEL` first. To try the whole path without a key, run a tiny fake server and set `XAI_BASE_URL` to it.
+- `createTestApp(ai?)` takes an optional fake `AiClient`; never let tests reach the real xAI endpoint.
+- `BreakdownViewModel` reads the task itself (via `taskId`) and adds subtasks one by one; after a partial failure it keeps only
+  the steps not yet added so a retry can't duplicate. `TaskDetailViewModel.refresh()` re-reads quietly after the sheet closes.
 - Compose `performClick` on a tiny non-clickable node can hit a clickable neighbour (min touch target expansion); assert click actions instead.
 - `PendingIntent.cancel()` is needed in addition to `AlarmManager.cancel()` or a stale token lingers.
 - Notifications post asynchronously — poll in tests; use distinct ids per test.

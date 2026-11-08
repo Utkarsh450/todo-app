@@ -44,6 +44,7 @@ class TaskDetailScreenTest {
                     onAddSubtask = { events += "add:$it" },
                     onDelete = { events += "delete" },
                     onRetry = { events += "retry" },
+                    onBreakDown = { events += "breakdown" },
                 )
             }
         }
@@ -82,6 +83,15 @@ class TaskDetailScreenTest {
         compose.onNodeWithTag("add-subtask-input").performImeAction()
 
         assertEquals(listOf("add:Usability test"), events)
+    }
+
+    @Test
+    fun break_it_down_opens_the_assistant() {
+        show(TaskDetailUiState(isLoading = false, task = task))
+
+        compose.onNodeWithTag("break-it-down").assertIsDisplayed().performClick()
+
+        assertEquals(listOf("breakdown"), events)
     }
 
     @Test
