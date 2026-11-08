@@ -55,17 +55,25 @@ fun QuickAddSheet(onDismiss: () -> Unit, viewModel: QuickAddViewModel = hiltView
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun QuickAddContent(state: QuickAddUiState, onTextChange: (String) -> Unit, onSubmit: () -> Unit, modifier: Modifier = Modifier) {
+fun QuickAddContent(
+    state: QuickAddUiState,
+    onTextChange: (String) -> Unit,
+    onSubmit: () -> Unit,
+    modifier: Modifier = Modifier,
+    destination: String = "→ Today's list",
+    placeholder: String = "What needs doing?",
+    submitLabel: String = "Add task",
+) {
     val colors = Paper.colors
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
 
     Column(modifier.fillMaxWidth().imePadding().navigationBarsPadding().padding(horizontal = 20.dp).padding(bottom = 16.dp)) {
-        MonoLabel("→ Today's list", Modifier.padding(bottom = 8.dp))
+        MonoLabel(destination, Modifier.padding(bottom = 8.dp))
         RuledTextField(
             value = state.text,
             onValueChange = onTextChange,
-            placeholder = "What needs doing?",
+            placeholder = placeholder,
             focusRequester = focus,
             imeAction = ImeAction.Done,
             inputModifier = Modifier.testTag("quick-add-input"),
@@ -79,7 +87,7 @@ fun QuickAddContent(state: QuickAddUiState, onTextChange: (String) -> Unit, onSu
         state.error?.let { Text(it, style = Paper.type.bodySmall, color = colors.accent, modifier = Modifier.padding(top = 10.dp)) }
         Row(Modifier.fillMaxWidth().padding(top = 18.dp), horizontalArrangement = Arrangement.End) {
             Text(
-                text = if (state.isSaving) "Adding…" else "Add task",
+                text = if (state.isSaving) "Adding…" else submitLabel,
                 style = Paper.type.button,
                 color = colors.card,
                 modifier = Modifier

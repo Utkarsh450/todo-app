@@ -64,27 +64,35 @@ class ReminderPlatformTest {
         assertNull(existingAlarm())
     }
 
+    /** Notifications are posted asynchronously by the system, so poll for the expected title. */
+    private fun awaitTitle(notificationId: String): String? {
+        val deadline = System.currentTimeMillis() + 5_000
+        while (System.currentTimeMillis() < deadline) {
+            notifications.activeNotifications.firstOrNull { it.id == notificationId.hashCode() }
+                ?.let { return it.notification.extras.getString("android.title") }
+            Thread.sleep(100)
+        }
+        return null
+    }
+
     @Test
     fun notification_shows_the_reminder_title() {
-        ReminderNotifications(context).show(id, "Drink water")
+        val showId = "$id-show"
+        ReminderNotifications(context).show(showId, "Drink water")
 
-        val active = notifications.activeNotifications.single { it.id == id.hashCode() }
-        assertEquals("Drink water", active.notification.extras.getString("android.title"))
+        assertEquals("Drink water", awaitTitle(showId))
     }
 
     @Test
     fun firing_the_alarm_broadcast_posts_a_notification() {
+        val fireId = "$id-fire"
         context.sendBroadcast(
             Intent(context, ReminderReceiver::class.java)
                 .setAction(ReminderReceiver.ACTION_FIRE)
-                .putExtra(ReminderReceiver.EXTRA_ID, id)
+                .putExtra(ReminderReceiver.EXTRA_ID, fireId)
                 .putExtra(ReminderReceiver.EXTRA_TITLE, "Standup"),
         )
 
-        val deadline = System.currentTimeMillis() + 5_000
-        while (notifications.activeNotifications.none { it.id == id.hashCode() } && System.currentTimeMillis() < deadline) Thread.sleep(100)
-
-        val posted = notifications.activeNotifications.single { it.id == id.hashCode() }
-        assertEquals("Standup", posted.notification.extras.getString("android.title"))
+        assertEquals("Standup", awaitTitle(fireId))
     }
 }

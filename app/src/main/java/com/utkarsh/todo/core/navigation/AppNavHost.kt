@@ -25,6 +25,7 @@ import com.utkarsh.todo.core.designsystem.component.PaperNavBar
 import com.utkarsh.todo.core.designsystem.icon.PaperIcons
 import com.utkarsh.todo.core.designsystem.theme.Paper
 import com.utkarsh.todo.feature.quickadd.ui.QuickAddSheet
+import com.utkarsh.todo.feature.reminders.ui.RemindersRoute
 import com.utkarsh.todo.feature.taskdetail.ui.TaskDetailRoute
 import com.utkarsh.todo.feature.today.ui.TodayRoute
 import kotlin.reflect.KClass
@@ -50,7 +51,7 @@ fun AppNavHost(modifier: Modifier = Modifier) {
         NavHost(nav, startDestination = Destination.Today, modifier = Modifier.weight(1f)) {
             composable<Destination.Today> { TodayRoute(onOpenTask = { nav.navigate(Destination.TaskDetail(it)) }) }
             composable<Destination.Calendar> { Placeholder("Calendar") }
-            composable<Destination.Reminders> { Placeholder("Reminders") }
+            composable<Destination.Reminders> { RemindersRoute() }
             composable<Destination.Insights> { Placeholder("Insights") }
             composable<Destination.TaskDetail> { TaskDetailRoute(onBack = { nav.popBackStack() }) }
         }
