@@ -20,6 +20,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.toRoute
 import com.utkarsh.todo.core.designsystem.component.NavBarItem
 import com.utkarsh.todo.core.designsystem.component.PaperNavBar
 import com.utkarsh.todo.core.designsystem.icon.PaperIcons
@@ -28,6 +29,7 @@ import com.utkarsh.todo.feature.calendar.ui.CalendarRoute
 import com.utkarsh.todo.feature.customize.ui.CustomizeRoute
 import com.utkarsh.todo.feature.insights.ui.InsightsRoute
 import com.utkarsh.todo.feature.projects.ui.ProjectsRoute
+import com.utkarsh.todo.feature.focus.ui.FocusRoute
 import com.utkarsh.todo.feature.quickadd.ui.QuickAddSheet
 import com.utkarsh.todo.feature.search.ui.SearchRoute
 import com.utkarsh.todo.feature.reminders.ui.RemindersRoute
@@ -78,7 +80,10 @@ fun AppNavHost(modifier: Modifier = Modifier) {
             composable<Destination.BrainDump> { BrainDumpRoute(onBack = { nav.popBackStack() }) }
             composable<Destination.Assistant> { AssistantRoute(onBack = { nav.popBackStack() }) }
             composable<Destination.Customize> { CustomizeRoute(onBack = { nav.popBackStack() }) }
-            composable<Destination.TaskDetail> { TaskDetailRoute(onBack = { nav.popBackStack() }) }
+            composable<Destination.TaskDetail> { entry ->
+                TaskDetailRoute(onBack = { nav.popBackStack() }, onFocus = { nav.navigate(Destination.Focus(entry.toRoute<Destination.TaskDetail>().taskId)) })
+            }
+            composable<Destination.Focus> { FocusRoute(onBack = { nav.popBackStack() }) }
         }
         if (selected != null) {
             PaperNavBar(

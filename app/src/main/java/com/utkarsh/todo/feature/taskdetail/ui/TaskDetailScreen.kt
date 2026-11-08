@@ -54,7 +54,7 @@ import com.utkarsh.todo.feature.breakdown.ui.BreakdownSheet
 import com.utkarsh.todo.feature.tasks.domain.Priority
 
 @Composable
-fun TaskDetailRoute(onBack: () -> Unit, modifier: Modifier = Modifier, viewModel: TaskDetailViewModel = hiltViewModel()) {
+fun TaskDetailRoute(onBack: () -> Unit, onFocus: () -> Unit, modifier: Modifier = Modifier, viewModel: TaskDetailViewModel = hiltViewModel()) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     var showBreakdown by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(viewModel) { viewModel.closed.collect { onBack() } }
@@ -75,6 +75,7 @@ fun TaskDetailRoute(onBack: () -> Unit, modifier: Modifier = Modifier, viewModel
         onBreakDown = { showBreakdown = true },
         onToggleRemind = viewModel::toggleRemind,
         onNotesChange = viewModel::onNotesChange,
+        onFocus = onFocus,
         modifier = modifier,
     )
 }
@@ -92,6 +93,8 @@ fun TaskDetailScreen(
     onBreakDown: () -> Unit = {},
     onToggleRemind: () -> Unit = {},
     onNotesChange: (String) -> Unit = {},
+    /** Shows the "Focus · 25:00" button when set. */
+    onFocus: (() -> Unit)? = null,
 ) {
     val colors = Paper.colors
     var confirmDelete by remember { mutableStateOf(false) }
@@ -120,7 +123,7 @@ fun TaskDetailScreen(
             if (task != null) MonoLabel("Delete", color = colors.accent, modifier = Modifier.clickable { confirmDelete = true }.padding(8.dp).testTag("delete-task"))
         }
         when {
-            task != null -> Content(task, state.error, onToggleDone, onToggleSubtask, onAddSubtask, onBreakDown, onToggleRemind, onNotesChange)
+            task != null -> Content(task, state.error, onToggleDone, onToggleSubtask, onAddSubtask, onBreakDown, onToggleRemind, onNotesChange, onFocus)
             state.isLoading -> TaskDetailSkeleton()
             else -> Column(Modifier.fillMaxSize().padding(24.dp), Arrangement.Center, Alignment.CenterHorizontally) {
                 Text("Couldn't open this task", style = Paper.type.headline, color = colors.ink)
@@ -141,6 +144,7 @@ private fun Content(
     onBreakDown: () -> Unit,
     onToggleRemind: () -> Unit,
     onNotesChange: (String) -> Unit,
+    onFocus: (() -> Unit)?,
 ) {
     val colors = Paper.colors
     Column(Modifier.fillMaxSize()) {
@@ -178,6 +182,13 @@ private fun Content(
                 "✦ Break it down", color = colors.accent,
                 modifier = Modifier.padding(top = 6.dp).clickable(onClick = onBreakDown).padding(vertical = 10.dp).testTag("break-it-down"),
             )
+
+            if (onFocus != null && !task.done) {
+                MonoLabel(
+                    "◔ Focus · 25:00", color = colors.ink,
+                    modifier = Modifier.padding(top = 6.dp).clickable(onClick = onFocus).padding(vertical = 10.dp).testTag("focus-task-button"),
+                )
+            }
 
             MonoLabel("Notes", Modifier.padding(top = 22.dp, bottom = 6.dp))
             NotesField(task.notes, onNotesChange)

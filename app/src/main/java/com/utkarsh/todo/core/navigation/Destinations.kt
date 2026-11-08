@@ -14,4 +14,5 @@ sealed interface Destination {
     @Serializable data object Projects : Destination
     @Serializable data object Search : Destination
     @Serializable data class TaskDetail(val taskId: String) : Destination
+    @Serializable data class Focus(val taskId: String) : Destination
 }

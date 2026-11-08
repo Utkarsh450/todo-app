@@ -34,7 +34,7 @@ class TaskDetailScreenTest {
         done = false,
     )
 
-    private fun show(state: TaskDetailUiState) {
+    private fun show(state: TaskDetailUiState, withFocus: Boolean = false) {
         events.clear()
         compose.setContent {
             PaperTheme {
@@ -49,6 +49,7 @@ class TaskDetailScreenTest {
                     onBreakDown = { events += "breakdown" },
                     onToggleRemind = { events += "remind" },
                     onNotesChange = { events += "notes:$it" },
+                    onFocus = if (withFocus) ({ events += "focus" }) else null,
                 )
             }
         }
@@ -174,5 +175,25 @@ class TaskDetailScreenTest {
         compose.onNodeWithText("Retry").performClick()
 
         assertEquals(listOf("retry"), events)
+    }
+
+    @Test
+    fun the_focus_button_opens_focus() {
+        show(TaskDetailUiState(isLoading = false, task = task), withFocus = true)
+        compose.onNodeWithText("◔ FOCUS · 25:00").assertIsDisplayed()
+        compose.onNodeWithTag("focus-task-button").performClick()
+        assertEquals(listOf("focus"), events)
+    }
+
+    @Test
+    fun there_is_no_focus_button_without_somewhere_to_go_or_for_a_done_task() {
+        show(TaskDetailUiState(isLoading = false, task = task), withFocus = false)
+        compose.onNodeWithTag("focus-task-button").assertDoesNotExist()
+    }
+
+    @Test
+    fun a_done_task_has_no_focus_button() {
+        show(TaskDetailUiState(isLoading = false, task = task.copy(done = true, statusLabel = "DONE")), withFocus = true)
+        compose.onNodeWithTag("focus-task-button").assertDoesNotExist()
     }
 }

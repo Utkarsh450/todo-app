@@ -77,10 +77,10 @@ quick add **Task / Note / Event** (Note appends to today's scratchpad, Event -> 
 AI uses **Grok (xAI)** via the backend only (`XAI_API_KEY`, `XAI_MODEL`, `XAI_BASE_URL`, `XAI_TIMEOUT_MS` in `backend/.env`).
 **Assistant** (design 09; ✦ on the Today header -> `feature/assistant`; backend `POST /ai/assist`),
 **Brain dump** (design 14; ✎ on the Today header -> `feature/braindump`; backend `POST /ai/braindump`).
-Design screens not built yet: Focus (11). Projects (12) is built (`feature/projects/ui`), Search (13) too (`feature/search/ui`, Today ⋯ menu -> Search; debounced title search via `TasksRepository.search`).
+Focus (11) is built (`feature/focus/ui`; "Focus · 25:00" on the task page -> `Destination.Focus`; countdown derived from the clock, presets 15/25/45, not persisted). Projects (12) is built (`feature/projects/ui`), Search (13) too (`feature/search/ui`, Today ⋯ menu -> Search; debounced title search via `TasksRepository.search`).
 
 **Remaining work (suggested order):**
-1. Task detail: REMIND row (create a reminder 1h before due), notes editing, delete confirmation dialog, focus timer ("Focus · 25:00").
+1. ~~Task detail extras~~ done (REMIND row, notes editing, delete confirmation, Focus timer).
 2. Real fonts (see Design), launcher icon, release signing/R8 check, CI workflow.
 3. Offline support (currently every screen needs the backend), auth if the API is ever exposed (it is unauthenticated, single-user).
 4. ~~Project management UI~~ done: Projects screen (Today ⋯ menu -> Projects) with progress, task ticking, make/rename/recolour/delete.
