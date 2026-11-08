@@ -32,6 +32,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontStyle
@@ -63,6 +65,7 @@ private const val UNDO_VISIBLE_MS = 4_000L
 fun TodayRoute(
     onOpenTask: (String) -> Unit,
     onCustomize: () -> Unit,
+    onAssistant: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: TodayViewModel = hiltViewModel(),
     settingsViewModel: CustomizeViewModel = hiltViewModel(),
@@ -84,6 +87,7 @@ fun TodayRoute(
         noteContent = { NoteBlock() },
         blocks = settings.settings.visibleBlocks,
         onCustomize = onCustomize,
+        onAssistant = onAssistant,
     )
 }
 
@@ -106,6 +110,8 @@ fun TodayScreen(
     blocks: List<TodayBlock> = TodayBlock.entries,
     /** Shows the Customize button when set. */
     onCustomize: (() -> Unit)? = null,
+    /** Shows the ✦ Ask Grok button when set. */
+    onAssistant: (() -> Unit)? = null,
 ) {
     val colors = Paper.colors
     LaunchedEffect(state.undo) { if (state.undo != null) { delay(UNDO_VISIBLE_MS); onDismissUndo() } }
@@ -114,6 +120,12 @@ fun TodayScreen(
         Column(Modifier.fillMaxSize()) {
             Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                 MonoLabel(state.caption, Modifier.weight(1f))
+                onAssistant?.let { open ->
+                    Text(
+                        "✦", style = Paper.type.title, color = colors.accent,
+                        modifier = Modifier.semantics { contentDescription = "Ask Grok" }.clip(RoundedCornerShape(8.dp)).clickable(onClick = open).padding(horizontal = 10.dp, vertical = 4.dp).testTag("open-assistant"),
+                    )
+                }
                 onCustomize?.let { open ->
                     Icon(
                         PaperIcons.Customize,

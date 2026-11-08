@@ -29,6 +29,7 @@ import com.utkarsh.todo.feature.customize.ui.CustomizeRoute
 import com.utkarsh.todo.feature.insights.ui.InsightsRoute
 import com.utkarsh.todo.feature.quickadd.ui.QuickAddSheet
 import com.utkarsh.todo.feature.reminders.ui.RemindersRoute
+import com.utkarsh.todo.feature.assistant.ui.AssistantRoute
 import com.utkarsh.todo.feature.taskdetail.ui.TaskDetailRoute
 import com.utkarsh.todo.feature.today.ui.TodayRoute
 import kotlin.reflect.KClass
@@ -56,11 +57,13 @@ fun AppNavHost(modifier: Modifier = Modifier) {
                 TodayRoute(
                     onOpenTask = { nav.navigate(Destination.TaskDetail(it)) },
                     onCustomize = { nav.navigate(Destination.Customize) },
+                    onAssistant = { nav.navigate(Destination.Assistant) },
                 )
             }
             composable<Destination.Calendar> { CalendarRoute() }
             composable<Destination.Reminders> { RemindersRoute() }
             composable<Destination.Insights> { InsightsRoute() }
+            composable<Destination.Assistant> { AssistantRoute(onBack = { nav.popBackStack() }) }
             composable<Destination.Customize> { CustomizeRoute(onBack = { nav.popBackStack() }) }
             composable<Destination.TaskDetail> { TaskDetailRoute(onBack = { nav.popBackStack() }) }
         }

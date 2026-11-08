@@ -50,7 +50,7 @@ pnpm build && node --env-file=.env dist/server.js
 pnpm prisma:migrate / prisma:deploy / prisma:seed
 ```
 Result files: `app/build/test-results/testDebugUnitTest/*.xml`, `app/build/outputs/androidTest-results/connected/debug/*.xml`.
-Test counts at last run: backend 92, Android unit 218, emulator 96 — all green.
+Test counts at last run: backend 130, Android unit 242, emulator 111 — all green.
 
 ## Database
 Local PostgreSQL 16 (Homebrew), browse with pgAdmin. Databases: `paper_todo` (dev) and `paper_todo_test` (tests; the
@@ -75,7 +75,8 @@ dots/lines/plain, cozy/compact density; DataStore-backed `SettingsRepository`; g
 quick add **Task / Note / Event** (Note appends to today's scratchpad, Event -> calendar),
 **AI Break it down** (task page -> bottom sheet; backend `modules/ai`, app `feature/ai` + `feature/breakdown`).
 AI uses **Grok (xAI)** via the backend only (`XAI_API_KEY`, `XAI_MODEL`, `XAI_BASE_URL`, `XAI_TIMEOUT_MS` in `backend/.env`).
-Design screens not built yet: Assistant (09), Brain dump (14), Focus (11), Projects (12), Search (13).
+**Assistant** (design 09; ✦ on the Today header -> `feature/assistant`; backend `POST /ai/assist`).
+Design screens not built yet: Brain dump (14), Focus (11), Projects (12), Search (13).
 
 **Remaining work (suggested order):**
 1. Task detail: REMIND row (create a reminder 1h before due), notes editing, delete confirmation dialog, focus timer ("Focus · 25:00").
@@ -88,6 +89,10 @@ Design screens not built yet: Assistant (09), Brain dump (14), Focus (11), Proje
 - AI: the live Grok API was never called from tests (no key in the repo): tests use a fake `AiClient`, a fake `fetch`, and
   MockWebServer. The default model `grok-4.7` and the chat-completions request shape come from xAI docs; if a real call fails,
   check `XAI_MODEL` first. To try the whole path without a key, run a tiny fake server and set `XAI_BASE_URL` to it.
+- Assistant: the backend, not the app, gathers the open tasks (max 40) and sends them to Grok as JSON data with times in the
+  app's time zone; `parseAssistantReply` drops anything that doesn't hold up (unknown task id, move into the past, no-op priority,
+  repeats, >5). Suggestions are MOVE / SPLIT / PRIORITY only; the app applies one through the normal `TasksRepository` calls when
+  accepted. The conversation lives in `AssistantViewModel` only (not saved), and a plain-text model answer is shown as a reply.
 - `createTestApp(ai?)` takes an optional fake `AiClient`; never let tests reach the real xAI endpoint.
 - `BreakdownViewModel` reads the task itself (via `taskId`) and adds subtasks one by one; after a partial failure it keeps only
   the steps not yet added so a retry can't duplicate. `TaskDetailViewModel.refresh()` re-reads quietly after the sheet closes.
@@ -111,4 +116,6 @@ Design screens not built yet: Assistant (09), Brain dump (14), Focus (11), Proje
 - Integration tests that go through real Retrofit finish on other threads: wait with `withTimeout` instead of asserting at once,
   and wait for the view-model's background project lookup before submitting (see `QuickAddIntegrationTest`).
 - A failed action must not have its error message cleared by the recovery reload (`TodayViewModel.load(clearError=false)`).
+- DataStore tests that "kill the process": after `scope.cancel()` also `join()` the job, or the reopened store can still see the old
+  one registered (flaky "multiple DataStores active" failure).
 - `adb shell input text '#x'` types `%23` unless quoted as `"input text '#x'"`.

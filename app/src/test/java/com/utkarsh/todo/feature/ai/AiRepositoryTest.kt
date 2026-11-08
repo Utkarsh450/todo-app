@@ -4,7 +4,10 @@ import com.utkarsh.todo.core.network.buildRetrofit
 import com.utkarsh.todo.feature.ai.data.AiApi
 import com.utkarsh.todo.feature.ai.data.AiRepositoryImpl
 import com.utkarsh.todo.feature.ai.domain.AiException
+import com.utkarsh.todo.feature.ai.domain.AssistantSuggestion
+import com.utkarsh.todo.feature.tasks.domain.Priority
 import java.time.Instant
+import java.time.ZoneId
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
@@ -108,5 +111,78 @@ class AiRepositoryTest {
         )
         val error = offline.breakDown("x", "", null).exceptionOrNull() as AiException
         assertTrue(error.message!!.startsWith("Can't reach the server"))
+    }
+
+    // ---- assistant
+
+    @Test
+    fun `assist sends the question and time zone and maps every kind of suggestion`() = runTest {
+        server.enqueue(
+            json(
+                200,
+                """{"reply":"A lighter shape.","suggestions":[
+                  {"kind":"MOVE","taskId":"a","taskTitle":"Review PR","reason":"Sharp hour","dueAt":"2026-11-09T03:30:00.000Z"},
+                  {"kind":"SPLIT","taskId":"b","taskTitle":"Ship it","reason":"Big","steps":["One","Two"]},
+                  {"kind":"PRIORITY","taskId":"c","taskTitle":"Pay bill","reason":"Due","priority":"URGENT"}]}""",
+            ),
+        )
+
+        val reply = repository.assist("Plan my day", ZoneId.of("Asia/Kolkata")).getOrThrow()
+
+        assertEquals("A lighter shape.", reply.reply)
+        assertEquals(
+            listOf(
+                AssistantSuggestion.Move("a", "Review PR", "Sharp hour", Instant.parse("2026-11-09T03:30:00Z")),
+                AssistantSuggestion.Split("b", "Ship it", "Big", listOf("One", "Two")),
+                AssistantSuggestion.ChangePriority("c", "Pay bill", "Due", Priority.URGENT),
+            ),
+            reply.suggestions,
+        )
+        val request = server.takeRequest()
+        assertEquals("/api/ai/assist", request.url.encodedPath)
+        val body = Json.parseToJsonElement(request.body!!.utf8()).jsonObject
+        assertEquals("Plan my day", body["message"]!!.jsonPrimitive.content)
+        assertEquals("Asia/Kolkata", body["timeZone"]!!.jsonPrimitive.content)
+    }
+
+    @Test
+    fun `assist drops suggestions it cannot act on`() = runTest {
+        server.enqueue(
+            json(
+                200,
+                """{"reply":"ok","suggestions":[
+                  {"kind":"MOVE","taskId":"a","taskTitle":"x","reason":""},
+                  {"kind":"SPLIT","taskId":"a","taskTitle":"x","steps":[]},
+                  {"kind":"PRIORITY","taskId":"a","taskTitle":"x","priority":"SOMETIMES"},
+                  {"kind":"DELETE","taskId":"a","taskTitle":"x"},
+                  {"kind":"PRIORITY","taskId":"a","taskTitle":"x","priority":"LOW"}]}""",
+            ),
+        )
+
+        val reply = repository.assist("q", ZoneId.of("UTC")).getOrThrow()
+
+        assertEquals(listOf<AssistantSuggestion>(AssistantSuggestion.ChangePriority("a", "x", "", Priority.LOW)), reply.suggestions)
+    }
+
+    @Test
+    fun `assist without a key says how to fix it`() = runTest {
+        server.enqueue(json(503, """{"error":"AI_NOT_CONFIGURED","message":"AI is not set up. Add XAI_API_KEY to backend/.env and restart the server."}"""))
+        val error = repository.assist("q", ZoneId.of("UTC")).exceptionOrNull() as AiException
+        assertTrue(error.notConfigured)
+        assertTrue(error.message!!.contains("XAI_API_KEY"))
+    }
+
+    @Test
+    fun `assist keeps the server's message when the model gave nothing usable`() = runTest {
+        server.enqueue(json(502, """{"error":"AI_BAD_RESPONSE","message":"The AI did not have anything to say. Try rewording your question."}"""))
+        val error = repository.assist("q", ZoneId.of("UTC")).exceptionOrNull() as AiException
+        assertFalse(error.notConfigured)
+        assertEquals("The AI did not have anything to say. Try rewording your question.", error.message)
+    }
+
+    @Test
+    fun `assist rejected by validation gets a plain message`() = runTest {
+        server.enqueue(json(400, """{"error":"VALIDATION_ERROR","message":"Request validation failed"}"""))
+        assertEquals("The assistant couldn't read that request.", repository.assist("q", ZoneId.of("UTC")).exceptionOrNull()!!.message)
     }
 }

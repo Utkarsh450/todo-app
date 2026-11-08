@@ -103,7 +103,10 @@ class CustomizeFlowTest {
         compose.onNodeWithText("Compact").performScrollTo().performClick()
         waitUntilSaved(repo) { it.background == PaperBackground.DOTS && it.density == RowDensity.COMPACT && !it.isVisible(TodayBlock.PINNED) }
 
-        scopes.forEach { it.cancel() } // the process "dies"; only the file remains
+        // The process "dies": only the file remains. Cancelling is asynchronous and DataStore releases the file when the
+        // scope's job completes, so wait for that before reopening or the new store can see the old one still registered.
+        scopes.forEach { it.cancel() }
+        runBlocking { scopes.forEach { it.coroutineContext[Job]?.join() } }
         val reopened = repository()
         val after = saved(reopened)
         assertEquals(PaperBackground.DOTS, after.background)

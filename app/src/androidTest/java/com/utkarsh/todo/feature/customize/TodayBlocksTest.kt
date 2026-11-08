@@ -33,7 +33,9 @@ class TodayBlocksTest {
     private val state = TodayUiState(isLoading = false, caption = "SAT 7 NOV · W45", items = listOf(pinned, plain), view = TodayView.BLOCKS)
     private var opened = 0
 
-    private fun show(blocks: List<TodayBlock>?, withCustomize: Boolean = false) {
+    private var askedGrok = 0
+
+    private fun show(blocks: List<TodayBlock>?, withCustomize: Boolean = false, withAssistant: Boolean = false) {
         compose.setContent {
             PaperTheme {
                 TodayScreen(
@@ -43,6 +45,7 @@ class TodayBlocksTest {
                     noteContent = { Box(Modifier.fillMaxWidth().height(40.dp).testTag("note-slot")) },
                     blocks = blocks ?: TodayBlock.entries,
                     onCustomize = if (withCustomize) ({ opened++ }) else null,
+                    onAssistant = if (withAssistant) ({ askedGrok++ }) else null,
                 )
             }
         }
@@ -98,5 +101,18 @@ class TodayBlocksTest {
         show(null, withCustomize = true)
         compose.onNodeWithTag("open-customize").performClick()
         assertEquals(1, opened)
+    }
+
+    @Test
+    fun the_assistant_button_appears_only_when_it_has_somewhere_to_go() {
+        show(null, withAssistant = false)
+        compose.onNodeWithTag("open-assistant").assertDoesNotExist()
+    }
+
+    @Test
+    fun tapping_the_assistant_button_opens_the_assistant() {
+        show(null, withAssistant = true)
+        compose.onNodeWithTag("open-assistant").performClick()
+        assertEquals(1, askedGrok)
     }
 }

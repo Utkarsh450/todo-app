@@ -10,7 +10,9 @@ Today (pinned card, task list with swipe to move/archive and undo, Plan view, ha
 Task page with subtasks · Quick add (Task, Note or Event) that parses `fri 3pm #Design !high every monday` · Reminders (grouped, snooze, repeat,
 real device alarms, notifications, survive reboot) · Calendar month grid + week timeline · Insights heat-map, streak and
 weekly rhythm · Customize (choose, reorder and hide Today blocks, paper texture, row density) · **Break it down**
-(on a task page, Grok suggests subtasks; you untick the ones you don't want, nothing is added until you confirm).
+(on a task page, Grok suggests subtasks; you untick the ones you don't want, nothing is added until you confirm) ·
+**Assistant** (the ✦ on Today: ask "Plan my day" or "What's slipping?"; Grok sees your open tasks and suggests moving, splitting or
+re-prioritising them, and each change happens only when you tap Accept).
 
 ## AI (Grok)
 AI calls go through the backend, so the key never lives on the phone. Get a key at <https://console.x.ai>, then put it
@@ -50,7 +52,7 @@ cd backend && pnpm typecheck && pnpm test                 # unit + integration (
 ## API (prefix `/api`)
 `GET /health` · `projects` · `tasks` (+ `/complete`, `/reopen`, `/subtasks`) · `subtasks/:id` · `reminders`
 (+ `/grouped`, `/:id/snooze`) · `events` · `calendar/agenda` · `habits` (+ `/:id/logs/:date`) · `notes/:date` ·
-`insights/heatmap` · `ai/status` · `ai/breakdown`. Request/response shapes are the zod schemas in `backend/src/modules/*/*.schema.ts`.
+`insights/heatmap` · `ai/status` · `ai/breakdown` · `ai/assist`. Request/response shapes are the zod schemas in `backend/src/modules/*/*.schema.ts`.
 
 ## Layout
 See `CLAUDE.md` for the architecture, conventions, environment gotchas and the remaining-work list.
