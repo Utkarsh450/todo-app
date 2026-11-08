@@ -27,6 +27,24 @@ export const assistBody = z.object({
 
 const suggestionBase = { taskId: z.uuid(), taskTitle: z.string(), reason: z.string() };
 
+export const brainDumpBody = z.object({
+  text: z.string().trim().min(1).max(4000),
+  timeZone: z.string().refine(validTimeZone, 'unknown time zone').default('UTC'),
+});
+
+export const brainDumpResponse = z.object({
+  tasks: z.array(
+    z.object({
+      title: z.string(),
+      dueAt: z.date().nullable(),
+      priority: z.enum(['URGENT', 'HIGH', 'NORMAL', 'LOW']),
+      repeatRule: z.string().nullable(),
+      projectId: z.uuid().nullable(),
+      projectName: z.string().nullable(),
+    }),
+  ),
+});
+
 export const assistResponse = z.object({
   reply: z.string(),
   suggestions: z.array(
