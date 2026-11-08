@@ -165,6 +165,39 @@ class AiRepositoryTest {
     }
 
     @Test
+    fun `assist reads tasks, events, reminders and completions the assistant wants to create`() = runTest {
+        server.enqueue(
+            json(
+                200,
+                """{"reply":"ok","suggestions":[
+                  {"kind":"CREATE_TASK","title":"Buy milk","reason":"r","dueAt":"2026-11-09T03:30:00.000Z","priority":"HIGH","repeatRule":"Every week","projectId":"p1","projectName":"Home"},
+                  {"kind":"CREATE_TASK","title":"Think","reason":"","dueAt":null,"priority":"NORMAL","repeatRule":null,"projectId":null,"projectName":null},
+                  {"kind":"CREATE_EVENT","title":"Dentist","reason":"","startAt":"2026-11-10T09:30:00.000Z","endAt":"2026-11-10T10:30:00.000Z","allDay":false},
+                  {"kind":"CREATE_EVENT","title":"No end","reason":"","startAt":"2026-11-10T09:30:00.000Z","endAt":"2026-11-10T09:00:00.000Z","allDay":false},
+                  {"kind":"CREATE_EVENT","title":"No start","reason":""},
+                  {"kind":"CREATE_REMINDER","title":"Stretch","reason":"","remindAt":"2026-11-08T08:30:00.000Z","repeatRule":"Every day"},
+                  {"kind":"CREATE_REMINDER","title":"No time","reason":""},
+                  {"kind":"CREATE_TASK","title":"  ","reason":""},
+                  {"kind":"COMPLETE","taskId":"a","taskTitle":"Pay bill","reason":""}]}""",
+            ),
+        )
+
+        val s = repository.assist("q", ZoneId.of("UTC")).getOrThrow().suggestions
+
+        assertEquals(
+            listOf<AssistantSuggestion>(
+                AssistantSuggestion.CreateTask("Buy milk", "r", Instant.parse("2026-11-09T03:30:00Z"), Priority.HIGH, "Every week", "p1", "Home"),
+                AssistantSuggestion.CreateTask("Think", "", null, Priority.NORMAL, null, null, null),
+                AssistantSuggestion.CreateEvent("Dentist", "", Instant.parse("2026-11-10T09:30:00Z"), Instant.parse("2026-11-10T10:30:00Z"), false),
+                AssistantSuggestion.CreateEvent("No end", "", Instant.parse("2026-11-10T09:30:00Z"), Instant.parse("2026-11-10T10:30:00Z"), false),
+                AssistantSuggestion.CreateReminder("Stretch", "", Instant.parse("2026-11-08T08:30:00Z"), "Every day"),
+                AssistantSuggestion.Complete("a", "Pay bill", ""),
+            ),
+            s,
+        )
+    }
+
+    @Test
     fun `assist without a key says how to fix it`() = runTest {
         server.enqueue(json(503, """{"error":"AI_NOT_CONFIGURED","message":"AI is not set up. Add XAI_API_KEY to backend/.env and restart the server."}"""))
         val error = repository.assist("q", ZoneId.of("UTC")).exceptionOrNull() as AiException

@@ -52,7 +52,7 @@ import com.utkarsh.todo.core.designsystem.theme.Paper
 import com.utkarsh.todo.core.designsystem.theme.PaperRadius
 import com.utkarsh.todo.core.designsystem.theme.paperSurface
 
-val QuickPrompts = listOf("Plan my day", "What's slipping?", "Review my week")
+val QuickPrompts = listOf("Plan my day", "What's slipping?", "Review my week", "Remind me to…", "Schedule a meeting…")
 
 @Composable
 fun AssistantRoute(onBack: () -> Unit, modifier: Modifier = Modifier, viewModel: AssistantViewModel = hiltViewModel()) {
@@ -102,7 +102,7 @@ fun AssistantScreen(
                 MonoLabel("Grok · sees your open tasks", Modifier.padding(top = 6.dp, bottom = 14.dp))
                 if (state.turns.isEmpty()) {
                     Text(
-                        "Ask about your day. I can suggest moving, splitting or re-prioritising tasks. You decide what happens.",
+                        "Ask about your day, or tell me what to add: tasks, calendar events, reminders. I can also move, split, tick off or re-prioritise tasks. You decide what happens.",
                         style = Paper.type.note, color = colors.muted, modifier = Modifier.testTag("assistant-empty"),
                     )
                 }
@@ -124,7 +124,7 @@ fun AssistantScreen(
                             .clip(shape)
                             .background(if (primary) colors.ink else colors.card)
                             .border(1.dp, if (primary) colors.ink else colors.rule, shape)
-                            .clickable(enabled = enabled) { onPrompt(prompt) }
+                            .clickable(enabled = enabled) { if (prompt.endsWith("…")) onInputChange(prompt.dropLast(1) + " ") else onPrompt(prompt) }
                             .padding(horizontal = 14.dp, vertical = 9.dp)
                             .testTag("prompt-$index"),
                     )
@@ -154,7 +154,7 @@ private fun InputRow(text: String, busy: Boolean, onChange: (String) -> Unit, on
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send), keyboardActions = KeyboardActions(onSend = { if (canSend) onSend() }),
                 maxLines = 4, modifier = Modifier.fillMaxWidth().testTag("assistant-input"),
             )
-            if (text.isEmpty()) Text("Ask Grok about your tasks…", style = Paper.type.body, color = colors.muted)
+            if (text.isEmpty()) Text("Ask Grok, or say what to add…", style = Paper.type.body, color = colors.muted)
         }
         Box(
             Modifier.size(38.dp).alpha(if (canSend) 1f else 0.4f).clip(CircleShape).background(colors.accent).clickable(enabled = canSend, onClick = onSend).testTag("assistant-send"),

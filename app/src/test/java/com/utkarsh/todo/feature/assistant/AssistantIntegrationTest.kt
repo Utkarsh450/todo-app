@@ -5,6 +5,12 @@ import com.utkarsh.todo.feature.ai.data.AiApi
 import com.utkarsh.todo.feature.ai.data.AiRepositoryImpl
 import com.utkarsh.todo.feature.assistant.ui.AssistantViewModel
 import com.utkarsh.todo.feature.assistant.ui.SuggestionStatus
+import com.utkarsh.todo.feature.calendar.data.CalendarApi
+import com.utkarsh.todo.feature.calendar.data.CalendarRepositoryImpl
+import com.utkarsh.todo.feature.reminders.data.RemindersApi
+import com.utkarsh.todo.feature.reminders.data.RemindersRepositoryImpl
+import com.utkarsh.todo.feature.reminders.domain.ReminderAlarmStore
+import com.utkarsh.todo.feature.reminders.domain.ReminderScheduler
 import com.utkarsh.todo.feature.tasks.data.TasksApi
 import com.utkarsh.todo.feature.tasks.data.TasksRepositoryImpl
 import java.time.Clock
@@ -25,6 +31,7 @@ import mockwebserver3.Dispatcher
 import mockwebserver3.MockResponse
 import mockwebserver3.MockWebServer
 import mockwebserver3.RecordedRequest
+import io.mockk.mockk
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -39,6 +46,11 @@ class AssistantIntegrationTest {
     private val clock = Clock.fixed(Instant.parse("2026-11-08T04:30:00Z"), zone)
     private lateinit var server: MockWebServer
     private val requests = mutableListOf<RecordedRequest>()
+    @Volatile private var assistReply = """{"reply":"A lighter shape.","suggestions":[
+                              {"kind":"MOVE","taskId":"a","taskTitle":"Review PR","reason":"Sharp hour","dueAt":"2026-11-09T03:30:00.000Z"},
+                              {"kind":"SPLIT","taskId":"b","taskTitle":"Ship it","reason":"Big","steps":["One","Two"]},
+                              {"kind":"PRIORITY","taskId":"c","taskTitle":"Pay bill","reason":"Due","priority":"URGENT"}]}"""
+    private val scheduler = mockk<ReminderScheduler>(relaxed = true)
 
     private fun json(code: Int, body: String) = MockResponse.Builder().code(code).addHeader("Content-Type", "application/json").body(body).build()
 
@@ -56,13 +68,11 @@ class AssistantIntegrationTest {
                     synchronized(requests) { requests += request }
                     val path = request.url.encodedPath
                     return when {
-                        path == "/api/ai/assist" -> json(
-                            200,
-                            """{"reply":"A lighter shape.","suggestions":[
-                              {"kind":"MOVE","taskId":"a","taskTitle":"Review PR","reason":"Sharp hour","dueAt":"2026-11-09T03:30:00.000Z"},
-                              {"kind":"SPLIT","taskId":"b","taskTitle":"Ship it","reason":"Big","steps":["One","Two"]},
-                              {"kind":"PRIORITY","taskId":"c","taskTitle":"Pay bill","reason":"Due","priority":"URGENT"}]}""",
-                        )
+                        path == "/api/ai/assist" -> json(200, assistReply)
+                        path == "/api/events" && request.method == "POST" -> json(201, """{"id":"e1","title":"Dentist"}""")
+                        path == "/api/reminders" && request.method == "POST" ->
+                            json(201, """{"id":"r1","taskId":null,"title":"Stretch","remindAt":"2026-11-08T08:30:00.000Z","repeatRule":"Every day","locationTrigger":null,"enabled":true,"snoozedUntil":null}""")
+                        path == "/api/tasks" && request.method == "POST" -> json(201, taskJson("new"))
                         path.endsWith("/subtasks") -> {
                             val title = Json.parseToJsonElement(request.body!!.utf8()).jsonObject.getValue("title").jsonPrimitive.content
                             json(201, """{"id":"s-$title","taskId":"b","title":"$title","done":false,"position":0}""")
@@ -84,7 +94,11 @@ class AssistantIntegrationTest {
 
     private fun viewModel(): AssistantViewModel {
         val retrofit = buildRetrofit(server.url("/api/").toString())
-        return AssistantViewModel(AiRepositoryImpl(retrofit.create<AiApi>()), TasksRepositoryImpl(retrofit.create<TasksApi>()), clock)
+        val reminders = RemindersRepositoryImpl(retrofit.create<RemindersApi>(), scheduler, clock, mockk<ReminderAlarmStore>(relaxed = true))
+        return AssistantViewModel(
+            AiRepositoryImpl(retrofit.create<AiApi>()), TasksRepositoryImpl(retrofit.create<TasksApi>()),
+            CalendarRepositoryImpl(retrofit.create<CalendarApi>()), reminders, clock,
+        )
     }
 
     private fun sent() = synchronized(requests) { requests.toList() }
@@ -123,5 +137,30 @@ class AssistantIntegrationTest {
         assertEquals(setOf("priority"), bodyOf(patches[1]).keys)
         val subtasks = sent().filter { it.url.encodedPath == "/api/tasks/b/subtasks" }.map { bodyOf(it).getValue("title").jsonPrimitive.content }
         assertEquals(listOf("One", "Two"), subtasks)
+    }
+
+    @Test
+    fun `accepting new things posts a task, an event and a reminder, and rings the reminder`() = runBlocking {
+        assistReply = """{"reply":"Added.","suggestions":[
+          {"kind":"CREATE_TASK","title":"Buy milk","reason":"","dueAt":"2026-11-09T03:30:00.000Z","priority":"HIGH","repeatRule":"Every week","projectId":null,"projectName":null},
+          {"kind":"CREATE_EVENT","title":"Dentist","reason":"","startAt":"2026-11-10T09:30:00.000Z","endAt":"2026-11-10T10:30:00.000Z","allDay":false},
+          {"kind":"CREATE_REMINDER","title":"Stretch","reason":"","remindAt":"2026-11-08T08:30:00.000Z","repeatRule":"Every day"}]}"""
+        val vm = viewModel()
+        vm.ask("add things")
+        val turn = withTimeout(5000) { vm.uiState.first { it.turns.isNotEmpty() && !it.turns.last().loading } }.turns.single()
+
+        vm.acceptAll(turn.id)
+        withTimeout(5000) { vm.uiState.first { s -> s.turns.single().suggestions.all { it.status == SuggestionStatus.ACCEPTED } } }
+
+        val task = bodyOf(sent().single { it.url.encodedPath == "/api/tasks" && it.method == "POST" })
+        assertEquals("Buy milk", task.getValue("title").jsonPrimitive.content)
+        assertEquals("HIGH", task.getValue("priority").jsonPrimitive.content)
+        assertEquals("Every week", task.getValue("repeatRule").jsonPrimitive.content)
+        val event = bodyOf(sent().single { it.url.encodedPath == "/api/events" })
+        assertEquals("2026-11-10T09:30:00Z", event.getValue("startAt").jsonPrimitive.content)
+        assertEquals("2026-11-10T10:30:00Z", event.getValue("endAt").jsonPrimitive.content)
+        val reminder = bodyOf(sent().single { it.url.encodedPath == "/api/reminders" })
+        assertEquals("Stretch", reminder.getValue("title").jsonPrimitive.content)
+        io.mockk.verify(exactly = 1) { scheduler.schedule(match { it.title == "Stretch" }) }
     }
 }

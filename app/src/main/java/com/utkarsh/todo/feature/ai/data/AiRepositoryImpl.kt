@@ -46,18 +46,38 @@ data class BreakdownRequest(
 @Serializable
 data class SuggestionDto(
     val kind: String,
-    val taskId: String,
-    val taskTitle: String,
+    val taskId: String? = null,
+    val taskTitle: String? = null,
+    val title: String? = null,
     val reason: String = "",
     @Serializable(with = InstantSerializer::class) val dueAt: Instant? = null,
+    @Serializable(with = InstantSerializer::class) val startAt: Instant? = null,
+    @Serializable(with = InstantSerializer::class) val endAt: Instant? = null,
+    @Serializable(with = InstantSerializer::class) val remindAt: Instant? = null,
+    val allDay: Boolean = false,
     val steps: List<String>? = null,
     val priority: String? = null,
+    val repeatRule: String? = null,
+    val projectId: String? = null,
+    val projectName: String? = null,
 ) {
-    fun toDomain(): AssistantSuggestion? = when (kind) {
-        "MOVE" -> dueAt?.let { AssistantSuggestion.Move(taskId, taskTitle, reason, it) }
-        "SPLIT" -> steps?.takeIf { it.isNotEmpty() }?.let { AssistantSuggestion.Split(taskId, taskTitle, reason, it) }
-        "PRIORITY" -> priority?.let { p -> Priority.entries.firstOrNull { it.name == p } }?.let { AssistantSuggestion.ChangePriority(taskId, taskTitle, reason, it) }
-        else -> null
+    fun toDomain(): AssistantSuggestion? {
+        val id = taskId
+        val name = taskTitle.orEmpty()
+        val label = title?.takeIf { it.isNotBlank() }
+        val level = priority?.let { p -> Priority.entries.firstOrNull { it.name == p } }
+        return when (kind) {
+            "MOVE" -> if (id != null) dueAt?.let { AssistantSuggestion.Move(id, name, reason, it) } else null
+            "SPLIT" -> if (id != null) steps?.takeIf { it.isNotEmpty() }?.let { AssistantSuggestion.Split(id, name, reason, it) } else null
+            "PRIORITY" -> if (id != null) level?.let { AssistantSuggestion.ChangePriority(id, name, reason, it) } else null
+            "COMPLETE" -> id?.let { AssistantSuggestion.Complete(it, name, reason) }
+            "CREATE_TASK" -> label?.let { AssistantSuggestion.CreateTask(it, reason, dueAt, level ?: Priority.NORMAL, repeatRule, projectId, projectName) }
+            "CREATE_EVENT" -> if (label != null && startAt != null) {
+                AssistantSuggestion.CreateEvent(label, reason, startAt, endAt?.takeIf { it > startAt } ?: startAt.plusSeconds(if (allDay) 86_400 else 3_600), allDay)
+            } else null
+            "CREATE_REMINDER" -> if (label != null && remindAt != null) AssistantSuggestion.CreateReminder(label, reason, remindAt, repeatRule) else null
+            else -> null
+        }
     }
 }
 

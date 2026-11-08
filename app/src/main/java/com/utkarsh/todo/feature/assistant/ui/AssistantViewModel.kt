@@ -6,7 +6,13 @@ import com.utkarsh.todo.core.common.formatRelativeDue
 import com.utkarsh.todo.feature.ai.domain.AiException
 import com.utkarsh.todo.feature.ai.domain.AiRepository
 import com.utkarsh.todo.feature.ai.domain.AssistantSuggestion
+import com.utkarsh.todo.feature.calendar.domain.CalendarRepository
+import com.utkarsh.todo.feature.calendar.domain.NewEvent
+import com.utkarsh.todo.feature.reminders.domain.NewReminder
+import com.utkarsh.todo.feature.reminders.domain.RemindersRepository
 import com.utkarsh.todo.feature.tasks.domain.Field
+import com.utkarsh.todo.feature.tasks.domain.NewTask
+import com.utkarsh.todo.feature.tasks.domain.Priority
 import com.utkarsh.todo.feature.tasks.domain.TaskPatch
 import com.utkarsh.todo.feature.tasks.domain.TasksRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -21,7 +27,9 @@ import kotlinx.coroutines.launch
 
 enum class SuggestionStatus { PENDING, WORKING, ACCEPTED, SKIPPED, FAILED }
 
-enum class SuggestionKind(val label: String) { MOVE("Move"), SPLIT("Split"), PRIORITY("Priority") }
+enum class SuggestionKind(val label: String) {
+    MOVE("Move"), SPLIT("Split"), PRIORITY("Priority"), COMPLETE("Done"), TASK("Task"), EVENT("Event"), REMINDER("Reminder"),
+}
 
 data class SuggestionUi(
     val id: Int,
@@ -64,6 +72,8 @@ data class AssistantUiState(
 class AssistantViewModel @Inject constructor(
     private val ai: AiRepository,
     private val tasks: TasksRepository,
+    private val calendar: CalendarRepository,
+    private val reminders: RemindersRepository,
     private val clock: Clock,
 ) : ViewModel() {
 
@@ -143,6 +153,15 @@ class AssistantViewModel @Inject constructor(
             is AssistantSuggestion.Move -> finish(suggestionId, tasks.update(change.taskId, TaskPatch(dueAt = Field.Set(change.dueAt))).map { })
             is AssistantSuggestion.ChangePriority ->
                 finish(suggestionId, tasks.update(change.taskId, TaskPatch(priority = Field.Set(change.priority))).map { })
+            is AssistantSuggestion.Complete -> finish(suggestionId, tasks.setDone(change.taskId, true).map { })
+            is AssistantSuggestion.CreateTask -> finish(
+                suggestionId,
+                tasks.create(NewTask(title = change.title, projectId = change.projectId, priority = change.priority, dueAt = change.dueAt, repeatRule = change.repeatRule)).map { },
+            )
+            is AssistantSuggestion.CreateEvent ->
+                finish(suggestionId, calendar.createEvent(NewEvent(change.title, change.startAt, change.endAt, change.allDay)))
+            is AssistantSuggestion.CreateReminder ->
+                finish(suggestionId, reminders.create(NewReminder(title = change.title, remindAt = change.remindAt, repeatRule = change.repeatRule)).map { })
             is AssistantSuggestion.Split -> {
                 var added = 0
                 var failure: Throwable? = null
@@ -184,5 +203,14 @@ class AssistantViewModel @Inject constructor(
             SuggestionUi(nextSuggestionId++, SuggestionKind.SPLIT, s.taskTitle, s.reason, steps = s.steps, change = s)
         is AssistantSuggestion.ChangePriority ->
             SuggestionUi(nextSuggestionId++, SuggestionKind.PRIORITY, "${s.taskTitle} → ${s.priority.name.lowercase().replaceFirstChar(Char::uppercase)}", s.reason, change = s)
+        is AssistantSuggestion.Complete -> SuggestionUi(nextSuggestionId++, SuggestionKind.COMPLETE, s.taskTitle, s.reason, change = s)
+        is AssistantSuggestion.CreateTask -> {
+            val extras = listOfNotNull(s.dueAt?.formatRelativeDue(clock.zone, today), s.repeatRule, s.projectName?.let { "#$it" }, s.priority.takeIf { it != Priority.NORMAL }?.name?.lowercase())
+            SuggestionUi(nextSuggestionId++, SuggestionKind.TASK, listOf(s.title).plus(extras.joinToString(" · ").takeIf { it.isNotEmpty() }).filterNotNull().joinToString(" — "), s.reason, change = s)
+        }
+        is AssistantSuggestion.CreateEvent ->
+            SuggestionUi(nextSuggestionId++, SuggestionKind.EVENT, "${s.title} — ${s.startAt.formatRelativeDue(clock.zone, today)}${if (s.allDay) " · all day" else ""}", s.reason, change = s)
+        is AssistantSuggestion.CreateReminder ->
+            SuggestionUi(nextSuggestionId++, SuggestionKind.REMINDER, "${s.title} — ${s.remindAt.formatRelativeDue(clock.zone, today)}${s.repeatRule?.let { " · $it" }.orEmpty()}", s.reason, change = s)
     }
 }

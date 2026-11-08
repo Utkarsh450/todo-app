@@ -68,7 +68,7 @@ class AssistantScreenTest {
         compose.onNodeWithTag("assistant-empty").assertIsDisplayed()
         compose.onNodeWithText("Plan my day").assertIsDisplayed()
         compose.onNodeWithText("What's slipping?").assertIsDisplayed()
-        compose.onNodeWithText("Ask Grok about your tasks…").assertIsDisplayed()
+        compose.onNodeWithText("Ask Grok, or say what to add…").assertIsDisplayed()
         compose.onNodeWithText("Grok can make mistakes. Nothing changes until you accept.").assertIsDisplayed()
     }
 
@@ -191,5 +191,38 @@ class AssistantScreenTest {
         show(AssistantUiState())
         compose.onNodeWithTag("assistant-back").performClick()
         assertEquals(listOf("back"), events)
+    }
+
+    @Test
+    fun new_things_show_their_kind_and_can_be_accepted() {
+        show(
+            AssistantUiState(
+                turns = listOf(
+                    TurnUi(
+                        id = 1, question = "add", loading = false, reply = "Added.",
+                        suggestions = listOf(
+                            suggestion(1, SuggestionKind.TASK, "Buy milk — Fri, 9:00 AM"),
+                            suggestion(2, SuggestionKind.EVENT, "Dentist — Tue, 3:00 PM"),
+                            suggestion(3, SuggestionKind.REMINDER, "Stretch — Today, 6:00 PM · Every Day"),
+                        ),
+                    ),
+                ),
+            ),
+        )
+
+        compose.onNodeWithText("TASK").assertExists()
+        compose.onNodeWithText("EVENT").assertExists()
+        compose.onNodeWithText("REMINDER").assertExists()
+        compose.onNodeWithText("Dentist — Tue, 3:00 PM").assertIsDisplayed()
+        compose.onNodeWithTag("accept-2").performClick()
+        assertEquals(listOf("accept:2"), events)
+    }
+
+    @Test
+    fun the_remind_me_chip_fills_the_input_instead_of_sending() {
+        show(AssistantUiState())
+        compose.onNodeWithText("Remind me to…").performClick()
+        compose.onNodeWithText("Remind me to…").assertExists()
+        assertEquals(listOf("input:Remind me to "), events)
     }
 }

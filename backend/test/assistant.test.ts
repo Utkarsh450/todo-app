@@ -84,14 +84,83 @@ describe('parseAssistantReply', () => {
     expect(parse({ reply: 'ok', suggestions: [suggestion] }).suggestions).toEqual([]);
   });
 
-  it('keeps one suggestion per task and kind, and at most five', () => {
+  it('keeps one suggestion per task and kind, and at most eight', () => {
     const same = { kind: 'PRIORITY', taskId: B, priority: 'URGENT' };
     expect(parse({ reply: 'ok', suggestions: [same, { ...same, priority: 'LOW' }] }).suggestions).toHaveLength(1);
     const move = (taskId: string) => ({ kind: 'MOVE', taskId, dueAt: '2026-11-09T03:30:00Z' });
     const split = (taskId: string) => ({ kind: 'SPLIT', taskId, steps: ['a', 'b'] });
     const priority = (taskId: string) => ({ kind: 'PRIORITY', taskId, priority: 'URGENT' });
     const six = [move(A), move(B), split(A), split(B), priority(A), priority(B)];
-    expect(parse({ reply: 'ok', suggestions: six }).suggestions).toHaveLength(5);
+    expect(parse({ reply: 'ok', suggestions: six }).suggestions).toHaveLength(6);
+    const many = Array.from({ length: 12 }, (_, i) => ({ kind: 'CREATE_TASK', title: `Task ${i}` }));
+    expect(parse({ reply: 'ok', suggestions: many }).suggestions).toHaveLength(8);
+  });
+
+  describe('actions that create things', () => {
+    const projects = [{ id: '33333333-3333-4333-8333-333333333333', name: 'Engineering' }];
+    const parseWith = (suggestions: unknown[]) => parseAssistantReply(JSON.stringify({ reply: 'Done', suggestions }), tasks, NOW, projects).suggestions;
+
+    it('reads a task, an event and a reminder', () => {
+      const out = parseWith([
+        { kind: 'CREATE_TASK', title: ' Buy milk ', reason: 'low', dueAt: '2026-11-09T03:30:00Z', priority: 'high', repeatRule: 'Every week', project: 'engineering' },
+        { kind: 'CREATE_EVENT', title: 'Dentist', startAt: '2026-11-10T09:00:00Z', endAt: '2026-11-10T10:30:00Z' },
+        { kind: 'create_reminder', title: 'Stretch', remindAt: '2026-11-08T10:00:00Z', repeatRule: 'Every day' },
+      ]);
+      expect(out).toEqual([
+        { kind: 'CREATE_TASK', title: 'Buy milk', reason: 'low', dueAt: new Date('2026-11-09T03:30:00Z'), priority: 'HIGH', repeatRule: 'Every week', projectId: projects[0]!.id, projectName: 'Engineering' },
+        { kind: 'CREATE_EVENT', title: 'Dentist', reason: '', startAt: new Date('2026-11-10T09:00:00Z'), endAt: new Date('2026-11-10T10:30:00Z'), allDay: false },
+        { kind: 'CREATE_REMINDER', title: 'Stretch', reason: '', remindAt: new Date('2026-11-08T10:00:00Z'), repeatRule: 'Every day' },
+      ]);
+    });
+
+    it('lets a task have no time, no project and an unknown priority', () => {
+      expect(parseWith([{ kind: 'CREATE_TASK', title: 'Think', priority: 'whenever', project: 'Nope', dueAt: 'soon' }])).toEqual([
+        { kind: 'CREATE_TASK', title: 'Think', reason: '', dueAt: null, priority: 'NORMAL', repeatRule: null, projectId: null, projectName: null },
+      ]);
+    });
+
+    it('gives an event without a usable end one hour (all day: one day)', () => {
+      const [a, b] = parseWith([
+        { kind: 'CREATE_EVENT', title: 'A', startAt: '2026-11-10T09:00:00Z', endAt: '2026-11-10T08:00:00Z' },
+        { kind: 'CREATE_EVENT', title: 'B', startAt: '2026-11-11T00:00:00Z', allDay: true },
+      ]) as { endAt: Date }[];
+      expect(a!.endAt).toEqual(new Date('2026-11-10T10:00:00Z'));
+      expect(b!.endAt).toEqual(new Date('2026-11-12T00:00:00Z'));
+    });
+
+    it('drops creations that make no sense: no title, event or reminder without a future time, repeats', () => {
+      expect(
+        parseWith([
+          { kind: 'CREATE_TASK', title: '   ' },
+          { kind: 'CREATE_EVENT', title: 'Past', startAt: '2026-11-01T09:00:00Z' },
+          { kind: 'CREATE_EVENT', title: 'No time' },
+          { kind: 'CREATE_REMINDER', title: 'Past', remindAt: '2026-11-01T09:00:00Z' },
+          { kind: 'CREATE_REMINDER', title: 'Far', remindAt: '2030-01-01T09:00:00Z' },
+          { kind: 'CREATE_TASK', title: 'Same', dueAt: '2026-11-09T03:30:00Z' },
+          { kind: 'CREATE_TASK', title: 'same', dueAt: '2026-11-09T03:30:00Z' },
+        ]),
+      ).toHaveLength(1);
+    });
+
+    it('can complete a known task and ignores an unknown one', () => {
+      expect(parseWith([{ kind: 'COMPLETE', taskId: A }, { kind: 'COMPLETE', taskId: '99999999-9999-4999-8999-999999999999' }])).toEqual([
+        { kind: 'COMPLETE', taskId: A, taskTitle: 'Review PR #482', reason: '' },
+      ]);
+    });
+  });
+
+  it('tells the model about events, reminders and projects', () => {
+    const extras = {
+      events: [{ title: 'Standup', startAt: new Date('2026-11-09T04:00:00Z'), endAt: new Date('2026-11-09T04:30:00Z'), allDay: false }],
+      reminders: [{ title: 'Call mum', remindAt: new Date('2026-11-08T12:30:00Z'), repeatRule: null }],
+      projects: [{ id: 'x', name: 'Engineering' }],
+    };
+    const [, user] = buildAssistantMessages('q', tasks, NOW, 'Asia/Kolkata', extras);
+    expect(JSON.parse(user!.content)).toMatchObject({
+      projects: ['Engineering'],
+      events: [{ title: 'Standup', start: 'Mon 9 Nov, 09:30', end: 'Mon 9 Nov, 10:00', allDay: false }],
+      reminders: [{ title: 'Call mum', at: 'Sun 8 Nov, 18:00', repeats: null }],
+    });
   });
 
   it('caps long text', () => {

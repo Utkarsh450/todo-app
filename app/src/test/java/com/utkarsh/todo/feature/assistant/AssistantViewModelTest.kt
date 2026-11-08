@@ -7,7 +7,13 @@ import com.utkarsh.todo.feature.ai.domain.AssistantSuggestion
 import com.utkarsh.todo.feature.assistant.ui.AssistantViewModel
 import com.utkarsh.todo.feature.assistant.ui.SuggestionKind
 import com.utkarsh.todo.feature.assistant.ui.SuggestionStatus
+import com.utkarsh.todo.feature.calendar.domain.CalendarRepository
+import com.utkarsh.todo.feature.calendar.domain.NewEvent
+import com.utkarsh.todo.feature.reminders.domain.NewReminder
+import com.utkarsh.todo.feature.reminders.domain.Reminder
+import com.utkarsh.todo.feature.reminders.domain.RemindersRepository
 import com.utkarsh.todo.feature.tasks.domain.Field
+import com.utkarsh.todo.feature.tasks.domain.NewTask
 import com.utkarsh.todo.feature.tasks.domain.Priority
 import com.utkarsh.todo.feature.tasks.domain.Subtask
 import com.utkarsh.todo.feature.tasks.domain.Task
@@ -41,6 +47,8 @@ class AssistantViewModelTest {
     private val clock = Clock.fixed(Instant.parse("2026-11-08T04:30:00Z"), zone) // Sun 8 Nov, 10:00 IST
     private val ai = mockk<AiRepository>()
     private val tasks = mockk<TasksRepository>()
+    private val calendar = mockk<CalendarRepository>()
+    private val reminders = mockk<RemindersRepository>()
 
     private val move = AssistantSuggestion.Move("a", "Review PR #482", "Your sharpest hour", Instant.parse("2026-11-09T03:30:00Z")) // Mon 9:00 IST
     private val split = AssistantSuggestion.Split("b", "Ship onboarding redesign", "Too big", listOf("Outline", "Draft", "Review"))
@@ -53,13 +61,20 @@ class AssistantViewModelTest {
         Dispatchers.setMain(UnconfinedTestDispatcher())
         coEvery { ai.assist(any(), any()) } returns Result.success(AssistantReply("A lighter shape for today.", listOf(move, split, priority)))
         coEvery { tasks.update(any(), any()) } answers { Result.success(task(firstArg())) }
+        coEvery { tasks.create(any()) } returns Result.success(task("new"))
+        coEvery { tasks.setDone(any(), any()) } answers { Result.success(task(firstArg())) }
+        coEvery { calendar.createEvent(any()) } returns Result.success(Unit)
+        coEvery { reminders.create(any()) } answers {
+            val r = firstArg<NewReminder>()
+            Result.success(Reminder("r1", null, r.title, r.remindAt, r.repeatRule, null, true, null))
+        }
         coEvery { tasks.addSubtask(any(), any()) } answers { Result.success(Subtask("s", firstArg(), secondArg(), false)) }
     }
 
     @After
     fun tearDown() = Dispatchers.resetMain()
 
-    private fun viewModel() = AssistantViewModel(ai, tasks, clock)
+    private fun viewModel() = AssistantViewModel(ai, tasks, calendar, reminders, clock)
 
     private fun AssistantViewModel.statuses() = uiState.value.turns.last().suggestions.map { it.status }
 
@@ -288,5 +303,62 @@ class AssistantViewModelTest {
         val ids = vm.uiState.value.turns.flatMap { it.suggestions }.map { it.id }
         assertEquals(2, vm.uiState.value.turns.size)
         assertEquals(ids.size, ids.toSet().size)
+    }
+
+    // ---- creating things
+
+    private val newTask = AssistantSuggestion.CreateTask("Buy milk", "Low at home", Instant.parse("2026-11-09T03:30:00Z"), Priority.HIGH, "Every week", "p1", "Home")
+    private val newEvent = AssistantSuggestion.CreateEvent("Dentist", "", Instant.parse("2026-11-10T09:30:00Z"), Instant.parse("2026-11-10T10:30:00Z"), false)
+    private val newReminder = AssistantSuggestion.CreateReminder("Stretch", "", Instant.parse("2026-11-08T08:30:00Z"), "Every day")
+
+    @Test
+    fun `new things are described and labelled by kind`() {
+        coEvery { ai.assist(any(), any()) } returns Result.success(AssistantReply("Added.", listOf(newTask, newEvent, newReminder, AssistantSuggestion.Complete("a", "Pay bill", ""))))
+        val vm = viewModel()
+        vm.ask("add things")
+
+        val ui = vm.uiState.value.turns.single().suggestions
+        assertEquals(listOf(SuggestionKind.TASK, SuggestionKind.EVENT, SuggestionKind.REMINDER, SuggestionKind.COMPLETE), ui.map { it.kind })
+        assertTrue(ui[0].title.startsWith("Buy milk — "))
+        assertTrue(ui[0].title.contains("Every week") && ui[0].title.contains("#Home") && ui[0].title.contains("high"))
+        assertTrue(ui[1].title.startsWith("Dentist — "))
+        assertTrue(ui[2].title.endsWith("Every day"))
+        assertEquals("Pay bill", ui[3].title)
+        coVerify(exactly = 0) { tasks.create(any()) }
+        coVerify(exactly = 0) { calendar.createEvent(any()) }
+        coVerify(exactly = 0) { reminders.create(any()) }
+    }
+
+    @Test
+    fun `accepting creates the task, the event and the reminder through the repositories`() {
+        coEvery { ai.assist(any(), any()) } returns Result.success(AssistantReply("Added.", listOf(newTask, newEvent, newReminder, AssistantSuggestion.Complete("a", "Pay bill", ""))))
+        val vm = viewModel()
+        vm.ask("add things")
+
+        vm.acceptAll(vm.uiState.value.turns.single().id)
+
+        assertEquals(List(4) { SuggestionStatus.ACCEPTED }, vm.statuses())
+        coVerify(exactly = 1) { tasks.create(NewTask(title = "Buy milk", projectId = "p1", priority = Priority.HIGH, dueAt = Instant.parse("2026-11-09T03:30:00Z"), repeatRule = "Every week")) }
+        coVerify(exactly = 1) { calendar.createEvent(NewEvent("Dentist", Instant.parse("2026-11-10T09:30:00Z"), Instant.parse("2026-11-10T10:30:00Z"), false)) }
+        coVerify(exactly = 1) { reminders.create(NewReminder(title = "Stretch", remindAt = Instant.parse("2026-11-08T08:30:00Z"), repeatRule = "Every day")) }
+        coVerify(exactly = 1) { tasks.setDone("a", true) }
+    }
+
+    @Test
+    fun `a creation that fails can be retried and is only made once`() {
+        coEvery { ai.assist(any(), any()) } returns Result.success(AssistantReply("ok", listOf(newEvent)))
+        coEvery { calendar.createEvent(any()) } returns Result.failure(RuntimeException("offline"))
+        val vm = viewModel()
+        vm.ask("x")
+        val id = vm.uiState.value.turns.single().suggestions.single().id
+
+        vm.accept(id)
+        assertEquals(SuggestionStatus.FAILED, vm.statuses().single())
+
+        coEvery { calendar.createEvent(any()) } returns Result.success(Unit)
+        vm.accept(id)
+        assertEquals(SuggestionStatus.ACCEPTED, vm.statuses().single())
+        vm.accept(id) // already done: ignored
+        coVerify(exactly = 2) { calendar.createEvent(any()) }
     }
 }
