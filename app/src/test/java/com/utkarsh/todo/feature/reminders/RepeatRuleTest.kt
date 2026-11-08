@@ -42,6 +42,36 @@ class RepeatRuleTest {
     }
 
     @Test
+    fun `a monthly rule on the 31st does not slide to the 28th after a short month`() {
+        val jan31 = ZonedDateTime.of(2026, 1, 31, 9, 0, 0, 0, zone)
+        val afterFeb = ZonedDateTime.of(2026, 3, 1, 0, 0, 0, 0, zone)
+        // Counting from the original date: March 31, not March 28.
+        assertEquals(ZonedDateTime.of(2026, 3, 31, 9, 0, 0, 0, zone), RepeatRule.next("Every Month", jan31, afterFeb))
+        assertEquals(ZonedDateTime.of(2026, 5, 31, 9, 0, 0, 0, zone), RepeatRule.next("Every 2 Months", jan31, ZonedDateTime.of(2026, 4, 1, 0, 0, 0, 0, zone)))
+    }
+
+    @Test
+    fun `a reminder that fires a little late keeps its schedule`() {
+        // Meant for 14:00, the alarm actually went off at 14:00:40. The next one is 16:00 sharp, not 16:00:40.
+        val meant = at(7, 14)
+        val late = at(7, 14).plusSeconds(40)
+        assertEquals(at(7, 16), RepeatRule.next("Every 2 Hours", meant, late))
+        assertEquals(at(8, 14), RepeatRule.next("Every Day", meant, late))
+        assertEquals(at(14, 14), RepeatRule.next("Every Saturday", meant, late))
+    }
+
+    @Test
+    fun `many cycles in a row never drift`() {
+        var scheduled = at(1, 7)
+        var now = scheduled.plusMinutes(3) // always three minutes late
+        repeat(30) {
+            scheduled = RepeatRule.next("Every Day", scheduled, now)!!
+            now = scheduled.plusMinutes(3)
+        }
+        assertEquals(at(1, 7).plusDays(30), scheduled)
+    }
+
+    @Test
     fun `unknown or malformed rules are unsupported`() {
         assertNull(RepeatRule.next("Every Blue Moon", at(7, 9), at(7, 10)))
         assertNull(RepeatRule.next("sometimes", at(7, 9), at(7, 10)))

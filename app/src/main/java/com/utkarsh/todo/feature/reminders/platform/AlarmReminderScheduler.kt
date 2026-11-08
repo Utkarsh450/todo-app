@@ -16,7 +16,7 @@ class AlarmReminderScheduler @Inject constructor(@ApplicationContext private val
     private val alarms = context.getSystemService(AlarmManager::class.java)
 
     override fun schedule(reminder: Reminder) {
-        val intent = checkNotNull(pendingIntent(reminder.id, reminder.title, reminder.repeatRule, PendingIntent.FLAG_UPDATE_CURRENT))
+        val intent = checkNotNull(pendingIntent(reminder.id, reminder.title, reminder.repeatRule, reminder.remindAt.toEpochMilli(), PendingIntent.FLAG_UPDATE_CURRENT))
         val triggerAt = reminder.effectiveAt.toEpochMilli()
         if (alarms.canScheduleExactAlarms()) {
             alarms.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, intent)
@@ -26,18 +26,19 @@ class AlarmReminderScheduler @Inject constructor(@ApplicationContext private val
     }
 
     override fun cancel(id: String) {
-        pendingIntent(id, title = "", repeatRule = null, PendingIntent.FLAG_NO_CREATE)?.let { pending ->
+        pendingIntent(id, title = "", repeatRule = null, remindAtMillis = 0L, PendingIntent.FLAG_NO_CREATE)?.let { pending ->
             alarms.cancel(pending)
             pending.cancel() // also drop the token so it does not linger after the alarm is gone
         }
     }
 
-    private fun pendingIntent(id: String, title: String, repeatRule: String?, flag: Int): PendingIntent? {
+    private fun pendingIntent(id: String, title: String, repeatRule: String?, remindAtMillis: Long, flag: Int): PendingIntent? {
         val intent = Intent(context, ReminderReceiver::class.java)
             .setAction(ReminderReceiver.ACTION_FIRE)
             .putExtra(ReminderReceiver.EXTRA_ID, id)
             .putExtra(ReminderReceiver.EXTRA_TITLE, title)
             .putExtra(ReminderReceiver.EXTRA_REPEAT, repeatRule)
+            .putExtra(ReminderReceiver.EXTRA_REMIND_AT, remindAtMillis)
         // One alarm per reminder: the request code is derived from the reminder id.
         return PendingIntent.getBroadcast(context, id.hashCode(), intent, flag or PendingIntent.FLAG_IMMUTABLE)
     }

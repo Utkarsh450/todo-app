@@ -14,6 +14,12 @@ interface RemindersRepository {
     suspend fun reschedule(id: String, remindAt: Instant): Result<Reminder>
     suspend fun delete(id: String): Result<Unit>
 
+    /**
+     * Puts alarms back from what this phone remembers, without the network (after a reboot, or on app start while
+     * offline). Repeating reminders that came due in the meantime are rolled forward.
+     */
+    suspend fun restoreAlarms(): Result<Unit>
+
     /** Re-registers device alarms for every enabled, upcoming reminder (app start / after reboot). */
     suspend fun syncAlarms(): Result<Unit>
 }

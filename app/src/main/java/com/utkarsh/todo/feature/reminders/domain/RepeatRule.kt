@@ -21,11 +21,10 @@ object RepeatRule {
      */
     fun next(rule: String, from: ZonedDateTime, now: ZonedDateTime): ZonedDateTime? {
         val parsed = parse(rule) ?: return null
-        var candidate = from
-        // Step in a loop: bounded because every step moves forward by at least a minute-sized unit,
-        // and the cap protects against absurdly old `from` values.
-        repeat(MAX_STEPS) {
-            candidate = parsed.step(candidate)
+        // Always count k steps from the original moment (never from the previous candidate), so a monthly rule on the
+        // 31st goes Feb 28 -> Mar 31 rather than Feb 28 -> Mar 28, and nothing slowly drifts. Bounded by MAX_STEPS.
+        for (k in 1..MAX_STEPS) {
+            val candidate = parsed.at(from, k)
             if (candidate.isAfter(now)) return candidate
         }
         return null
@@ -34,25 +33,29 @@ object RepeatRule {
     private const val MAX_STEPS = 100_000
 
     private sealed interface Parsed {
-        fun step(from: ZonedDateTime): ZonedDateTime
+        /** The [k]-th occurrence after [from] (k >= 1). */
+        fun at(from: ZonedDateTime, k: Int): ZonedDateTime
     }
 
     private data class Interval(val amount: Long, val unit: Unit) : Parsed {
         enum class Unit { MINUTES, HOURS, DAYS, WEEKS, MONTHS }
-        override fun step(from: ZonedDateTime): ZonedDateTime = when (unit) {
-            Unit.MINUTES -> from.plus(Duration.ofMinutes(amount))
-            Unit.HOURS -> from.plus(Duration.ofHours(amount))
-            Unit.DAYS -> from.plusDays(amount)
-            Unit.WEEKS -> from.plusWeeks(amount)
-            Unit.MONTHS -> from.plusMonths(amount)
+        override fun at(from: ZonedDateTime, k: Int): ZonedDateTime {
+            val n = amount * k
+            return when (unit) {
+                Unit.MINUTES -> from.plus(Duration.ofMinutes(n))
+                Unit.HOURS -> from.plus(Duration.ofHours(n))
+                Unit.DAYS -> from.plusDays(n)
+                Unit.WEEKS -> from.plusWeeks(n)
+                Unit.MONTHS -> from.plusMonths(n)
+            }
         }
     }
 
     private data class Weekday(val day: DayOfWeek) : Parsed {
-        override fun step(from: ZonedDateTime): ZonedDateTime {
-            var next = from.plusDays(1)
-            while (next.dayOfWeek != day) next = next.plusDays(1)
-            return next
+        override fun at(from: ZonedDateTime, k: Int): ZonedDateTime {
+            var first = from.plusDays(1)
+            while (first.dayOfWeek != day) first = first.plusDays(1)
+            return first.plusWeeks((k - 1).toLong())
         }
     }
 

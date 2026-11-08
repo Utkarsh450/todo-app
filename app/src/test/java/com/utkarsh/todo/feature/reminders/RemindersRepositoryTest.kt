@@ -5,6 +5,7 @@ import com.utkarsh.todo.feature.reminders.data.RemindersApi
 import com.utkarsh.todo.feature.reminders.data.RemindersRepositoryImpl
 import com.utkarsh.todo.feature.reminders.domain.NewReminder
 import com.utkarsh.todo.feature.reminders.domain.Reminder
+import com.utkarsh.todo.feature.reminders.domain.ReminderAlarmStore
 import com.utkarsh.todo.feature.reminders.domain.ReminderScheduler
 import java.time.Clock
 import java.time.Instant
@@ -21,6 +22,13 @@ import org.junit.Before
 import org.junit.Test
 import retrofit2.create
 
+private class FakeStore : ReminderAlarmStore {
+    val items = mutableMapOf<String, Reminder>()
+    override fun put(reminder: Reminder) { items[reminder.id] = reminder }
+    override fun remove(id: String) { items.remove(id) }
+    override fun all() = items.values.toList()
+}
+
 private class FakeScheduler : ReminderScheduler {
     val scheduled = mutableMapOf<String, Reminder>()
     val cancelled = mutableListOf<String>()
@@ -31,13 +39,14 @@ private class FakeScheduler : ReminderScheduler {
 class RemindersRepositoryTest {
     private val now = Instant.parse("2026-11-07T10:00:00Z")
     private val scheduler = FakeScheduler()
+    private val store = FakeStore()
     private lateinit var server: MockWebServer
     private lateinit var repository: RemindersRepositoryImpl
 
     @Before
     fun setUp() {
         server = MockWebServer().also { it.start() }
-        repository = RemindersRepositoryImpl(buildRetrofit(server.url("/api/").toString()).create<RemindersApi>(), scheduler, Clock.fixed(now, ZoneOffset.UTC))
+        repository = RemindersRepositoryImpl(buildRetrofit(server.url("/api/").toString()).create<RemindersApi>(), scheduler, Clock.fixed(now, ZoneOffset.UTC), store)
     }
 
     @After
@@ -132,5 +141,66 @@ class RemindersRepositoryTest {
         assertEquals(listOf("l"), groups.later.map { it.id })
         assertEquals(listOf("o", "t", "l"), groups.all.map { it.id })
         assertEquals("2026-11-08T00:00:00Z", server.takeRequest().url.queryParameter("endOfToday"))
+    }
+
+    // ---- restoring and rolling forward
+
+    private fun stored(id: String, at: String, repeat: String? = null, snoozed: String? = null) =
+        Reminder(id, null, "Stored $id", Instant.parse(at), repeat, null, true, snoozed?.let(Instant::parse))
+
+    @Test
+    fun `restoring alarms uses only what the phone remembers and never calls the server`() = runTest {
+        store.put(stored("a", "2026-11-07T14:00:00Z"))
+        store.put(stored("b", "2026-11-08T09:00:00Z"))
+
+        repository.restoreAlarms().getOrThrow()
+
+        assertEquals(setOf("a", "b"), scheduler.scheduled.keys)
+        assertEquals(0, server.requestCount)
+    }
+
+    @Test
+    fun `restoring leaves out a one-off whose time has passed`() = runTest {
+        store.put(stored("old", "2026-11-07T08:00:00Z"))
+        store.put(stored("soon", "2026-11-07T12:00:00Z"))
+
+        repository.restoreAlarms().getOrThrow()
+
+        assertEquals(setOf("soon"), scheduler.scheduled.keys)
+        assertTrue("old" in scheduler.cancelled)
+    }
+
+    @Test
+    fun `a repeating reminder that came due while the phone was off is rolled forward, keeping its time of day`() = runTest {
+        // Every day at 07:00 UTC, last scheduled three days ago; "now" is 10:00 on 7 Nov.
+        store.put(stored("daily", "2026-11-04T07:00:00Z", repeat = "Every Day"))
+
+        repository.restoreAlarms().getOrThrow()
+
+        assertEquals(Instant.parse("2026-11-08T07:00:00Z"), scheduler.scheduled.getValue("daily").remindAt)
+    }
+
+    @Test
+    fun `syncing also tells the server about a reminder it rolled forward`() = runTest {
+        server.enqueue(json("[${reminder("daily", at = "2026-11-04T07:00:00.000Z", repeat = "Every Day")}]"))
+        server.enqueue(json(reminder("daily", at = "2026-11-08T07:00:00.000Z", repeat = "Every Day")))
+
+        repository.syncAlarms().getOrThrow()
+
+        assertEquals(Instant.parse("2026-11-08T07:00:00Z"), scheduler.scheduled.getValue("daily").remindAt)
+        server.takeRequest() // the list
+        val update = server.takeRequest()
+        assertEquals("PATCH", update.method)
+        assertEquals("2026-11-08T07:00:00Z", Json.parseToJsonElement(update.body!!.utf8()).jsonObject.getValue("remindAt").toString().trim('"'))
+    }
+
+    @Test
+    fun `syncing does not touch the server for reminders that need no change`() = runTest {
+        server.enqueue(json("[${reminder("r1")}]"))
+
+        repository.syncAlarms().getOrThrow()
+
+        assertEquals(1, server.requestCount) // just the list
+        assertEquals(setOf("r1"), scheduler.scheduled.keys)
     }
 }

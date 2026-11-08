@@ -1,9 +1,11 @@
 package com.utkarsh.todo.feature.reminders.data
 
 import com.utkarsh.todo.core.common.resultOf
+import com.utkarsh.todo.feature.reminders.domain.AlarmPlan
 import com.utkarsh.todo.feature.reminders.domain.NewReminder
 import com.utkarsh.todo.feature.reminders.domain.Reminder
 import com.utkarsh.todo.feature.reminders.domain.ReminderGroups
+import com.utkarsh.todo.feature.reminders.domain.ReminderAlarmStore
 import com.utkarsh.todo.feature.reminders.domain.ReminderScheduler
 import com.utkarsh.todo.feature.reminders.domain.RemindersRepository
 import java.time.Clock
@@ -18,6 +20,7 @@ class RemindersRepositoryImpl @Inject constructor(
     private val api: RemindersApi,
     private val scheduler: ReminderScheduler,
     private val clock: Clock,
+    private val store: ReminderAlarmStore,
 ) : RemindersRepository {
 
     override suspend fun grouped(now: Instant, endOfToday: Instant, endOfWeek: Instant) = resultOf {
@@ -51,14 +54,30 @@ class RemindersRepositoryImpl @Inject constructor(
 
     override suspend fun delete(id: String) = resultOf { api.delete(id) }.also { result -> result.onSuccess { scheduler.cancel(id) } }
 
+    override suspend fun restoreAlarms() = resultOf { store.all().forEach(::apply) }
+
     override suspend fun syncAlarms() = resultOf {
-        api.list().map { it.toDomain() }.forEach(::apply)
+        api.list().map { it.toDomain() }.forEach { reminder ->
+            val planned = apply(reminder)
+            // A repeating reminder rolled forward because it came due while the phone was off: tell the server too.
+            if (planned != null && planned.remindAt != reminder.remindAt) {
+                runCatching {
+                    api.update(reminder.id, buildJsonObject {
+                        put("remindAt", JsonPrimitive(planned.remindAt.toString()))
+                        put("snoozedUntil", JsonNull)
+                    })
+                }
+            }
+        }
     }
 
     private fun Result<Reminder>.synced() = onSuccess(::apply)
 
-    private fun apply(reminder: Reminder) {
-        if (reminder.enabled && reminder.effectiveAt.isAfter(clock.instant())) scheduler.schedule(reminder) else scheduler.cancel(reminder.id)
+    /** Registers (or cancels) the alarm for [reminder] and returns what was registered, null if none. */
+    private fun apply(reminder: Reminder): Reminder? {
+        val planned = AlarmPlan.plan(reminder, clock.instant(), clock.zone)
+        if (planned != null) scheduler.schedule(planned) else scheduler.cancel(reminder.id)
+        return planned
     }
 }
 

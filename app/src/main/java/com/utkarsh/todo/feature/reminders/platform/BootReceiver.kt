@@ -21,7 +21,8 @@ class BootReceiver : BroadcastReceiver() {
         val pending = goAsync()
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
             try {
-                repository.syncAlarms()
+                repository.restoreAlarms() // from this phone, no network needed
+                repository.syncAlarms() // then catch up with the server if it can be reached
             } finally {
                 pending.finish()
             }

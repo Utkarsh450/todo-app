@@ -19,6 +19,9 @@ class TodoApplication : Application() {
         super.onCreate()
         notifications.ensureChannel()
         // Keep device alarms in step with the server; failures (offline) are retried next launch.
-        CoroutineScope(SupervisorJob() + Dispatchers.IO).launch { reminders.syncAlarms() }
+        CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
+            reminders.restoreAlarms() // works offline
+            reminders.syncAlarms()
+        }
     }
 }
