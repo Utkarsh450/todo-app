@@ -3,6 +3,8 @@ import helmet from '@fastify/helmet';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { serializerCompiler, validatorCompiler, hasZodFastifySchemaValidationErrors } from 'fastify-type-provider-zod';
 import type { Env } from './config/env.js';
+import { createXaiClient, type AiClient } from './modules/ai/ai.client.js';
+import { aiRoutes } from './modules/ai/ai.routes.js';
 import { AppError } from './lib/errors.js';
 import type { Logger } from './lib/logger.js';
 import type { Db } from './lib/prisma.js';
@@ -19,6 +21,7 @@ declare module 'fastify' {
   interface FastifyInstance {
     db: Db;
     appLogger: Logger;
+    ai: AiClient;
   }
 }
 
@@ -26,16 +29,22 @@ export interface AppDeps {
   env: Env;
   db: Db;
   logger: Logger;
+  /** Replaced in tests so no real AI service is called. */
+  ai?: AiClient;
 }
 
 /** Builds the Fastify app. Dependencies are injected so tests can supply their own. */
-export async function buildApp({ env, db, logger }: AppDeps): Promise<FastifyInstance> {
+export async function buildApp({ env, db, logger, ai }: AppDeps): Promise<FastifyInstance> {
   const app = Fastify({ logger: false });
 
   app.setValidatorCompiler(validatorCompiler);
   app.setSerializerCompiler(serializerCompiler);
   app.decorate('db', db);
   app.decorate('appLogger', logger);
+  app.decorate(
+    'ai',
+    ai ?? createXaiClient({ apiKey: env.XAI_API_KEY, baseUrl: env.XAI_BASE_URL, model: env.XAI_MODEL, timeoutMs: env.XAI_TIMEOUT_MS, logger }),
+  );
 
   await app.register(helmet);
   await app.register(cors, { origin: true });
@@ -65,6 +74,7 @@ export async function buildApp({ env, db, logger }: AppDeps): Promise<FastifyIns
   await app.register(habitRoutes, { prefix: '/api' });
   await app.register(noteRoutes, { prefix: '/api' });
   await app.register(insightRoutes, { prefix: '/api' });
+  await app.register(aiRoutes, { prefix: '/api' });
 
   app.addHook('onClose', async () => {
     await db.$disconnect();
