@@ -17,7 +17,7 @@ note, Grok sorts it into tasks with dates, priority, repeat and project, you unt
 **Projects** (⋯ on Today: progress per project, tick tasks, make/rename/recolour/delete) · **Search** · **Focus** timer on a task page ·
 **Offline reading**: screens you already opened keep showing their last saved data, with an "Offline" banner, when the server can't be reached.
 
-## AI (Grok)
+## AI (Grok or Groq)
 AI calls go through the backend, so the key never lives on the phone. Get a key at <https://console.x.ai>, then put it
 in `backend/.env` and restart the backend:
 ```

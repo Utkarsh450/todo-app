@@ -50,7 +50,7 @@ pnpm build && node --env-file=.env dist/server.js
 pnpm prisma:migrate / prisma:deploy / prisma:seed
 ```
 Result files: `app/build/test-results/testDebugUnitTest/*.xml`, `app/build/outputs/androidTest-results/connected/debug/*.xml`.
-Test counts at last run: backend 157, Android unit 263, emulator 137 — all green.
+Test counts at last run: backend 174, Android unit 375, emulator 199 (5 of them are the end-to-end tests, which skip without a running backend) — all green.
 
 ## Database
 Local PostgreSQL 16 (Homebrew), browse with pgAdmin. Databases: `paper_todo` (dev) and `paper_todo_test` (tests; the
@@ -75,7 +75,7 @@ calendar (month + week timeline), insights, **customize** (Today block show/hide
 dots/lines/plain, cozy/compact density; DataStore-backed `SettingsRepository`; gear icon on Today opens it),
 quick add **Task / Note / Event** (Note appends to today's scratchpad, Event -> calendar),
 **AI Break it down** (task page -> bottom sheet; backend `modules/ai`, app `feature/ai` + `feature/breakdown`).
-AI uses **Grok (xAI)** via the backend only (`XAI_API_KEY`, `XAI_MODEL`, `XAI_BASE_URL`, `XAI_TIMEOUT_MS` in `backend/.env`).
+AI uses an OpenAI-compatible chat API (the owner's `.env` points at **Groq**) via the backend only (`XAI_API_KEY`, `XAI_MODEL`, `XAI_BASE_URL`, `XAI_TIMEOUT_MS` in `backend/.env`).
 **Assistant** (design 09; ✦ on the Today header -> `feature/assistant`; backend `POST /ai/assist`),
 **Brain dump** (design 14; ✎ on the Today header -> `feature/braindump`; backend `POST /ai/braindump`).
 Focus (11) is built (`feature/focus/ui`; "Focus · 25:00" on the task page -> `Destination.Focus`; countdown derived from the clock, presets 15/25/45, not persisted). Projects (12) is built (`feature/projects/ui`), Search (13) too (`feature/search/ui`, Today ⋯ menu -> Search; debounced title search via `TasksRepository.search`).
