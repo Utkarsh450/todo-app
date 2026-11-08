@@ -35,6 +35,7 @@ import com.utkarsh.todo.core.designsystem.component.PaperCard
 import com.utkarsh.todo.core.designsystem.component.PaperSegmentedControl
 import com.utkarsh.todo.core.designsystem.component.StatCard
 import com.utkarsh.todo.core.designsystem.theme.Paper
+import com.utkarsh.todo.core.designsystem.theme.paperSurface
 import com.utkarsh.todo.feature.insights.domain.HeatmapMode
 import java.time.LocalDate
 
@@ -53,7 +54,7 @@ fun InsightsScreen(
     modifier: Modifier = Modifier,
 ) {
     val colors = Paper.colors
-    Column(modifier.fillMaxSize().background(colors.paper).statusBarsPadding()) {
+    Column(modifier.fillMaxSize().paperSurface().statusBarsPadding()) {
         Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             MonoLabel("Last $HEATMAP_WEEKS weeks", Modifier.weight(1f))
             PaperSegmentedControl(HeatmapMode.entries, state.mode, onModeChange, labelOf = { if (it == HeatmapMode.TASKS) "Tasks" else "Habits" })

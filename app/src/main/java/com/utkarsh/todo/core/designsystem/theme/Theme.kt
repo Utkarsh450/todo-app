@@ -11,6 +11,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
 private val LocalPaperColors = staticCompositionLocalOf { PaperColors() }
 private val LocalPaperTypography = staticCompositionLocalOf { PaperTypography() }
 private val LocalDensity = staticCompositionLocalOf { Density.Cozy }
+private val LocalPaperPattern = staticCompositionLocalOf { PaperPattern.Plain }
 
 /** Accessors for the Paper design tokens: `Paper.colors`, `Paper.type`, `Paper.density`. */
 object Paper {
@@ -20,6 +21,8 @@ object Paper {
         @Composable @ReadOnlyComposable get() = LocalPaperTypography.current
     val density: Density
         @Composable @ReadOnlyComposable get() = LocalDensity.current
+    val pattern: PaperPattern
+        @Composable @ReadOnlyComposable get() = LocalPaperPattern.current
 }
 
 /**
@@ -29,6 +32,7 @@ object Paper {
 @Composable
 fun PaperTheme(
     density: Density = Density.Cozy,
+    pattern: PaperPattern = PaperPattern.Plain,
     @Suppress("UNUSED_PARAMETER") darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit,
 ) {
@@ -50,6 +54,7 @@ fun PaperTheme(
         LocalPaperColors provides colors,
         LocalPaperTypography provides typography,
         LocalDensity provides density,
+        LocalPaperPattern provides pattern,
     ) {
         MaterialTheme(colorScheme = scheme, typography = typography.toMaterial(), content = content)
     }

@@ -18,7 +18,7 @@ Visual design is the "Paper System" (see **Design** below). Read this file first
 app/src/main/java/com/utkarsh/todo/
   core/            common (Clock, DayRange, resultOf), designsystem (theme/, component/, icon/), navigation, network
   feature/<name>/  domain/ (models, repository interfaces, pure logic)  data/ (Retrofit api, repo impl, Hilt module)  ui/ (ViewModel + Compose)
-    projects tasks quickadd today taskdetail reminders calendar habits notes insights
+    projects tasks quickadd today taskdetail reminders calendar habits notes insights customize
 backend/src/
   app.ts server.ts  config/env.ts  lib/ (logger=winston, prisma, errors)
   modules/<name>/ (*.schema.ts zod, *.service.ts, *.routes.ts)   health projects tasks reminders calendar habits notes insights
@@ -50,7 +50,7 @@ pnpm build && node --env-file=.env dist/server.js
 pnpm prisma:migrate / prisma:deploy / prisma:seed
 ```
 Result files: `app/build/test-results/testDebugUnitTest/*.xml`, `app/build/outputs/androidTest-results/connected/debug/*.xml`.
-Test counts at last run: backend 57, Android unit 127, emulator 49 — all green.
+Test counts at last run: backend 57, Android unit 156, emulator 71 — all green.
 
 ## Database
 Local PostgreSQL 16 (Homebrew), browse with pgAdmin. Databases: `paper_todo` (dev) and `paper_todo_test` (tests; the
@@ -70,20 +70,17 @@ Screens: Today, Task page, Quick add, Planner (= Calendar "Week"), Calendar, Rem
 ## Status
 Done + tested + pushed: backend (all modules), design system, networking, projects, tasks, quick add (Task only), Today
 (blocks/plan, swipe+undo, habits, scratchpad), task detail, reminders (scheduling, repeat rules, boot receiver, UI),
-calendar (month + week timeline), insights.
+calendar (month + week timeline), insights, **customize** (Today block show/hide + reorder, paper background
+dots/lines/plain, cozy/compact density; DataStore-backed `SettingsRepository`; gear icon on Today opens it).
 
 **Remaining work (suggested order):**
-1. **Customize screen** (design #08): Today block visibility + order (pinned/tasks/habits/scratchpad), paper background
-   (dots/lines/plain), density (cozy/compact -> `Density` already feeds row padding). Persist with Jetpack DataStore
-   (`androidx-datastore-preferences` is in the version catalog but not yet a dependency), expose a `SettingsRepository`,
-   make `TodayScreen`/`PaperTheme` consume it, and set the design default (scratchpad off). Add a nav entry (e.g. gear on Today).
-2. Quick add **Note** and **Event** types (design has the Task/Note/Event segmented control): Event -> `CalendarRepository.createEvent`
+1. Quick add **Note** and **Event** types (design has the Task/Note/Event segmented control): Event -> `CalendarRepository.createEvent`
    (already implemented), Note -> `NotesRepository.save`.
-3. Task detail: REMIND row (create a reminder 1h before due), notes editing, delete confirmation dialog, focus timer ("Focus · 25:00").
-4. Real fonts (see Design), launcher icon, release signing/R8 check, CI workflow.
-5. Offline support (currently every screen needs the backend), auth if the API is ever exposed (it is unauthenticated, single-user).
-6. Project management UI (API + repository exist; no screen yet).
-7. A true end-to-end instrumented test (Hilt test app + real backend) — today E2E was verified manually with `adb` + screenshots.
+2. Task detail: REMIND row (create a reminder 1h before due), notes editing, delete confirmation dialog, focus timer ("Focus · 25:00").
+3. Real fonts (see Design), launcher icon, release signing/R8 check, CI workflow.
+4. Offline support (currently every screen needs the backend), auth if the API is ever exposed (it is unauthenticated, single-user).
+5. Project management UI (API + repository exist; no screen yet).
+6. A true end-to-end instrumented test (Hilt test app + real backend) — today E2E was verified manually with `adb` + screenshots.
 
 ## Gotchas learned
 - Compose `performClick` on a tiny non-clickable node can hit a clickable neighbour (min touch target expansion); assert click actions instead.
@@ -91,5 +88,10 @@ calendar (month + week timeline), insights.
 - Notifications post asynchronously — poll in tests; use distinct ids per test.
 - `MonoLabel` uppercases text, so tests must look for the uppercase string.
 - Material `SwipeToDismissBox(confirmValueChange=…)` is deprecated; `SwipeActionRow` fires from `currentValue` instead.
+- `paperSurface()` replaces a flat `background(colors.paper)` on full-screen surfaces; use it on any new screen so the Customize
+  paper pattern shows. `PaperTheme(density, pattern)` is fed from `SettingsRepository` in `MainActivity`.
+- `AppSettings.blockOrder` must list every `TodayBlock` exactly once (enforced in `init`); hidden blocks keep their slot.
+  `hiddenBlocks` absent in DataStore means "never saved" (design default: scratchpad off), an empty set means "show all".
+- DataStore files must be opened once per process: in tests cancel the first store's scope before reopening the same file.
 - A failed action must not have its error message cleared by the recovery reload (`TodayViewModel.load(clearError=false)`).
 - `adb shell input text '#x'` types `%23` unless quoted as `"input text '#x'"`.

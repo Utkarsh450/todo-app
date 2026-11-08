@@ -45,8 +45,12 @@ import com.utkarsh.todo.core.designsystem.component.PaperCard
 import com.utkarsh.todo.core.designsystem.component.PaperSegmentedControl
 import com.utkarsh.todo.core.designsystem.component.ProjectTag
 import com.utkarsh.todo.core.designsystem.component.UndoSnackbar
+import com.utkarsh.todo.core.designsystem.icon.PaperIcons
 import com.utkarsh.todo.core.designsystem.theme.Paper
+import com.utkarsh.todo.core.designsystem.theme.paperSurface
 import com.utkarsh.todo.core.designsystem.theme.parseHexColor
+import com.utkarsh.todo.feature.customize.domain.TodayBlock
+import com.utkarsh.todo.feature.customize.ui.CustomizeViewModel
 import com.utkarsh.todo.feature.habits.ui.HabitsBlock
 import com.utkarsh.todo.feature.notes.ui.NoteBlock
 import com.utkarsh.todo.feature.today.domain.TaskItem
@@ -56,8 +60,15 @@ import kotlinx.coroutines.delay
 private const val UNDO_VISIBLE_MS = 4_000L
 
 @Composable
-fun TodayRoute(onOpenTask: (String) -> Unit, modifier: Modifier = Modifier, viewModel: TodayViewModel = hiltViewModel()) {
+fun TodayRoute(
+    onOpenTask: (String) -> Unit,
+    onCustomize: () -> Unit,
+    modifier: Modifier = Modifier,
+    viewModel: TodayViewModel = hiltViewModel(),
+    settingsViewModel: CustomizeViewModel = hiltViewModel(),
+) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val settings by settingsViewModel.uiState.collectAsStateWithLifecycle()
     TodayScreen(
         state = state,
         onViewChange = viewModel::setView,
@@ -71,6 +82,8 @@ fun TodayRoute(onOpenTask: (String) -> Unit, modifier: Modifier = Modifier, view
         modifier = modifier,
         habitsContent = { HabitsBlock() },
         noteContent = { NoteBlock() },
+        blocks = settings.settings.visibleBlocks,
+        onCustomize = onCustomize,
     )
 }
 
@@ -89,14 +102,26 @@ fun TodayScreen(
     /** Optional extra blocks, supplied by the route so this screen stays free of Hilt for previews/tests. */
     habitsContent: (@Composable () -> Unit)? = null,
     noteContent: (@Composable () -> Unit)? = null,
+    /** Which blocks to show, in order (see Customize). Defaults to all of them. */
+    blocks: List<TodayBlock> = TodayBlock.entries,
+    /** Shows the Customize button when set. */
+    onCustomize: (() -> Unit)? = null,
 ) {
     val colors = Paper.colors
     LaunchedEffect(state.undo) { if (state.undo != null) { delay(UNDO_VISIBLE_MS); onDismissUndo() } }
 
-    Box(modifier.fillMaxSize().background(colors.paper).statusBarsPadding()) {
+    Box(modifier.fillMaxSize().paperSurface().statusBarsPadding()) {
         Column(Modifier.fillMaxSize()) {
             Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                 MonoLabel(state.caption, Modifier.weight(1f))
+                onCustomize?.let { open ->
+                    Icon(
+                        PaperIcons.Customize,
+                        contentDescription = "Customize",
+                        tint = colors.muted,
+                        modifier = Modifier.padding(end = 4.dp).clip(RoundedCornerShape(8.dp)).clickable(onClick = open).padding(8.dp).testTag("open-customize"),
+                    )
+                }
                 PaperSegmentedControl(
                     options = TodayView.entries,
                     selected = state.view,
@@ -116,7 +141,7 @@ fun TodayScreen(
             when {
                 state.isLoading && state.items.isEmpty() -> Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator(color = colors.ink) }
                 state.errorMessage != null && state.items.isEmpty() -> ErrorState(state.errorMessage, onRetry)
-                state.view == TodayView.BLOCKS -> BlocksView(state, onToggle, onOpen, onMoveToTomorrow, onArchive, habitsContent, noteContent)
+                state.view == TodayView.BLOCKS -> BlocksView(state, blocks, onToggle, onOpen, onMoveToTomorrow, onArchive, habitsContent, noteContent)
                 else -> PlanView(state.items)
             }
         }
@@ -129,6 +154,7 @@ fun TodayScreen(
 @Composable
 private fun BlocksView(
     state: TodayUiState,
+    blocks: List<TodayBlock>,
     onToggle: (String) -> Unit,
     onOpen: (String) -> Unit,
     onMoveToTomorrow: (String) -> Unit,
@@ -137,12 +163,16 @@ private fun BlocksView(
     noteContent: (@Composable () -> Unit)?,
 ) {
     LazyColumn(Modifier.fillMaxSize().padding(horizontal = 14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        state.pinned?.let { pinned -> item(key = "block-pinned") { PinnedBlock(pinned) } }
-        item(key = "block-tasks") {
-            TasksBlock(state.items, state.left, onToggle, onOpen, onMoveToTomorrow, onArchive)
+        blocks.forEach { block ->
+            when (block) {
+                TodayBlock.PINNED -> state.pinned?.let { pinned -> item(key = "block-pinned") { PinnedBlock(pinned) } }
+                TodayBlock.TASKS -> item(key = "block-tasks") {
+                    TasksBlock(state.items, state.left, onToggle, onOpen, onMoveToTomorrow, onArchive)
+                }
+                TodayBlock.HABITS -> habitsContent?.let { content -> item(key = "block-habits") { BlockCard(title = "Habits", count = "", content = content) } }
+                TodayBlock.SCRATCHPAD -> noteContent?.let { content -> item(key = "block-note") { BlockCard(title = "Scratchpad", count = "", content = content) } }
+            }
         }
-        habitsContent?.let { content -> item(key = "block-habits") { BlockCard(title = "Habits", count = "", content = content) } }
-        noteContent?.let { content -> item(key = "block-note") { BlockCard(title = "Scratchpad", count = "", content = content) } }
         item(key = "spacer") { Box(Modifier.height(24.dp)) }
     }
 }

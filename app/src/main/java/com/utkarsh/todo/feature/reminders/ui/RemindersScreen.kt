@@ -46,6 +46,7 @@ import com.utkarsh.todo.core.designsystem.component.SwipeAction
 import com.utkarsh.todo.core.designsystem.component.SwipeActionRow
 import com.utkarsh.todo.core.designsystem.component.UndoSnackbar
 import com.utkarsh.todo.core.designsystem.theme.Paper
+import com.utkarsh.todo.core.designsystem.theme.paperSurface
 import com.utkarsh.todo.feature.quickadd.ui.QuickAddContent
 import kotlinx.coroutines.delay
 
@@ -93,7 +94,7 @@ fun RemindersScreen(
     val colors = Paper.colors
     LaunchedEffect(state.undo) { if (state.undo != null) { delay(UNDO_VISIBLE_MS); onDismissUndo() } }
 
-    Box(modifier.fillMaxSize().background(colors.paper).statusBarsPadding()) {
+    Box(modifier.fillMaxSize().paperSurface().statusBarsPadding()) {
         Column(Modifier.fillMaxSize()) {
             MonoLabel("Notifications", Modifier.padding(start = 20.dp, top = 16.dp))
             Text("Reminders", style = Paper.type.displayLarge, color = colors.ink, modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 16.dp).testTag("reminders-title"))

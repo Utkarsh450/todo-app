@@ -45,6 +45,7 @@ import com.utkarsh.todo.core.designsystem.component.MonoLabel
 import com.utkarsh.todo.core.designsystem.component.PaperCheckbox
 import com.utkarsh.todo.core.designsystem.component.ProjectDot
 import com.utkarsh.todo.core.designsystem.theme.Paper
+import com.utkarsh.todo.core.designsystem.theme.paperSurface
 import com.utkarsh.todo.core.designsystem.theme.PaperRadius
 import com.utkarsh.todo.core.designsystem.theme.PriorityColors
 import com.utkarsh.todo.core.designsystem.theme.parseHexColor
@@ -78,7 +79,7 @@ fun TaskDetailScreen(
     modifier: Modifier = Modifier,
 ) {
     val colors = Paper.colors
-    Column(modifier.fillMaxSize().background(colors.paper).statusBarsPadding()) {
+    Column(modifier.fillMaxSize().paperSurface().statusBarsPadding()) {
         val task = state.task
         Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
             Text("‹ Today", style = Paper.type.button, color = colors.ink, modifier = Modifier.clickable(onClick = onBack).padding(end = 12.dp, top = 4.dp, bottom = 4.dp))

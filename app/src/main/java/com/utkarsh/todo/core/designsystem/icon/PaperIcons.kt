@@ -49,6 +49,18 @@ object PaperIcons {
         }
     }
 
+    /** Two sliders: the "customize" entry point. */
+    val Customize: ImageVector by lazy {
+        icon("Customize") {
+            strokePath(1.5f, round = true) {
+                moveTo(3f, 6f); horizontalLineTo(17f)
+                moveTo(3f, 14f); horizontalLineTo(17f)
+            }
+            strokePath(1.5f) { circle(7f, 6f, 2f) }
+            strokePath(1.5f) { circle(13f, 14f, 2f) }
+        }
+    }
+
     val Insights: ImageVector by lazy {
         icon("Insights") {
             strokePath(1.7f, round = true) {
@@ -84,5 +96,12 @@ private fun PathBuilder.roundedRect(x: Float, y: Float, w: Float, h: Float, r: F
     arcTo(r, r, 0f, false, true, x, y + h - r)
     verticalLineTo(y + r)
     arcTo(r, r, 0f, false, true, x + r, y)
+    close()
+}
+
+private fun PathBuilder.circle(cx: Float, cy: Float, r: Float) {
+    moveTo(cx - r, cy)
+    arcTo(r, r, 0f, true, true, cx + r, cy)
+    arcTo(r, r, 0f, true, true, cx - r, cy)
     close()
 }
