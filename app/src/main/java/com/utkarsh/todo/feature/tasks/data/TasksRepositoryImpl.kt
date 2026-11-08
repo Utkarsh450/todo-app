@@ -25,6 +25,8 @@ class TasksRepositoryImpl @Inject constructor(private val api: TasksApi) : Tasks
 
     override suspend fun search(query: String) = resultOf { api.list(query = query).map { it.toDomain() } }
 
+    override suspend fun all() = resultOf { api.list().map { it.toDomain() } }
+
     override suspend fun get(id: String) = resultOf { api.get(id).toDomain() }
 
     override suspend fun create(task: NewTask) = resultOf { api.create(task.toRequest()).toDomain() }.notifying()

@@ -61,4 +61,38 @@ class ProjectsRepositoryTest {
 
         assertTrue(result.isFailure)
     }
+
+    @Test
+    fun `update sends only the fields that were given`() = runTest {
+        server.enqueue(json("""{"id":"2","name":"Home 2","color":"#112233","createdAt":"2026-11-07T00:00:00.000Z"}"""))
+
+        val renamed = repository.update("2", name = "Home 2").getOrThrow()
+
+        val request = server.takeRequest()
+        assertEquals("PATCH", request.method)
+        assertEquals("/api/projects/2", request.url.encodedPath)
+        assertEquals("""{"name":"Home 2"}""", request.body?.utf8())
+        assertEquals("Home 2", renamed.name)
+    }
+
+    @Test
+    fun `update can change the colour alone`() = runTest {
+        server.enqueue(json("""{"id":"2","name":"Home","color":"#D9548B","createdAt":"2026-11-07T00:00:00.000Z"}"""))
+
+        repository.update("2", colorHex = "#D9548B").getOrThrow()
+
+        assertEquals("""{"color":"#D9548B"}""", server.takeRequest().body?.utf8())
+    }
+
+    @Test
+    fun `delete calls the server and a missing project is a failure`() = runTest {
+        server.enqueue(MockResponse.Builder().code(204).build())
+        assertTrue(repository.delete("2").isSuccess)
+        val request = server.takeRequest()
+        assertEquals("DELETE", request.method)
+        assertEquals("/api/projects/2", request.url.encodedPath)
+
+        server.enqueue(json("""{"error":"NOT_FOUND"}""", 404))
+        assertTrue(repository.delete("2").isFailure)
+    }
 }

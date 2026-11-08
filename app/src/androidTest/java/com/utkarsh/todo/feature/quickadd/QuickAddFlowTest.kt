@@ -52,6 +52,7 @@ class QuickAddFlowTest {
         override suspend fun create(task: NewTask): Result<Task> { createdTasks += task; return Result.failure(IllegalStateException("not needed")) }
         override suspend fun dueBetween(from: Instant, to: Instant) = Result.success(emptyList<Task>())
         override suspend fun search(query: String) = Result.success(emptyList<Task>())
+        override suspend fun all() = Result.success(emptyList<Task>())
         override suspend fun get(id: String): Result<Task> = error("unused")
         override suspend fun update(id: String, patch: TaskPatch): Result<Task> = error("unused")
         override suspend fun setDone(id: String, done: Boolean): Result<Task> = error("unused")
@@ -62,6 +63,8 @@ class QuickAddFlowTest {
     private val projects = object : ProjectsRepository {
         override suspend fun projects() = Result.success(listOf(Project("p-design", "Design", "#935EDF")))
         override suspend fun create(name: String, colorHex: String): Result<Project> = error("unused")
+        override suspend fun update(id: String, name: String?, colorHex: String?): Result<Project> = error("unused")
+        override suspend fun delete(id: String): Result<Unit> = error("unused")
     }
     private val calendar = object : CalendarRepository {
         override val changes: Flow<Unit> = MutableSharedFlow()

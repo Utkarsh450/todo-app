@@ -17,6 +17,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -66,6 +68,7 @@ fun TodayRoute(
     onCustomize: () -> Unit,
     onAssistant: () -> Unit,
     onBrainDump: () -> Unit,
+    onProjects: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: TodayViewModel = hiltViewModel(),
     settingsViewModel: CustomizeViewModel = hiltViewModel(),
@@ -89,6 +92,7 @@ fun TodayRoute(
         onCustomize = onCustomize,
         onAssistant = onAssistant,
         onBrainDump = onBrainDump,
+        onProjects = onProjects,
     )
 }
 
@@ -115,6 +119,8 @@ fun TodayScreen(
     onAssistant: (() -> Unit)? = null,
     /** Shows the brain dump button when set. */
     onBrainDump: (() -> Unit)? = null,
+    /** Adds "Projects" to the ⋯ menu when set. */
+    onProjects: (() -> Unit)? = null,
 ) {
     val colors = Paper.colors
     LaunchedEffect(state.undo) { if (state.undo != null) { delay(UNDO_VISIBLE_MS); onDismissUndo() } }
@@ -135,14 +141,7 @@ fun TodayScreen(
                         modifier = Modifier.semantics { contentDescription = "Ask Grok" }.clip(RoundedCornerShape(8.dp)).clickable(onClick = open).padding(horizontal = 10.dp, vertical = 4.dp).testTag("open-assistant"),
                     )
                 }
-                onCustomize?.let { open ->
-                    Icon(
-                        PaperIcons.Customize,
-                        contentDescription = "Customize",
-                        tint = colors.muted,
-                        modifier = Modifier.padding(end = 4.dp).clip(RoundedCornerShape(8.dp)).clickable(onClick = open).padding(8.dp).testTag("open-customize"),
-                    )
-                }
+                MoreMenu(onProjects = onProjects, onCustomize = onCustomize)
                 PaperSegmentedControl(
                     options = TodayView.entries,
                     selected = state.view,
@@ -168,6 +167,36 @@ fun TodayScreen(
         }
         state.undo?.let {
             UndoSnackbar(it.message, onUndo, Modifier.align(Alignment.BottomCenter).padding(14.dp))
+        }
+    }
+}
+
+/** The ⋯ button and its menu (Projects, Customize). Hidden when there is nothing to put in it. */
+@Composable
+private fun MoreMenu(onProjects: (() -> Unit)?, onCustomize: (() -> Unit)?) {
+    if (onProjects == null && onCustomize == null) return
+    val colors = Paper.colors
+    var open by remember { mutableStateOf(false) }
+    Box {
+        Text(
+            "⋯", style = Paper.type.title, color = colors.muted,
+            modifier = Modifier.padding(end = 4.dp).semantics { contentDescription = "More" }.clip(RoundedCornerShape(8.dp)).clickable { open = true }.padding(horizontal = 10.dp, vertical = 4.dp).testTag("open-more"),
+        )
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }, containerColor = colors.card) {
+            onProjects?.let { go ->
+                DropdownMenuItem(
+                    text = { Text("Projects", style = Paper.type.body, color = colors.ink) },
+                    onClick = { open = false; go() },
+                    modifier = Modifier.testTag("open-projects"),
+                )
+            }
+            onCustomize?.let { go ->
+                DropdownMenuItem(
+                    text = { Text("Customize", style = Paper.type.body, color = colors.ink) },
+                    onClick = { open = false; go() },
+                    modifier = Modifier.testTag("open-customize"),
+                )
+            }
         }
     }
 }

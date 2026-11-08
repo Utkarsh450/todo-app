@@ -35,8 +35,9 @@ class TodayBlocksTest {
 
     private var askedGrok = 0
     private var openedDump = 0
+    private var openedProjects = 0
 
-    private fun show(blocks: List<TodayBlock>?, withCustomize: Boolean = false, withAssistant: Boolean = false, withBrainDump: Boolean = false) {
+    private fun show(blocks: List<TodayBlock>?, withCustomize: Boolean = false, withAssistant: Boolean = false, withBrainDump: Boolean = false, withProjects: Boolean = false) {
         compose.setContent {
             PaperTheme {
                 TodayScreen(
@@ -48,6 +49,7 @@ class TodayBlocksTest {
                     onCustomize = if (withCustomize) ({ opened++ }) else null,
                     onAssistant = if (withAssistant) ({ askedGrok++ }) else null,
                     onBrainDump = if (withBrainDump) ({ openedDump++ }) else null,
+                    onProjects = if (withProjects) ({ openedProjects++ }) else null,
                 )
             }
         }
@@ -95,14 +97,34 @@ class TodayBlocksTest {
     @Test
     fun the_customize_button_appears_only_when_it_has_somewhere_to_go() {
         show(null, withCustomize = false)
+        compose.onNodeWithTag("open-more").assertDoesNotExist()
         compose.onNodeWithTag("open-customize").assertDoesNotExist()
     }
 
     @Test
     fun tapping_the_customize_button_opens_customize() {
         show(null, withCustomize = true)
+        compose.onNodeWithTag("open-customize").assertDoesNotExist() // it lives in the ⋯ menu
+        compose.onNodeWithTag("open-more").performClick()
         compose.onNodeWithTag("open-customize").performClick()
         assertEquals(1, opened)
+    }
+
+    @Test
+    fun the_more_menu_lists_only_what_has_somewhere_to_go() {
+        show(null, withProjects = true)
+        compose.onNodeWithTag("open-more").performClick()
+        compose.onNodeWithTag("open-projects").assertIsDisplayed()
+        compose.onNodeWithTag("open-customize").assertDoesNotExist()
+    }
+
+    @Test
+    fun tapping_projects_in_the_more_menu_opens_projects_and_closes_the_menu() {
+        show(null, withProjects = true, withCustomize = true)
+        compose.onNodeWithTag("open-more").performClick()
+        compose.onNodeWithTag("open-projects").performClick()
+        assertEquals(1, openedProjects)
+        compose.onNodeWithTag("open-projects").assertDoesNotExist()
     }
 
     @Test

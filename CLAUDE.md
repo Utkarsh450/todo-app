@@ -77,13 +77,13 @@ quick add **Task / Note / Event** (Note appends to today's scratchpad, Event -> 
 AI uses **Grok (xAI)** via the backend only (`XAI_API_KEY`, `XAI_MODEL`, `XAI_BASE_URL`, `XAI_TIMEOUT_MS` in `backend/.env`).
 **Assistant** (design 09; ✦ on the Today header -> `feature/assistant`; backend `POST /ai/assist`),
 **Brain dump** (design 14; ✎ on the Today header -> `feature/braindump`; backend `POST /ai/braindump`).
-Design screens not built yet: Focus (11), Projects (12), Search (13).
+Design screens not built yet: Focus (11), Search (13). Projects (12) is built (`feature/projects/ui`).
 
 **Remaining work (suggested order):**
 1. Task detail: REMIND row (create a reminder 1h before due), notes editing, delete confirmation dialog, focus timer ("Focus · 25:00").
 2. Real fonts (see Design), launcher icon, release signing/R8 check, CI workflow.
 3. Offline support (currently every screen needs the backend), auth if the API is ever exposed (it is unauthenticated, single-user).
-4. Project management UI (API + repository exist; no screen yet).
+4. ~~Project management UI~~ done: Projects screen (Today ⋯ menu -> Projects) with progress, task ticking, make/rename/recolour/delete.
 5. A true end-to-end instrumented test (Hilt test app + real backend) — today E2E was verified manually with `adb` + screenshots.
 
 ## Gotchas learned

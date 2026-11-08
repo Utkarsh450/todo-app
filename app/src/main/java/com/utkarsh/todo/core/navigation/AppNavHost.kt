@@ -27,6 +27,7 @@ import com.utkarsh.todo.core.designsystem.theme.Paper
 import com.utkarsh.todo.feature.calendar.ui.CalendarRoute
 import com.utkarsh.todo.feature.customize.ui.CustomizeRoute
 import com.utkarsh.todo.feature.insights.ui.InsightsRoute
+import com.utkarsh.todo.feature.projects.ui.ProjectsRoute
 import com.utkarsh.todo.feature.quickadd.ui.QuickAddSheet
 import com.utkarsh.todo.feature.reminders.ui.RemindersRoute
 import com.utkarsh.todo.feature.assistant.ui.AssistantRoute
@@ -60,11 +61,15 @@ fun AppNavHost(modifier: Modifier = Modifier) {
                     onCustomize = { nav.navigate(Destination.Customize) },
                     onAssistant = { nav.navigate(Destination.Assistant) },
                     onBrainDump = { nav.navigate(Destination.BrainDump) },
+                    onProjects = { nav.navigate(Destination.Projects) },
                 )
             }
             composable<Destination.Calendar> { CalendarRoute() }
             composable<Destination.Reminders> { RemindersRoute() }
             composable<Destination.Insights> { InsightsRoute() }
+            composable<Destination.Projects> {
+                ProjectsRoute(onBack = { nav.popBackStack() }, onOpenTask = { nav.navigate(Destination.TaskDetail(it)) })
+            }
             composable<Destination.BrainDump> { BrainDumpRoute(onBack = { nav.popBackStack() }) }
             composable<Destination.Assistant> { AssistantRoute(onBack = { nav.popBackStack() }) }
             composable<Destination.Customize> { CustomizeRoute(onBack = { nav.popBackStack() }) }

@@ -125,4 +125,18 @@ class TasksRepositoryTest {
         server.enqueue(json("""{"error":"NOT_FOUND"}""", 404))
         assertFalse(repository.delete("missing").isSuccess)
     }
+
+    @Test
+    fun `all lists every non-archived task with no filters`() = runTest {
+        server.enqueue(json("[${task("a")},${task("b", status = "DONE")}]"))
+
+        val tasks = repository.all().getOrThrow()
+
+        assertEquals(listOf("a", "b"), tasks.map { it.id })
+        assertTrue(tasks[1].isDone)
+        val url = server.takeRequest().url
+        assertEquals("/api/tasks", url.encodedPath)
+        assertNull(url.queryParameter("from"))
+        assertNull(url.queryParameter("q"))
+    }
 }
