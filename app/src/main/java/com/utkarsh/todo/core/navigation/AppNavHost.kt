@@ -4,11 +4,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.CalendarMonth
-import androidx.compose.material.icons.outlined.CheckBox
-import androidx.compose.material.icons.outlined.Insights
-import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -27,6 +22,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.utkarsh.todo.core.designsystem.component.NavBarItem
 import com.utkarsh.todo.core.designsystem.component.PaperNavBar
+import com.utkarsh.todo.core.designsystem.icon.PaperIcons
 import com.utkarsh.todo.core.designsystem.theme.Paper
 import com.utkarsh.todo.feature.quickadd.ui.QuickAddSheet
 import com.utkarsh.todo.feature.taskdetail.ui.TaskDetailRoute
@@ -36,10 +32,10 @@ import kotlin.reflect.KClass
 private data class TopLevel(val key: String, val label: String, val route: Destination, val type: KClass<out Destination>, val icon: ImageVector)
 
 private val topLevel = listOf(
-    TopLevel("today", "Today", Destination.Today, Destination.Today::class, Icons.Outlined.CheckBox),
-    TopLevel("calendar", "Calendar", Destination.Calendar, Destination.Calendar::class, Icons.Outlined.CalendarMonth),
-    TopLevel("reminders", "Reminders", Destination.Reminders, Destination.Reminders::class, Icons.Outlined.Notifications),
-    TopLevel("insights", "Insights", Destination.Insights, Destination.Insights::class, Icons.Outlined.Insights),
+    TopLevel("today", "Today", Destination.Today, Destination.Today::class, PaperIcons.Today),
+    TopLevel("calendar", "Calendar", Destination.Calendar, Destination.Calendar::class, PaperIcons.Calendar),
+    TopLevel("reminders", "Reminders", Destination.Reminders, Destination.Reminders::class, PaperIcons.Reminders),
+    TopLevel("insights", "Insights", Destination.Insights, Destination.Insights::class, PaperIcons.Insights),
 )
 
 /** App shell: bottom [PaperNavBar] plus the navigation graph. */
