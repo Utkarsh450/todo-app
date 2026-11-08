@@ -69,6 +69,7 @@ fun TodayRoute(
     onAssistant: () -> Unit,
     onBrainDump: () -> Unit,
     onProjects: () -> Unit,
+    onSearch: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: TodayViewModel = hiltViewModel(),
     settingsViewModel: CustomizeViewModel = hiltViewModel(),
@@ -93,6 +94,7 @@ fun TodayRoute(
         onAssistant = onAssistant,
         onBrainDump = onBrainDump,
         onProjects = onProjects,
+        onSearch = onSearch,
     )
 }
 
@@ -121,6 +123,8 @@ fun TodayScreen(
     onBrainDump: (() -> Unit)? = null,
     /** Adds "Projects" to the ⋯ menu when set. */
     onProjects: (() -> Unit)? = null,
+    /** Adds "Search" to the ⋯ menu when set. */
+    onSearch: (() -> Unit)? = null,
 ) {
     val colors = Paper.colors
     LaunchedEffect(state.undo) { if (state.undo != null) { delay(UNDO_VISIBLE_MS); onDismissUndo() } }
@@ -141,7 +145,7 @@ fun TodayScreen(
                         modifier = Modifier.semantics { contentDescription = "Ask Grok" }.clip(RoundedCornerShape(8.dp)).clickable(onClick = open).padding(horizontal = 10.dp, vertical = 4.dp).testTag("open-assistant"),
                     )
                 }
-                MoreMenu(onProjects = onProjects, onCustomize = onCustomize)
+                MoreMenu(onSearch = onSearch, onProjects = onProjects, onCustomize = onCustomize)
                 PaperSegmentedControl(
                     options = TodayView.entries,
                     selected = state.view,
@@ -171,10 +175,10 @@ fun TodayScreen(
     }
 }
 
-/** The ⋯ button and its menu (Projects, Customize). Hidden when there is nothing to put in it. */
+/** The ⋯ button and its menu (Search, Projects, Customize). Hidden when there is nothing to put in it. */
 @Composable
-private fun MoreMenu(onProjects: (() -> Unit)?, onCustomize: (() -> Unit)?) {
-    if (onProjects == null && onCustomize == null) return
+private fun MoreMenu(onSearch: (() -> Unit)?, onProjects: (() -> Unit)?, onCustomize: (() -> Unit)?) {
+    if (onSearch == null && onProjects == null && onCustomize == null) return
     val colors = Paper.colors
     var open by remember { mutableStateOf(false) }
     Box {
@@ -183,6 +187,13 @@ private fun MoreMenu(onProjects: (() -> Unit)?, onCustomize: (() -> Unit)?) {
             modifier = Modifier.padding(end = 4.dp).semantics { contentDescription = "More" }.clip(RoundedCornerShape(8.dp)).clickable { open = true }.padding(horizontal = 10.dp, vertical = 4.dp).testTag("open-more"),
         )
         DropdownMenu(expanded = open, onDismissRequest = { open = false }, containerColor = colors.card) {
+            onSearch?.let { go ->
+                DropdownMenuItem(
+                    text = { Text("Search", style = Paper.type.body, color = colors.ink) },
+                    onClick = { open = false; go() },
+                    modifier = Modifier.testTag("open-search"),
+                )
+            }
             onProjects?.let { go ->
                 DropdownMenuItem(
                     text = { Text("Projects", style = Paper.type.body, color = colors.ink) },

@@ -36,8 +36,9 @@ class TodayBlocksTest {
     private var askedGrok = 0
     private var openedDump = 0
     private var openedProjects = 0
+    private var openedSearch = 0
 
-    private fun show(blocks: List<TodayBlock>?, withCustomize: Boolean = false, withAssistant: Boolean = false, withBrainDump: Boolean = false, withProjects: Boolean = false) {
+    private fun show(blocks: List<TodayBlock>?, withCustomize: Boolean = false, withAssistant: Boolean = false, withBrainDump: Boolean = false, withProjects: Boolean = false, withSearch: Boolean = false) {
         compose.setContent {
             PaperTheme {
                 TodayScreen(
@@ -50,6 +51,7 @@ class TodayBlocksTest {
                     onAssistant = if (withAssistant) ({ askedGrok++ }) else null,
                     onBrainDump = if (withBrainDump) ({ openedDump++ }) else null,
                     onProjects = if (withProjects) ({ openedProjects++ }) else null,
+                    onSearch = if (withSearch) ({ openedSearch++ }) else null,
                 )
             }
         }
@@ -151,5 +153,13 @@ class TodayBlocksTest {
         show(null, withBrainDump = true)
         compose.onNodeWithTag("open-braindump").performClick()
         assertEquals(1, openedDump)
+    }
+
+    @Test
+    fun tapping_search_in_the_more_menu_opens_search() {
+        show(null, withSearch = true)
+        compose.onNodeWithTag("open-more").performClick()
+        compose.onNodeWithTag("open-search").performClick()
+        assertEquals(1, openedSearch)
     }
 }
