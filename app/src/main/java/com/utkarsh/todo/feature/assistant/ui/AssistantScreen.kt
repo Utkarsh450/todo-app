@@ -155,7 +155,7 @@ private fun InputRow(text: String, busy: Boolean, onChange: (String) -> Unit, on
             if (text.isEmpty()) Text("Ask Grok about your tasks…", style = Paper.type.body, color = colors.muted)
         }
         Box(
-            Modifier.size(38.dp).clip(CircleShape).background(colors.accent).alpha(if (canSend) 1f else 0.4f).clickable(enabled = canSend, onClick = onSend).testTag("assistant-send"),
+            Modifier.size(38.dp).alpha(if (canSend) 1f else 0.4f).clip(CircleShape).background(colors.accent).clickable(enabled = canSend, onClick = onSend).testTag("assistant-send"),
             contentAlignment = Alignment.Center,
         ) { Text("↑", style = Paper.type.button, color = colors.card) }
     }

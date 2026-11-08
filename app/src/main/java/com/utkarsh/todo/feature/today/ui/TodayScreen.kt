@@ -66,6 +66,7 @@ fun TodayRoute(
     onOpenTask: (String) -> Unit,
     onCustomize: () -> Unit,
     onAssistant: () -> Unit,
+    onBrainDump: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: TodayViewModel = hiltViewModel(),
     settingsViewModel: CustomizeViewModel = hiltViewModel(),
@@ -88,6 +89,7 @@ fun TodayRoute(
         blocks = settings.settings.visibleBlocks,
         onCustomize = onCustomize,
         onAssistant = onAssistant,
+        onBrainDump = onBrainDump,
     )
 }
 
@@ -112,6 +114,8 @@ fun TodayScreen(
     onCustomize: (() -> Unit)? = null,
     /** Shows the ✦ Ask Grok button when set. */
     onAssistant: (() -> Unit)? = null,
+    /** Shows the brain dump button when set. */
+    onBrainDump: (() -> Unit)? = null,
 ) {
     val colors = Paper.colors
     LaunchedEffect(state.undo) { if (state.undo != null) { delay(UNDO_VISIBLE_MS); onDismissUndo() } }
@@ -120,6 +124,12 @@ fun TodayScreen(
         Column(Modifier.fillMaxSize()) {
             Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                 MonoLabel(state.caption, Modifier.weight(1f))
+                onBrainDump?.let { open ->
+                    Text(
+                        "✎", style = Paper.type.title, color = colors.muted,
+                        modifier = Modifier.semantics { contentDescription = "Brain dump" }.clip(RoundedCornerShape(8.dp)).clickable(onClick = open).padding(horizontal = 10.dp, vertical = 4.dp).testTag("open-braindump"),
+                    )
+                }
                 onAssistant?.let { open ->
                     Text(
                         "✦", style = Paper.type.title, color = colors.accent,

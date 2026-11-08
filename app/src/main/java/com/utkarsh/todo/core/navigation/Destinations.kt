@@ -10,5 +10,6 @@ sealed interface Destination {
     @Serializable data object Insights : Destination
     @Serializable data object Customize : Destination
     @Serializable data object Assistant : Destination
+    @Serializable data object BrainDump : Destination
     @Serializable data class TaskDetail(val taskId: String) : Destination
 }

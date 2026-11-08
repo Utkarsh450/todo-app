@@ -141,9 +141,9 @@ private fun ActionButton(label: String, enabled: Boolean, onClick: () -> Unit, t
     Box(
         Modifier
             .fillMaxWidth()
+            .alpha(if (enabled) 1f else 0.4f)
             .clip(RoundedCornerShape(PaperRadius.card))
             .background(colors.ink)
-            .alpha(if (enabled) 1f else 0.4f)
             .clickable(enabled = enabled, onClick = onClick)
             .padding(vertical = 14.dp)
             .testTag(tag),

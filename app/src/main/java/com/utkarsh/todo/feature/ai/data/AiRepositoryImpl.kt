@@ -9,6 +9,7 @@ import com.utkarsh.todo.feature.ai.domain.AiException
 import com.utkarsh.todo.feature.ai.domain.AiRepository
 import com.utkarsh.todo.feature.ai.domain.AssistantReply
 import com.utkarsh.todo.feature.ai.domain.AssistantSuggestion
+import com.utkarsh.todo.feature.ai.domain.DumpedTask
 import com.utkarsh.todo.feature.tasks.domain.Priority
 import dagger.Binds
 import dagger.Module
@@ -62,7 +63,33 @@ data class SuggestionDto(
 
 @Serializable data class AssistResponse(val reply: String, val suggestions: List<SuggestionDto> = emptyList())
 
+@Serializable data class BrainDumpRequest(val text: String, val timeZone: String)
+
+@Serializable
+data class DumpedTaskDto(
+    val title: String,
+    @Serializable(with = InstantSerializer::class) val dueAt: Instant? = null,
+    val priority: String = "NORMAL",
+    val repeatRule: String? = null,
+    val projectId: String? = null,
+    val projectName: String? = null,
+) {
+    fun toDomain() = DumpedTask(
+        title = title,
+        dueAt = dueAt,
+        priority = Priority.entries.firstOrNull { it.name == priority } ?: Priority.NORMAL,
+        repeatRule = repeatRule,
+        projectId = projectId,
+        projectName = projectName,
+    )
+}
+
+@Serializable data class BrainDumpResponse(val tasks: List<DumpedTaskDto> = emptyList())
+
 interface AiApi {
+    @POST("ai/braindump")
+    suspend fun brainDump(@Body body: BrainDumpRequest): BrainDumpResponse
+
     @POST("ai/assist")
     suspend fun assist(@Body body: AssistRequest): AssistResponse
 
@@ -74,6 +101,10 @@ interface AiApi {
 class AiRepositoryImpl @Inject constructor(private val api: AiApi) : AiRepository {
     override suspend fun breakDown(title: String, notes: String, dueAt: Instant?): Result<List<String>> =
         resultOf { api.breakdown(BreakdownRequest(title, notes, dueAt)).subtasks }
+            .recoverCatching { throw it.toAiException() }
+
+    override suspend fun brainDump(text: String, zone: ZoneId): Result<List<DumpedTask>> =
+        resultOf { api.brainDump(BrainDumpRequest(text, zone.id)).tasks.map(DumpedTaskDto::toDomain) }
             .recoverCatching { throw it.toAiException() }
 
     override suspend fun assist(message: String, zone: ZoneId): Result<AssistantReply> =

@@ -34,8 +34,9 @@ class TodayBlocksTest {
     private var opened = 0
 
     private var askedGrok = 0
+    private var openedDump = 0
 
-    private fun show(blocks: List<TodayBlock>?, withCustomize: Boolean = false, withAssistant: Boolean = false) {
+    private fun show(blocks: List<TodayBlock>?, withCustomize: Boolean = false, withAssistant: Boolean = false, withBrainDump: Boolean = false) {
         compose.setContent {
             PaperTheme {
                 TodayScreen(
@@ -46,6 +47,7 @@ class TodayBlocksTest {
                     blocks = blocks ?: TodayBlock.entries,
                     onCustomize = if (withCustomize) ({ opened++ }) else null,
                     onAssistant = if (withAssistant) ({ askedGrok++ }) else null,
+                    onBrainDump = if (withBrainDump) ({ openedDump++ }) else null,
                 )
             }
         }
@@ -114,5 +116,18 @@ class TodayBlocksTest {
         show(null, withAssistant = true)
         compose.onNodeWithTag("open-assistant").performClick()
         assertEquals(1, askedGrok)
+    }
+
+    @Test
+    fun the_brain_dump_button_appears_only_when_it_has_somewhere_to_go() {
+        show(null, withBrainDump = false)
+        compose.onNodeWithTag("open-braindump").assertDoesNotExist()
+    }
+
+    @Test
+    fun tapping_the_brain_dump_button_opens_it() {
+        show(null, withBrainDump = true)
+        compose.onNodeWithTag("open-braindump").performClick()
+        assertEquals(1, openedDump)
     }
 }

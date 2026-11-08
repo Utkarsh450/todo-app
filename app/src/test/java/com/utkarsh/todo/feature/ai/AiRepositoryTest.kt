@@ -185,4 +185,55 @@ class AiRepositoryTest {
         server.enqueue(json(400, """{"error":"VALIDATION_ERROR","message":"Request validation failed"}"""))
         assertEquals("The assistant couldn't read that request.", repository.assist("q", ZoneId.of("UTC")).exceptionOrNull()!!.message)
     }
+
+    // ---- brain dump
+
+    @Test
+    fun `brain dump sends the note and time zone and maps every field`() = runTest {
+        server.enqueue(
+            json(
+                200,
+                """{"tasks":[
+                  {"title":"Email Priya","dueAt":"2026-11-13T04:30:00.000Z","priority":"HIGH","repeatRule":"Every month","projectId":"p1","projectName":"Design"},
+                  {"title":"Book flights","dueAt":null,"priority":"NORMAL","repeatRule":null,"projectId":null,"projectName":null}]}""",
+            ),
+        )
+
+        val tasks = repository.brainDump("Okay so I need to email Priya", ZoneId.of("Asia/Kolkata")).getOrThrow()
+
+        assertEquals(
+            listOf(
+                com.utkarsh.todo.feature.ai.domain.DumpedTask("Email Priya", Instant.parse("2026-11-13T04:30:00Z"), Priority.HIGH, "Every month", "p1", "Design"),
+                com.utkarsh.todo.feature.ai.domain.DumpedTask("Book flights", null, Priority.NORMAL, null, null, null),
+            ),
+            tasks,
+        )
+        val request = server.takeRequest()
+        assertEquals("/api/ai/braindump", request.url.encodedPath)
+        val body = Json.parseToJsonElement(request.body!!.utf8()).jsonObject
+        assertEquals("Okay so I need to email Priya", body["text"]!!.jsonPrimitive.content)
+        assertEquals("Asia/Kolkata", body["timeZone"]!!.jsonPrimitive.content)
+    }
+
+    @Test
+    fun `brain dump of a note with no tasks is an empty list`() = runTest {
+        server.enqueue(json(200, """{"tasks":[]}"""))
+        assertEquals(emptyList<com.utkarsh.todo.feature.ai.domain.DumpedTask>(), repository.brainDump("hmm", ZoneId.of("UTC")).getOrThrow())
+    }
+
+    @Test
+    fun `brain dump without a key says how to fix it`() = runTest {
+        server.enqueue(json(503, """{"error":"AI_NOT_CONFIGURED","message":"AI is not set up. Add XAI_API_KEY to backend/.env and restart the server."}"""))
+        val error = repository.brainDump("x", ZoneId.of("UTC")).exceptionOrNull() as AiException
+        assertTrue(error.notConfigured)
+    }
+
+    @Test
+    fun `brain dump keeps the server's message when the AI answer was unusable`() = runTest {
+        server.enqueue(json(502, """{"error":"AI_BAD_RESPONSE","message":"The AI sent a reply in a shape that could not be understood. Try again."}"""))
+        assertEquals(
+            "The AI sent a reply in a shape that could not be understood. Try again.",
+            repository.brainDump("x", ZoneId.of("UTC")).exceptionOrNull()!!.message,
+        )
+    }
 }

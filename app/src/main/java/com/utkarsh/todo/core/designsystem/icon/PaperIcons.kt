@@ -49,6 +49,18 @@ object PaperIcons {
         }
     }
 
+    /** Microphone: voice input. */
+    val Mic: ImageVector by lazy {
+        icon("Mic") {
+            strokePath(1.5f) { roundedRect(7.5f, 2.5f, 5f, 9f, 2.5f) }
+            strokePath(1.5f, round = true) {
+                moveTo(4.5f, 9.5f)
+                arcTo(5.5f, 5.5f, 0f, false, false, 15.5f, 9.5f)
+                moveTo(10f, 15f); verticalLineTo(17.5f)
+            }
+        }
+    }
+
     /** Two sliders: the "customize" entry point. */
     val Customize: ImageVector by lazy {
         icon("Customize") {

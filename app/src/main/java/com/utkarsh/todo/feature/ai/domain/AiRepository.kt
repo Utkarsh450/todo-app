@@ -18,6 +18,16 @@ sealed interface AssistantSuggestion {
     data class ChangePriority(override val taskId: String, override val taskTitle: String, override val reason: String, val priority: Priority) : AssistantSuggestion
 }
 
+/** A task found in a rambling note. Nothing is created until the person confirms. */
+data class DumpedTask(
+    val title: String,
+    val dueAt: Instant?,
+    val priority: Priority,
+    val repeatRule: String?,
+    val projectId: String?,
+    val projectName: String?,
+)
+
 data class AssistantReply(val reply: String, val suggestions: List<AssistantSuggestion>)
 
 interface AiRepository {
@@ -29,4 +39,7 @@ interface AiRepository {
 
     /** Asks one question about the open tasks. [zone] makes times in the answer match the person's day. */
     suspend fun assist(message: String, zone: ZoneId): Result<AssistantReply>
+
+    /** Sorts a rambling note into separate tasks. Returns an empty list when the note holds none. */
+    suspend fun brainDump(text: String, zone: ZoneId): Result<List<DumpedTask>>
 }

@@ -50,7 +50,7 @@ pnpm build && node --env-file=.env dist/server.js
 pnpm prisma:migrate / prisma:deploy / prisma:seed
 ```
 Result files: `app/build/test-results/testDebugUnitTest/*.xml`, `app/build/outputs/androidTest-results/connected/debug/*.xml`.
-Test counts at last run: backend 130, Android unit 242, emulator 111 — all green.
+Test counts at last run: backend 157, Android unit 263, emulator 129 — all green.
 
 ## Database
 Local PostgreSQL 16 (Homebrew), browse with pgAdmin. Databases: `paper_todo` (dev) and `paper_todo_test` (tests; the
@@ -75,8 +75,9 @@ dots/lines/plain, cozy/compact density; DataStore-backed `SettingsRepository`; g
 quick add **Task / Note / Event** (Note appends to today's scratchpad, Event -> calendar),
 **AI Break it down** (task page -> bottom sheet; backend `modules/ai`, app `feature/ai` + `feature/breakdown`).
 AI uses **Grok (xAI)** via the backend only (`XAI_API_KEY`, `XAI_MODEL`, `XAI_BASE_URL`, `XAI_TIMEOUT_MS` in `backend/.env`).
-**Assistant** (design 09; ✦ on the Today header -> `feature/assistant`; backend `POST /ai/assist`).
-Design screens not built yet: Brain dump (14), Focus (11), Projects (12), Search (13).
+**Assistant** (design 09; ✦ on the Today header -> `feature/assistant`; backend `POST /ai/assist`),
+**Brain dump** (design 14; ✎ on the Today header -> `feature/braindump`; backend `POST /ai/braindump`).
+Design screens not built yet: Focus (11), Projects (12), Search (13).
 
 **Remaining work (suggested order):**
 1. Task detail: REMIND row (create a reminder 1h before due), notes editing, delete confirmation dialog, focus timer ("Focus · 25:00").
@@ -93,6 +94,15 @@ Design screens not built yet: Brain dump (14), Focus (11), Projects (12), Search
   app's time zone; `parseAssistantReply` drops anything that doesn't hold up (unknown task id, move into the past, no-op priority,
   repeats, >5). Suggestions are MOVE / SPLIT / PRIORITY only; the app applies one through the normal `TasksRepository` calls when
   accepted. The conversation lives in `AssistantViewModel` only (not saved), and a plain-text model answer is shown as a reply.
+- Brain dump: the model gets the note + now + zone + project names and returns tasks; `parseBrainDump` drops empty/repeated titles,
+  maps project *names* to real ids (unknown -> none, projects are never created), ignores times >1h past or >1y ahead, caps at 12.
+  Nothing is saved server-side; `BrainDumpViewModel.addSelected` creates tasks one by one and, on a partial failure, keeps only the
+  rest. Voice uses the system `RecognizerIntent` dialog (no RECORD_AUDIO permission; the mic hides if no recogniser, see the
+  `<queries>` entry in the manifest) - that dialog itself is not covered by tests.
+- Compose: put `Modifier.alpha(...)` *before* `.clip().background()` on buttons/chips that switch between enabled and disabled; with
+  `alpha` after `background` the fill vanished when the state flipped back to enabled (seen on device, not in Compose tests).
+- `adb shell input text` with a long string or fast bursts drops characters at the end of each burst (the field was fine typed
+  word by word); type word by word when driving the emulator by hand.
 - `createTestApp(ai?)` takes an optional fake `AiClient`; never let tests reach the real xAI endpoint.
 - `BreakdownViewModel` reads the task itself (via `taskId`) and adds subtasks one by one; after a partial failure it keeps only
   the steps not yet added so a retry can't duplicate. `TaskDetailViewModel.refresh()` re-reads quietly after the sheet closes.
