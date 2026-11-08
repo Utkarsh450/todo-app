@@ -5,6 +5,7 @@ import app.cash.turbine.test
 import com.utkarsh.todo.core.common.formatRelativeDue
 import com.utkarsh.todo.feature.projects.domain.Project
 import com.utkarsh.todo.feature.projects.domain.ProjectsRepository
+import com.utkarsh.todo.feature.reminders.domain.RemindersRepository
 import com.utkarsh.todo.feature.taskdetail.ui.TaskDetailViewModel
 import com.utkarsh.todo.feature.tasks.domain.Priority
 import com.utkarsh.todo.feature.tasks.domain.Subtask
@@ -37,6 +38,7 @@ class TaskDetailViewModelTest {
     private val clock = Clock.fixed(Instant.parse("2026-11-07T04:30:00Z"), zone) // Sat 7 Nov 10:00 IST
     private val tasks = mockk<TasksRepository>()
     private val projects = mockk<ProjectsRepository>()
+    private val reminders = mockk<RemindersRepository>(relaxed = true)
 
     private val base = Task(
         id = "t1", title = "Ship onboarding redesign", notes = "Keep it to three screens.", projectId = "p1",
@@ -50,12 +52,13 @@ class TaskDetailViewModelTest {
         Dispatchers.setMain(UnconfinedTestDispatcher())
         coEvery { projects.projects() } returns Result.success(listOf(Project("p1", "Design", "#935EDF")))
         coEvery { tasks.get("t1") } returns Result.success(base)
+        coEvery { reminders.forTask("t1") } returns Result.success(null)
     }
 
     @After
     fun tearDown() = Dispatchers.resetMain()
 
-    private fun viewModel() = TaskDetailViewModel(SavedStateHandle(mapOf("taskId" to "t1")), tasks, projects, clock)
+    private fun viewModel() = TaskDetailViewModel(SavedStateHandle(mapOf("taskId" to "t1")), tasks, projects, reminders, clock)
 
     @Test
     fun `loads and maps the task for display`() {

@@ -9,6 +9,8 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performImeAction
 import androidx.compose.ui.test.performTextInput
 import com.utkarsh.todo.core.designsystem.theme.PaperTheme
+import com.utkarsh.todo.feature.taskdetail.ui.RemindState
+import com.utkarsh.todo.feature.taskdetail.ui.RemindUi
 import com.utkarsh.todo.feature.taskdetail.ui.TaskDetailScreen
 import com.utkarsh.todo.feature.taskdetail.ui.TaskDetailUi
 import com.utkarsh.todo.feature.taskdetail.ui.TaskDetailUiState
@@ -45,6 +47,8 @@ class TaskDetailScreenTest {
                     onDelete = { events += "delete" },
                     onRetry = { events += "retry" },
                     onBreakDown = { events += "breakdown" },
+                    onToggleRemind = { events += "remind" },
+                    onNotesChange = { events += "notes:$it" },
                 )
             }
         }
@@ -70,9 +74,65 @@ class TaskDetailScreenTest {
         compose.onNodeWithContentDescription("Subtask Wireframes").performClick()
         compose.onNodeWithTag("toggle-done").performClick()
         compose.onNodeWithTag("delete-task").performClick()
+        compose.onNodeWithTag("confirm-delete").performClick()
         compose.onNodeWithText("‹ Today").performClick()
 
         assertEquals(listOf("sub:s2", "done", "delete", "back"), events)
+    }
+
+    @Test
+    fun delete_asks_first_and_cancel_keeps_the_task() {
+        show(TaskDetailUiState(isLoading = false, task = task))
+
+        compose.onNodeWithTag("delete-task").performClick()
+        compose.onNodeWithText("Delete this task?").assertIsDisplayed()
+        assertEquals(emptyList<String>(), events)
+
+        compose.onNodeWithTag("cancel-delete").performClick()
+
+        compose.onNodeWithText("Delete this task?").assertDoesNotExist()
+        assertEquals(emptyList<String>(), events)
+    }
+
+    @Test
+    fun the_remind_row_offers_a_reminder_and_reports_taps() {
+        show(TaskDetailUiState(isLoading = false, task = task.copy(remind = RemindUi(RemindState.OFF, "+ 1h before due"))))
+
+        compose.onNodeWithText("+ 1h before due").assertIsDisplayed()
+        compose.onNodeWithTag("remind-row").performClick()
+
+        assertEquals(listOf("remind"), events)
+    }
+
+    @Test
+    fun the_remind_row_shows_when_a_reminder_is_on_and_lets_it_be_removed() {
+        show(TaskDetailUiState(isLoading = false, task = task.copy(remind = RemindUi(RemindState.ON, "⏰ Today, 1:00 PM"))))
+
+        compose.onNodeWithText("⏰ Today, 1:00 PM").assertIsDisplayed()
+        compose.onNodeWithText("REMOVE").assertIsDisplayed()
+        compose.onNodeWithTag("remind-row").performClick()
+
+        assertEquals(listOf("remind"), events)
+    }
+
+    @Test
+    fun the_remind_row_does_nothing_without_a_usable_due_time() {
+        show(TaskDetailUiState(isLoading = false, task = task.copy(remind = RemindUi(RemindState.NEEDS_DUE, "Add a due date first"))))
+
+        compose.onNodeWithText("Add a due date first").assertIsDisplayed()
+        compose.onNodeWithTag("remind-row").performClick()
+
+        assertEquals(emptyList<String>(), events)
+    }
+
+    @Test
+    fun notes_are_edited_in_place() {
+        show(TaskDetailUiState(isLoading = false, task = task.copy(notes = "")))
+
+        compose.onNodeWithText("+ Add notes").assertIsDisplayed()
+        compose.onNodeWithTag("notes-input").performTextInput("Call Sam")
+
+        assertEquals(listOf("notes:Call Sam"), events)
     }
 
     @Test

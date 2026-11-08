@@ -54,6 +54,10 @@ class RemindersRepositoryImpl @Inject constructor(
 
     override suspend fun delete(id: String) = resultOf { api.delete(id) }.also { result -> result.onSuccess { scheduler.cancel(id) } }
 
+    override suspend fun forTask(taskId: String) = resultOf { api.list().map { it.toDomain() }.firstOrNull { it.taskId == taskId } }
+
+    override fun forgetAlarm(id: String) = scheduler.cancel(id)
+
     override suspend fun restoreAlarms() = resultOf { store.all().forEach(::apply) }
 
     override suspend fun syncAlarms() = resultOf {

@@ -20,6 +20,12 @@ interface RemindersRepository {
      */
     suspend fun restoreAlarms(): Result<Unit>
 
+    /** The reminder attached to a task (the one made from the task page), if any. */
+    suspend fun forTask(taskId: String): Result<Reminder?>
+
+    /** Drops the device alarm for a reminder whose task was deleted (the server removes the reminder itself). */
+    fun forgetAlarm(id: String)
+
     /** Re-registers device alarms for every enabled, upcoming reminder (app start / after reboot). */
     suspend fun syncAlarms(): Result<Unit>
 }
