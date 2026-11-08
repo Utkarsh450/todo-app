@@ -22,6 +22,12 @@ in `backend/.env` and restart the backend:
 XAI_API_KEY=your-key
 # optional: XAI_MODEL=grok-4.7   XAI_BASE_URL=https://api.x.ai/v1   XAI_TIMEOUT_MS=60000
 ```
+Any OpenAI-compatible provider works through the same three settings. For example Groq (`gsk_...` keys, console.groq.com):
+```
+XAI_API_KEY=gsk_...
+XAI_BASE_URL=https://api.groq.com/openai/v1
+XAI_MODEL=openai/gpt-oss-120b
+```
 Without a key everything else works; the Break it down sheet just says Grok isn't set up. If xAI renames the model,
 change `XAI_MODEL`. Never commit `.env`.
 

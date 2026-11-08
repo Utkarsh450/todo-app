@@ -90,6 +90,10 @@ Design screens not built yet: Focus (11), Projects (12), Search (13).
 - AI: the live Grok API was never called from tests (no key in the repo): tests use a fake `AiClient`, a fake `fetch`, and
   MockWebServer. The default model `grok-4.7` and the chat-completions request shape come from xAI docs; if a real call fails,
   check `XAI_MODEL` first. To try the whole path without a key, run a tiny fake server and set `XAI_BASE_URL` to it.
+- AI provider: the `XAI_*` env vars are provider-neutral (OpenAI-style chat completions). The owner's `backend/.env` points at Groq
+  (`XAI_BASE_URL=https://api.groq.com/openai/v1`, `XAI_MODEL=openai/gpt-oss-120b`; `llama-3.3-70b-versatile` was not available to that
+  key). Break it down, Assistant and Brain dump were all tried live against it and parse fine. The `.env` is git-ignored: never commit it.
+  The dev backend on port 3000 is `node --env-file=.env dist/server.js`, so after changing code or `.env` run `pnpm build` and restart it.
 - Assistant: the backend, not the app, gathers the open tasks (max 40) and sends them to Grok as JSON data with times in the
   app's time zone; `parseAssistantReply` drops anything that doesn't hold up (unknown task id, move into the past, no-op priority,
   repeats, >5). Suggestions are MOVE / SPLIT / PRIORITY only; the app applies one through the normal `TasksRepository` calls when
