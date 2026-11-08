@@ -16,7 +16,7 @@ class AlarmReminderScheduler @Inject constructor(@ApplicationContext private val
     private val alarms = context.getSystemService(AlarmManager::class.java)
 
     override fun schedule(reminder: Reminder) {
-        val intent = checkNotNull(pendingIntent(reminder.id, reminder.title, reminder.repeatRule, reminder.remindAt.toEpochMilli(), PendingIntent.FLAG_UPDATE_CURRENT))
+        val intent = checkNotNull(pendingIntent(reminder.id, reminder.title, reminder.repeatRule, reminder.remindAt.toEpochMilli(), PendingIntent.FLAG_UPDATE_CURRENT, reminder.taskId))
         val triggerAt = reminder.effectiveAt.toEpochMilli()
         if (alarms.canScheduleExactAlarms()) {
             alarms.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, intent)
@@ -32,13 +32,14 @@ class AlarmReminderScheduler @Inject constructor(@ApplicationContext private val
         }
     }
 
-    private fun pendingIntent(id: String, title: String, repeatRule: String?, remindAtMillis: Long, flag: Int): PendingIntent? {
+    private fun pendingIntent(id: String, title: String, repeatRule: String?, remindAtMillis: Long, flag: Int, taskId: String? = null): PendingIntent? {
         val intent = Intent(context, ReminderReceiver::class.java)
             .setAction(ReminderReceiver.ACTION_FIRE)
             .putExtra(ReminderReceiver.EXTRA_ID, id)
             .putExtra(ReminderReceiver.EXTRA_TITLE, title)
             .putExtra(ReminderReceiver.EXTRA_REPEAT, repeatRule)
             .putExtra(ReminderReceiver.EXTRA_REMIND_AT, remindAtMillis)
+            .putExtra(ReminderReceiver.EXTRA_TASK_ID, taskId)
         // One alarm per reminder: the request code is derived from the reminder id.
         return PendingIntent.getBroadcast(context, id.hashCode(), intent, flag or PendingIntent.FLAG_IMMUTABLE)
     }

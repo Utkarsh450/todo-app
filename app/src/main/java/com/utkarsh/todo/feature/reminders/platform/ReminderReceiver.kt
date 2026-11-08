@@ -29,16 +29,18 @@ class ReminderReceiver : BroadcastReceiver() {
         if (intent.action != ACTION_FIRE) return
         val id = intent.getStringExtra(EXTRA_ID) ?: return
         val title = intent.getStringExtra(EXTRA_TITLE).orEmpty().ifBlank { "Reminder" }
-        notifications.show(id, title)
-
-        val rule = intent.getStringExtra(EXTRA_REPEAT) ?: return
+        val rule = intent.getStringExtra(EXTRA_REPEAT)
+        val taskId = intent.getStringExtra(EXTRA_TASK_ID)
         // Count the next occurrence from the time the reminder was meant to fire, not from when the alarm actually went
         // off: alarms fire a little late, and anchoring on "now" would slide the reminder later every single cycle.
         val scheduledAt = intent.getLongExtra(EXTRA_REMIND_AT, 0L).takeIf { it > 0 }?.let(Instant::ofEpochMilli) ?: clock.instant()
+        notifications.show(id, title, scheduledAt.toEpochMilli(), taskId, rule)
+
+        if (rule == null) return
         val now = ZonedDateTime.now(clock)
         val next = RepeatRule.next(rule, scheduledAt.atZone(clock.zone), now) ?: return
         // Register the next alarm on the device straight away, so it exists even when the backend can't be reached.
-        scheduler.schedule(Reminder(id, null, title, next.toInstant(), rule, null, true, null))
+        scheduler.schedule(Reminder(id, taskId, title, next.toInstant(), rule, null, true, null))
 
         val pending = goAsync()
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
@@ -56,5 +58,6 @@ class ReminderReceiver : BroadcastReceiver() {
         const val EXTRA_TITLE = "title"
         const val EXTRA_REPEAT = "repeatRule"
         const val EXTRA_REMIND_AT = "remindAtMillis"
+        const val EXTRA_TASK_ID = "taskId"
     }
 }
