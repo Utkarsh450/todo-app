@@ -27,7 +27,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -51,6 +50,8 @@ import com.utkarsh.todo.core.designsystem.component.PaperCard
 import com.utkarsh.todo.core.designsystem.component.PaperCheckbox
 import com.utkarsh.todo.core.designsystem.component.ProjectDot
 import com.utkarsh.todo.core.designsystem.component.RuledTextField
+import com.utkarsh.todo.core.designsystem.component.SkeletonCard
+import com.utkarsh.todo.core.designsystem.component.SkeletonSurface
 import com.utkarsh.todo.core.designsystem.icon.PaperIcons
 import com.utkarsh.todo.core.designsystem.theme.Paper
 import com.utkarsh.todo.core.designsystem.theme.PaperRadius
@@ -140,7 +141,12 @@ fun BrainDumpScreen(
                 }
             }
 
-            if (!results) {
+            if (sorting) {
+                SkeletonSurface("Sorting your note into tasks", Modifier.padding(top = 20.dp), testTag = "dump-skeleton") {
+                    MonoLabel("Sorting…", Modifier.padding(bottom = 8.dp))
+                    SkeletonCard(rows = 5, ai = true)
+                }
+            } else if (!results) {
                 if (onMic != null) {
                     Column(Modifier.fillMaxWidth().padding(top = 22.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                         Box(
@@ -222,14 +228,7 @@ fun BrainDumpScreen(
                     .testTag(if (results) "dump-add" else "dump-sort"),
                 contentAlignment = Alignment.Center,
             ) {
-                if (sorting) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        CircularProgressIndicator(color = colors.card, strokeWidth = 2.dp, modifier = Modifier.size(16.dp))
-                        Text(label, style = Paper.type.button, color = colors.card)
-                    }
-                } else {
-                    Text(label, style = Paper.type.button, color = colors.card, textAlign = TextAlign.Center)
-                }
+                Text(label, style = Paper.type.button, color = colors.card, textAlign = TextAlign.Center)
             }
         }
     }

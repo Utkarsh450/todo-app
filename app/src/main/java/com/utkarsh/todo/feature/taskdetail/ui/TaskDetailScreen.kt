@@ -18,7 +18,6 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -99,7 +98,7 @@ fun TaskDetailScreen(
         }
         when {
             task != null -> Content(task, state.error, onToggleDone, onToggleSubtask, onAddSubtask, onBreakDown)
-            state.isLoading -> Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator(color = colors.ink) }
+            state.isLoading -> TaskDetailSkeleton()
             else -> Column(Modifier.fillMaxSize().padding(24.dp), Arrangement.Center, Alignment.CenterHorizontally) {
                 Text("Couldn't open this task", style = Paper.type.headline, color = colors.ink)
                 Text(state.error.orEmpty(), style = Paper.type.bodySmall, color = colors.muted, modifier = Modifier.padding(top = 6.dp))

@@ -19,7 +19,6 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.ModalBottomSheet
@@ -99,7 +98,7 @@ fun RemindersScreen(
             MonoLabel("Notifications", Modifier.padding(start = 20.dp, top = 16.dp))
             Text("Reminders", style = Paper.type.displayLarge, color = colors.ink, modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 16.dp).testTag("reminders-title"))
             when {
-                state.isLoading && state.sections.isEmpty() -> Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator(color = colors.ink) }
+                state.isLoading && state.sections.isEmpty() -> RemindersSkeleton()
                 state.error != null && state.sections.isEmpty() -> Column(Modifier.fillMaxSize().padding(24.dp), Arrangement.Center, Alignment.CenterHorizontally) {
                     Text("Can't reach your reminders", style = Paper.type.headline, color = colors.ink)
                     Text(state.error, style = Paper.type.bodySmall, color = colors.muted, modifier = Modifier.padding(top = 6.dp))

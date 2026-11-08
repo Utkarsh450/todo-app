@@ -21,7 +21,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -95,7 +94,7 @@ fun CalendarScreen(
             NavButton("›", "Next month", onNext)
         }
         when {
-            state.isLoading && state.cells.isEmpty() -> Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator(color = colors.ink) }
+            state.isLoading && state.cells.isEmpty() -> CalendarSkeleton()
             state.error != null && state.cells.isEmpty() -> Column(Modifier.fillMaxSize().padding(24.dp), Arrangement.Center, Alignment.CenterHorizontally) {
                 Text("Can't reach your calendar", style = Paper.type.headline, color = colors.ink)
                 Text(state.error, style = Paper.type.bodySmall, color = colors.muted, modifier = Modifier.padding(top = 6.dp))

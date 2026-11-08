@@ -4,6 +4,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -43,10 +44,11 @@ class BreakdownSheetTest {
     )
 
     @Test
-    fun loading_shows_progress_and_no_button() {
+    fun loading_shows_a_skeleton_and_no_button() {
         show(BreakdownUiState(phase = BreakdownPhase.LOADING))
 
         compose.onNodeWithTag("breakdown-loading").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Grok is thinking of steps").assertIsDisplayed()
         compose.onNodeWithText("Thinking it through…").assertIsDisplayed()
         compose.onNodeWithTag("breakdown-add").assertDoesNotExist()
     }

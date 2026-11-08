@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
@@ -33,6 +32,8 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.utkarsh.todo.core.designsystem.component.MonoLabel
 import com.utkarsh.todo.core.designsystem.component.PaperCheckbox
+import com.utkarsh.todo.core.designsystem.component.SkeletonRow
+import com.utkarsh.todo.core.designsystem.component.SkeletonSurface
 import com.utkarsh.todo.core.designsystem.theme.Paper
 import com.utkarsh.todo.core.designsystem.theme.PaperRadius
 
@@ -68,13 +69,14 @@ fun BreakdownContent(
         Text("Suggested subtasks", style = Paper.type.headline, color = colors.ink, modifier = Modifier.padding(top = 4.dp, bottom = 12.dp))
 
         when (state.phase) {
-            BreakdownPhase.LOADING -> Row(
-                Modifier.fillMaxWidth().padding(vertical = 28.dp).testTag("breakdown-loading"),
-                horizontalArrangement = Arrangement.spacedBy(14.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                CircularProgressIndicator(color = colors.ink, strokeWidth = 2.dp, modifier = Modifier.size(20.dp))
-                Text("Thinking it through…", style = Paper.type.note, color = colors.muted)
+            BreakdownPhase.LOADING -> Column(Modifier.fillMaxWidth().padding(bottom = 16.dp)) {
+                Text("Thinking it through…", style = Paper.type.note, color = colors.muted, modifier = Modifier.padding(bottom = 6.dp))
+                SkeletonSurface("Grok is thinking of steps", testTag = "breakdown-loading") {
+                    SkeletonRow(Modifier.padding(horizontal = 0.dp), titleWidth = 0.78f, metaWidth = null, ai = true)
+                    SkeletonRow(Modifier.padding(horizontal = 0.dp), titleWidth = 0.6f, metaWidth = null, ai = true)
+                    SkeletonRow(Modifier.padding(horizontal = 0.dp), titleWidth = 0.85f, metaWidth = null, ai = true)
+                    SkeletonRow(Modifier.padding(horizontal = 0.dp), titleWidth = 0.5f, metaWidth = null, ai = true)
+                }
             }
 
             BreakdownPhase.READY -> {

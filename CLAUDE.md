@@ -50,7 +50,7 @@ pnpm build && node --env-file=.env dist/server.js
 pnpm prisma:migrate / prisma:deploy / prisma:seed
 ```
 Result files: `app/build/test-results/testDebugUnitTest/*.xml`, `app/build/outputs/androidTest-results/connected/debug/*.xml`.
-Test counts at last run: backend 157, Android unit 263, emulator 129 — all green.
+Test counts at last run: backend 157, Android unit 263, emulator 137 — all green.
 
 ## Database
 Local PostgreSQL 16 (Homebrew), browse with pgAdmin. Databases: `paper_todo` (dev) and `paper_todo_test` (tests; the
@@ -103,6 +103,11 @@ Design screens not built yet: Focus (11), Projects (12), Search (13).
   Nothing is saved server-side; `BrainDumpViewModel.addSelected` creates tasks one by one and, on a partial failure, keeps only the
   rest. Voice uses the system `RecognizerIntent` dialog (no RECORD_AUDIO permission; the mic hides if no recogniser, see the
   `<queries>` entry in the manifest) - that dialog itself is not covered by tests.
+- Loading states use **skeletons, never spinners**: wrap placeholders in `SkeletonSurface(label, testTag)` (one shared shimmer, announced
+  as a single "label" to TalkBack) and build them from `SkeletonBlock/Line/Paragraph/Row/Card` (core/designsystem/component/Skeleton.kt).
+  Each screen has its own `XSkeleton` shaped like its content (Today, TaskDetail, Calendar, Reminders, Insights). The three AI places
+  (Break it down, Assistant, Brain dump) pass `ai = true` for the warm Gemini-style sweep and shrinking answer lines. With the system
+  "Remove animations" setting the blocks sit still. New screens should ship a skeleton + a loading test (see `SkeletonScreensTest`).
 - Compose: put `Modifier.alpha(...)` *before* `.clip().background()` on buttons/chips that switch between enabled and disabled; with
   `alpha` after `background` the fill vanished when the state flipped back to enabled (seen on device, not in Compose tests).
 - `adb shell input text` with a long string or fast bursts drops characters at the end of each burst (the field was fine typed

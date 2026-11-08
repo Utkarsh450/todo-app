@@ -17,7 +17,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -161,7 +160,7 @@ fun TodayScreen(
                 modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 10.dp, bottom = 16.dp).testTag("today-title"),
             )
             when {
-                state.isLoading && state.items.isEmpty() -> Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator(color = colors.ink) }
+                state.isLoading && state.items.isEmpty() -> TodaySkeleton()
                 state.errorMessage != null && state.items.isEmpty() -> ErrorState(state.errorMessage, onRetry)
                 state.view == TodayView.BLOCKS -> BlocksView(state, blocks, onToggle, onOpen, onMoveToTomorrow, onArchive, habitsContent, noteContent)
                 else -> PlanView(state.items)

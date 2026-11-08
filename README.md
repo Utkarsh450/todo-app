@@ -12,7 +12,7 @@ real device alarms, notifications, survive reboot) · Calendar month grid + week
 weekly rhythm · Customize (choose, reorder and hide Today blocks, paper texture, row density) · **Break it down**
 (on a task page, Grok suggests subtasks; you untick the ones you don't want, nothing is added until you confirm) ·
 **Assistant** (the ✦ on Today: ask "Plan my day" or "What's slipping?"; Grok sees your open tasks and suggests moving, splitting or
-re-prioritising them, and each change happens only when you tap Accept) · **Brain dump** (the ✎ on Today: type or dictate a rambling
+re-prioritising them, and each change happens only when you tap Accept) · skeleton loaders (a soft shimmer shaped like each screen) while data loads · **Brain dump** (the ✎ on Today: type or dictate a rambling
 note, Grok sorts it into tasks with dates, priority, repeat and project, you untick what you don't want, then they are created).
 
 ## AI (Grok)

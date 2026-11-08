@@ -26,7 +26,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -46,6 +45,9 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.utkarsh.todo.core.designsystem.component.MonoLabel
 import com.utkarsh.todo.core.designsystem.component.PaperCard
+import com.utkarsh.todo.core.designsystem.component.SkeletonCard
+import com.utkarsh.todo.core.designsystem.component.SkeletonParagraph
+import com.utkarsh.todo.core.designsystem.component.SkeletonSurface
 import com.utkarsh.todo.core.designsystem.theme.Paper
 import com.utkarsh.todo.core.designsystem.theme.PaperRadius
 import com.utkarsh.todo.core.designsystem.theme.paperSurface
@@ -173,9 +175,9 @@ private fun Turn(turn: TurnUi, onAccept: (Int) -> Unit, onSkip: (Int) -> Unit, o
         }
         MonoLabel("✦ Grok", Modifier.padding(top = 16.dp, bottom = 6.dp), color = colors.accent)
         when {
-            turn.loading -> Row(Modifier.padding(vertical = 6.dp).testTag("assistant-loading"), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                CircularProgressIndicator(color = colors.ink, strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
-                Text("Thinking…", style = Paper.type.note, color = colors.muted)
+            turn.loading -> SkeletonSurface("Grok is thinking", Modifier.padding(top = 4.dp), testTag = "assistant-loading") {
+                SkeletonParagraph(widths = listOf(1f, 0.94f, 0.62f), ai = true)
+                SkeletonCard(rows = 2, modifier = Modifier.padding(top = 22.dp), ai = true)
             }
             turn.error != null -> Column(Modifier.testTag("assistant-error")) {
                 if (turn.notConfigured) {

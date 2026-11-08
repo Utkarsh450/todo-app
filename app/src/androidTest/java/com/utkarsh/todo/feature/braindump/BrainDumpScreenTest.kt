@@ -106,8 +106,10 @@ class BrainDumpScreenTest {
     fun sorting_shows_progress_and_blocks_taps() {
         show(BrainDumpUiState(text = "note", phase = DumpPhase.SORTING))
         compose.onNodeWithText("Sorting…").assertIsDisplayed()
+        compose.onNodeWithTag("dump-skeleton").assertIsDisplayed()
+        compose.onNodeWithTag("dump-found").assertDoesNotExist()
         compose.onNodeWithTag("dump-sort").performClick()
-        compose.onNodeWithTag("dump-mic").performClick()
+        compose.onNodeWithTag("dump-mic").assertDoesNotExist() // the skeleton takes its place while sorting
         assertEquals(emptyList<String>(), events)
     }
 

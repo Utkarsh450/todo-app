@@ -2,6 +2,7 @@ package com.utkarsh.todo.feature.assistant
 
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -158,11 +159,11 @@ class AssistantScreenTest {
     }
 
     @Test
-    fun loading_shows_thinking_and_blocks_new_questions() {
+    fun loading_shows_a_skeleton_answer_and_blocks_new_questions() {
         show(AssistantUiState(turns = listOf(TurnUi(id = 1, question = "Plan my day", loading = true))))
 
         compose.onNodeWithTag("assistant-loading").assertIsDisplayed()
-        compose.onNodeWithText("Thinking…").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Grok is thinking").assertIsDisplayed()
         compose.onNodeWithTag("prompt-0").performClick()
         assertEquals(emptyList<String>(), events)
     }
