@@ -1,5 +1,6 @@
 package com.utkarsh.todo.feature.taskdetail.ui
 
+import com.utkarsh.todo.core.offline.OnReconnect
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -57,6 +58,7 @@ import com.utkarsh.todo.feature.tasks.domain.Priority
 fun TaskDetailRoute(onBack: () -> Unit, onFocus: () -> Unit, modifier: Modifier = Modifier, viewModel: TaskDetailViewModel = hiltViewModel()) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     var showBreakdown by rememberSaveable { mutableStateOf(false) }
+    OnReconnect { viewModel.refresh() }
     LaunchedEffect(viewModel) { viewModel.closed.collect { onBack() } }
     if (showBreakdown) {
         BreakdownSheet(onDismiss = {

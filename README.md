@@ -13,7 +13,9 @@ weekly rhythm · Customize (choose, reorder and hide Today blocks, paper texture
 (on a task page, Grok suggests subtasks; you untick the ones you don't want, nothing is added until you confirm) ·
 **Assistant** (the ✦ on Today: ask "Plan my day" or "What's slipping?"; Grok sees your open tasks and suggests moving, splitting or
 re-prioritising them, and each change happens only when you tap Accept) · skeleton loaders (a soft shimmer shaped like each screen) while data loads · **Brain dump** (the ✎ on Today: type or dictate a rambling
-note, Grok sorts it into tasks with dates, priority, repeat and project, you untick what you don't want, then they are created).
+note, Grok sorts it into tasks with dates, priority, repeat and project, you untick what you don't want, then they are created) ·
+**Projects** (⋯ on Today: progress per project, tick tasks, make/rename/recolour/delete) · **Search** · **Focus** timer on a task page ·
+**Offline reading**: screens you already opened keep showing their last saved data, with an "Offline" banner, when the server can't be reached.
 
 ## AI (Grok)
 AI calls go through the backend, so the key never lives on the phone. Get a key at <https://console.x.ai>, then put it

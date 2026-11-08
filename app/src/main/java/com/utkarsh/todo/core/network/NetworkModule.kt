@@ -1,6 +1,15 @@
 package com.utkarsh.todo.core.network
 
+import android.content.Context
 import com.utkarsh.todo.BuildConfig
+import com.utkarsh.todo.core.offline.FileOfflineStore
+import com.utkarsh.todo.core.offline.HealthApi
+import com.utkarsh.todo.core.offline.OfflineCacheInterceptor
+import com.utkarsh.todo.core.offline.OfflineMonitor
+import com.utkarsh.todo.core.offline.OfflineStore
+import dagger.hilt.android.qualifiers.ApplicationContext
+import java.io.File
+import retrofit2.create
 import retrofit2.converter.kotlinx.serialization.asConverterFactory
 import dagger.Module
 import dagger.Provides
@@ -33,15 +42,24 @@ fun buildRetrofit(baseUrl: String, client: OkHttpClient = OkHttpClient()): Retro
 object NetworkModule {
     @Provides
     @Singleton
-    fun okHttp(): OkHttpClient = OkHttpClient.Builder()
+    fun offlineStore(@ApplicationContext context: Context): OfflineStore = FileOfflineStore(File(context.filesDir, "offline-cache"))
+
+    @Provides
+    @Singleton
+    fun okHttp(store: OfflineStore, monitor: OfflineMonitor): OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(10, TimeUnit.SECONDS)
         .readTimeout(15, TimeUnit.SECONDS)
+        .addInterceptor(OfflineCacheInterceptor(store, monitor))
         .apply {
             if (BuildConfig.DEBUG) {
                 addInterceptor(HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BASIC })
             }
         }
         .build()
+
+    @Provides
+    @Singleton
+    fun healthApi(retrofit: Retrofit): HealthApi = retrofit.create()
 
     @Provides
     @Singleton

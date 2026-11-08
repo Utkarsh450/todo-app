@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -21,7 +22,13 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.utkarsh.todo.core.designsystem.component.NavBarItem
+import com.utkarsh.todo.core.designsystem.component.OfflineBanner
+import com.utkarsh.todo.core.offline.OfflineViewModel
+import com.utkarsh.todo.core.offline.ProvideReconnected
+import kotlinx.coroutines.delay
 import com.utkarsh.todo.core.designsystem.component.PaperNavBar
 import com.utkarsh.todo.core.designsystem.icon.PaperIcons
 import com.utkarsh.todo.core.designsystem.theme.Paper
@@ -52,10 +59,15 @@ private val topLevel = listOf(
 @Composable
 fun AppNavHost(modifier: Modifier = Modifier) {
     val nav = rememberNavController()
+    val offlineViewModel: OfflineViewModel = hiltViewModel()
+    val offline by offlineViewModel.offline.collectAsStateWithLifecycle()
+    // While offline, ask the server every so often whether it is back.
+    LaunchedEffect(offline) { while (offline) { delay(RECHECK_MS); offlineViewModel.recheck() } }
     var showQuickAdd by rememberSaveable { mutableStateOf(false) }
     val entry by nav.currentBackStackEntryAsState()
     val selected = topLevel.firstOrNull { t -> entry?.destination?.hasRoute(t.type) == true }?.key
 
+    ProvideReconnected(offlineViewModel.reconnected) {
     Column(modifier.fillMaxSize()) {
         NavHost(nav, startDestination = Destination.Today, modifier = Modifier.weight(1f)) {
             composable<Destination.Today> {
@@ -85,6 +97,7 @@ fun AppNavHost(modifier: Modifier = Modifier) {
             }
             composable<Destination.Focus> { FocusRoute(onBack = { nav.popBackStack() }) }
         }
+        if (offline) OfflineBanner(onRetry = offlineViewModel::recheck)
         if (selected != null) {
             PaperNavBar(
                 items = topLevel.map { NavBarItem(it.key, it.label, it.icon) },
@@ -102,7 +115,10 @@ fun AppNavHost(modifier: Modifier = Modifier) {
         }
     }
     if (showQuickAdd) QuickAddSheet(onDismiss = { showQuickAdd = false })
+    }
 }
+
+private const val RECHECK_MS = 15_000L
 
 @Composable
 private fun Placeholder(name: String) {

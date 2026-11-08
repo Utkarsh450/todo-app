@@ -1,5 +1,6 @@
 package com.utkarsh.todo.feature.insights.ui
 
+import com.utkarsh.todo.core.offline.OnReconnect
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -40,6 +41,7 @@ import java.time.LocalDate
 
 @Composable
 fun InsightsRoute(modifier: Modifier = Modifier, viewModel: InsightsViewModel = hiltViewModel()) {
+    OnReconnect { viewModel.refresh() }
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     InsightsScreen(state, viewModel::setMode, viewModel::select, viewModel::refresh, modifier)
 }

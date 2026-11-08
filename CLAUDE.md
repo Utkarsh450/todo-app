@@ -82,11 +82,16 @@ Focus (11) is built (`feature/focus/ui`; "Focus · 25:00" on the task page -> `D
 **Remaining work (suggested order):**
 1. ~~Task detail extras~~ done (REMIND row, notes editing, delete confirmation, Focus timer).
 2. Real fonts (see Design), launcher icon, release signing/R8 check, CI workflow.
-3. Offline support (currently every screen needs the backend), auth if the API is ever exposed (it is unauthenticated, single-user).
+3. ~~Offline reading~~ done (see Gotchas). Still open: auth if the API is ever exposed (it is unauthenticated, single-user).
 4. ~~Project management UI~~ done: Projects screen (Today ⋯ menu -> Projects) with progress, task ticking, make/rename/recolour/delete.
 5. A true end-to-end instrumented test (Hilt test app + real backend) — today E2E was verified manually with `adb` + screenshots.
 
 ## Gotchas learned
+- Offline: `core/offline` saves every successful GET (`OfflineCacheInterceptor` + `FileOfflineStore` in `filesDir/offline-cache`, one file per full
+  URL, max 300) and, when a GET cannot connect, serves the saved copy for the *same URL* (header `X-Offline-Cache: 1`). Writes are never faked,
+  so editing needs the server. `OfflineMonitor` (singleton) flips on connect failures/answers; `AppNavHost` shows `OfflineBanner` above the nav
+  bar, re-checks `/health` every 15 s and on Retry, and screens reload through `OnReconnect { vm.refresh() }` (`LocalReconnected`). A day or
+  month never opened online has no saved copy and shows its normal error. Calls cancelled by the app are not treated as "offline".
 - AI: the live Grok API was never called from tests (no key in the repo): tests use a fake `AiClient`, a fake `fetch`, and
   MockWebServer. The default model `grok-4.7` and the chat-completions request shape come from xAI docs; if a real call fails,
   check `XAI_MODEL` first. To try the whole path without a key, run a tiny fake server and set `XAI_BASE_URL` to it.

@@ -1,5 +1,6 @@
 package com.utkarsh.todo.feature.reminders.ui
 
+import com.utkarsh.todo.core.offline.OnReconnect
 import android.Manifest
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -55,6 +56,7 @@ private const val UNDO_VISIBLE_MS = 4_000L
 fun RemindersRoute(modifier: Modifier = Modifier, viewModel: RemindersViewModel = hiltViewModel()) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     var adding by rememberSaveable { mutableStateOf(false) }
+    OnReconnect { viewModel.refresh() }
 
     // Android 13+ needs runtime permission before notifications can be shown.
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}

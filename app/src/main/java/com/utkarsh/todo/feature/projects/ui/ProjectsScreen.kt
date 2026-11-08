@@ -1,5 +1,6 @@
 package com.utkarsh.todo.feature.projects.ui
 
+import com.utkarsh.todo.core.offline.OnReconnect
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -60,6 +61,7 @@ private const val MESSAGE_VISIBLE_MS = 3_000L
 @Composable
 fun ProjectsRoute(onBack: () -> Unit, onOpenTask: (String) -> Unit, modifier: Modifier = Modifier, viewModel: ProjectsViewModel = hiltViewModel()) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    OnReconnect { viewModel.load(showSkeleton = false) }
     ProjectsScreen(
         state = state,
         onBack = onBack,

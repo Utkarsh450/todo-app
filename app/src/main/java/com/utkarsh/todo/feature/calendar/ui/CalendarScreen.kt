@@ -1,5 +1,6 @@
 package com.utkarsh.todo.feature.calendar.ui
 
+import com.utkarsh.todo.core.offline.OnReconnect
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -52,6 +53,7 @@ private val HOUR_HEIGHT = 56.dp
 
 @Composable
 fun CalendarRoute(modifier: Modifier = Modifier, viewModel: CalendarViewModel = hiltViewModel()) {
+    OnReconnect { viewModel.refresh() }
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     CalendarScreen(
         state = state,

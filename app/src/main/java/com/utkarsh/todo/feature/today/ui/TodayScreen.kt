@@ -1,5 +1,6 @@
 package com.utkarsh.todo.feature.today.ui
 
+import com.utkarsh.todo.core.offline.OnReconnect
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -76,6 +77,7 @@ fun TodayRoute(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val settings by settingsViewModel.uiState.collectAsStateWithLifecycle()
+    OnReconnect { viewModel.refresh() }
     TodayScreen(
         state = state,
         onViewChange = viewModel::setView,
