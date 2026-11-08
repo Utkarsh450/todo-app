@@ -63,8 +63,9 @@ Dates in API: ISO strings; day-only values `YYYY-MM-DD`. Day boundaries are comp
 ## Design (Paper System)
 Source file was a private claude.ai design ("Todo Components.dc.html"), unpacked from a shared bundle. Tokens live in
 `core/designsystem/theme`: paper `#F4F0E7`, card `#FFFDF8`, rule `#E3DCCD`, ink `#2B2824`, muted `#8A8377`, accent
-vermilion `#C4532F`. Fonts: Newsreader (serif), Schibsted Grotesk (sans), IBM Plex Mono (labels) — currently system
-fallbacks (`PaperFonts` in `Type.kt`); bundle the real fonts or use `ui-text-google-fonts` to finish the look.
+vermilion `#C4532F`. Fonts: Newsreader (serif), Schibsted Grotesk (sans), IBM Plex Mono (labels) are **bundled** in `res/font`
+(OFL, licence texts in `assets/licenses`; Newsreader/Schibsted are variable fonts, set per weight in `PaperFonts` in `Type.kt`). Launcher icon:
+adaptive vector (paper + ink checkbox + vermilion dot, with a themed monochrome layer) in `res/drawable/ic_launcher_*` and `res/mipmap-anydpi-v26`.
 Screens: Today, Task page, Quick add, Planner (= Calendar "Week"), Calendar, Reminders, Insights, Customize.
 
 ## Status
@@ -81,7 +82,7 @@ Focus (11) is built (`feature/focus/ui`; "Focus · 25:00" on the task page -> `D
 
 **Remaining work (suggested order):**
 1. ~~Task detail extras~~ done (REMIND row, notes editing, delete confirmation, Focus timer).
-2. Real fonts (see Design), launcher icon, release signing/R8 check, CI workflow.
+2. ~~Real fonts, launcher icon~~ done. Still open: release signing/R8 check, CI workflow.
 3. ~~Offline reading~~ done (see Gotchas). Still open: auth if the API is ever exposed (it is unauthenticated, single-user).
 4. ~~Project management UI~~ done: Projects screen (Today ⋯ menu -> Projects) with progress, task ticking, make/rename/recolour/delete.
 5. A true end-to-end instrumented test (Hilt test app + real backend) — today E2E was verified manually with `adb` + screenshots.

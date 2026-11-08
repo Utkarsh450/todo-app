@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
+    <!-- Checkbox ring -->
+    <path
+        android:strokeColor="#2B2824" android:strokeWidth="6" android:fillColor="#FFFDF8"
+        android:pathData="M54,54m-22,0a22,22 0,1 1,44 0a22,22 0,1 1,-44 0" />
+    <!-- Tick -->
+    <path
+        android:strokeColor="#2B2824" android:strokeWidth="6" android:strokeLineCap="round" android:strokeLineJoin="round"
+        android:pathData="M43.5,55L51,62.5L65,46" />
+    <!-- Vermilion accent -->
+    <path android:fillColor="#C4532F" android:pathData="M72,34m-5.5,0a5.5,5.5 0,1 1,11 0a5.5,5.5 0,1 1,-11 0" />
+</vector>

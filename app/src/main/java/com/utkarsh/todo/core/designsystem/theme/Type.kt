@@ -2,17 +2,21 @@ package com.utkarsh.todo.core.designsystem.theme
 
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.ExperimentalTextApi
+import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
+import com.utkarsh.todo.R
 
 /**
  * Three-family type system from the design:
  * Newsreader (serif display), Schibsted Grotesk (UI sans) and IBM Plex Mono (labels/meta).
- * Families fall back to system fonts when the Google Fonts provider is unavailable.
+ * The font files are bundled in res/font, so the app looks the same offline.
  */
 data class PaperTypography(
     val displayLarge: TextStyle = serif(46.sp, tracking = (-0.025).em, lineHeight = 46.sp),
@@ -38,10 +42,32 @@ private fun sans(size: TextUnit, weight: FontWeight = FontWeight.Normal, lineHei
 private fun mono(size: TextUnit, weight: FontWeight = FontWeight.Normal, tracking: TextUnit = TextUnit.Unspecified) =
     TextStyle(fontFamily = PaperFonts.Mono, fontSize = size, fontWeight = weight, letterSpacing = tracking)
 
+/**
+ * The bundled fonts (all SIL Open Font License, texts in assets/licenses). Newsreader and Schibsted Grotesk are variable
+ * fonts, so one file serves every weight; IBM Plex Mono ships one file per weight.
+ */
+@OptIn(ExperimentalTextApi::class)
 internal object PaperFonts {
-    val Serif: FontFamily = FontFamily.Serif
-    val Sans: FontFamily = FontFamily.SansSerif
-    val Mono: FontFamily = FontFamily.Monospace
+    private fun variable(resId: Int, weight: FontWeight, style: FontStyle = FontStyle.Normal) =
+        Font(resId, weight, style, variationSettings = FontVariation.Settings(FontVariation.weight(weight.weight)))
+
+    val Serif: FontFamily = FontFamily(
+        variable(R.font.newsreader, FontWeight.Normal),
+        variable(R.font.newsreader, FontWeight.Medium),
+        variable(R.font.newsreader, FontWeight.SemiBold),
+        variable(R.font.newsreader_italic, FontWeight.Normal, FontStyle.Italic),
+        variable(R.font.newsreader_italic, FontWeight.Medium, FontStyle.Italic),
+    )
+    val Sans: FontFamily = FontFamily(
+        variable(R.font.schibsted_grotesk, FontWeight.Normal),
+        variable(R.font.schibsted_grotesk, FontWeight.Medium),
+        variable(R.font.schibsted_grotesk, FontWeight.SemiBold),
+        variable(R.font.schibsted_grotesk, FontWeight.Bold),
+    )
+    val Mono: FontFamily = FontFamily(
+        Font(R.font.ibm_plex_mono_regular, FontWeight.Normal),
+        Font(R.font.ibm_plex_mono_medium, FontWeight.Medium),
+    )
 }
 
 /** Material typography mapped onto the paper styles so stock M3 components stay on-brand. */
