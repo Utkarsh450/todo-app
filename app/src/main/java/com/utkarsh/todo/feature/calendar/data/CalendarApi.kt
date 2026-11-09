@@ -4,8 +4,10 @@ import com.utkarsh.todo.core.network.InstantSerializer
 import java.time.Instant
 import kotlinx.serialization.Serializable
 import retrofit2.http.Body
+import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.POST
+import retrofit2.http.Path
 import retrofit2.http.Query
 
 @Serializable
@@ -38,4 +40,7 @@ interface CalendarApi {
 
     @POST("events")
     suspend fun createEvent(@Body body: CreateEventRequest): EventDto
+
+    @DELETE("events/{id}")
+    suspend fun deleteEvent(@Path("id") id: String)
 }

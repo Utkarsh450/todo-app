@@ -159,7 +159,7 @@ class AssistantViewModel @Inject constructor(
                 tasks.create(NewTask(title = change.title, projectId = change.projectId, priority = change.priority, dueAt = change.dueAt, repeatRule = change.repeatRule)).map { },
             )
             is AssistantSuggestion.CreateEvent ->
-                finish(suggestionId, calendar.createEvent(NewEvent(change.title, change.startAt, change.endAt, change.allDay)))
+                finish(suggestionId, calendar.createEvent(NewEvent(change.title, change.startAt, change.endAt, change.allDay)).map { })
             is AssistantSuggestion.CreateReminder ->
                 finish(suggestionId, reminders.create(NewReminder(title = change.title, remindAt = change.remindAt, repeatRule = change.repeatRule)).map { })
             is AssistantSuggestion.Split -> {

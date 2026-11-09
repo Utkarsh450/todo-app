@@ -63,7 +63,7 @@ class AssistantViewModelTest {
         coEvery { tasks.update(any(), any()) } answers { Result.success(task(firstArg())) }
         coEvery { tasks.create(any()) } returns Result.success(task("new"))
         coEvery { tasks.setDone(any(), any()) } answers { Result.success(task(firstArg())) }
-        coEvery { calendar.createEvent(any()) } returns Result.success(Unit)
+        coEvery { calendar.createEvent(any()) } returns Result.success("e1")
         coEvery { reminders.create(any()) } answers {
             val r = firstArg<NewReminder>()
             Result.success(Reminder("r1", null, r.title, r.remindAt, r.repeatRule, null, true, null))
@@ -355,7 +355,7 @@ class AssistantViewModelTest {
         vm.accept(id)
         assertEquals(SuggestionStatus.FAILED, vm.statuses().single())
 
-        coEvery { calendar.createEvent(any()) } returns Result.success(Unit)
+        coEvery { calendar.createEvent(any()) } returns Result.success("e1")
         vm.accept(id)
         assertEquals(SuggestionStatus.ACCEPTED, vm.statuses().single())
         vm.accept(id) // already done: ignored

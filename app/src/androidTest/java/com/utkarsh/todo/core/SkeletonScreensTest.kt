@@ -73,7 +73,7 @@ class SkeletonScreensTest {
     @Test
     fun calendar_shows_a_skeleton_while_loading() {
         compose.setContent {
-            PaperTheme { CalendarScreen(CalendarUiState(isLoading = true), {}, {}, {}, {}, {}, {}) }
+            PaperTheme { CalendarScreen(CalendarUiState(isLoading = true), com.utkarsh.todo.feature.calendar.ui.CalendarActions()) }
         }
         compose.onNodeWithTag("calendar-skeleton").assertIsDisplayed()
         compose.onNodeWithContentDescription("Loading the calendar").assertIsDisplayed()

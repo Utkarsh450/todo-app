@@ -95,9 +95,12 @@ class QuickAddIntegrationTest {
          "archived":false,"pinned":false,"repeatRule":null,"createdAt":"2026-11-07T00:00:00.000Z","updatedAt":"2026-11-07T00:00:00.000Z","subtasks":[]}
     """.trimIndent()
 
+    private val alertReminders = io.mockk.mockk<com.utkarsh.todo.feature.reminders.domain.RemindersRepository>().also {
+        io.mockk.coEvery { it.create(any()) } returns Result.failure(RuntimeException("not under test"))
+    }
     private val retrofit by lazy { buildRetrofit(server.url("/api/").toString()) }
     private val notes by lazy { NotesRepositoryImpl(retrofit.create<NotesApi>()) }
-    private val calendar by lazy { CalendarRepositoryImpl(retrofit.create<CalendarApi>()) }
+    private val calendar by lazy { CalendarRepositoryImpl(retrofit.create<CalendarApi>(), alertReminders, clock) }
 
     /** Completes once the view-model's background project lookup has finished, so `#design` can be resolved. */
     private val projectsLoaded = CompletableDeferred<Unit>()

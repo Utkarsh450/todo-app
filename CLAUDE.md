@@ -50,7 +50,7 @@ pnpm build && node --env-file=.env dist/server.js
 pnpm prisma:migrate / prisma:deploy / prisma:seed
 ```
 Result files: `app/build/test-results/testDebugUnitTest/*.xml`, `app/build/outputs/androidTest-results/connected/debug/*.xml`.
-Test counts at last run: backend 174, Android unit 375, emulator 199 (5 of them are the end-to-end tests, which skip without a running backend) — all green.
+Test counts at last run: see the final run in the git log (backend 183, Android unit, emulator; the 5 end-to-end tests skip without a running backend).
 
 ## Database
 Local PostgreSQL 16 (Homebrew), browse with pgAdmin. Databases: `paper_todo` (dev) and `paper_todo_test` (tests; the
@@ -76,7 +76,7 @@ dots/lines/plain, cozy/compact density; DataStore-backed `SettingsRepository`; g
 quick add **Task / Note / Event** (Note appends to today's scratchpad, Event -> calendar),
 **AI Break it down** (task page -> bottom sheet; backend `modules/ai`, app `feature/ai` + `feature/breakdown`).
 AI uses an OpenAI-compatible chat API (the owner's `.env` points at **Groq**) via the backend only (`XAI_API_KEY`, `XAI_MODEL`, `XAI_BASE_URL`, `XAI_TIMEOUT_MS` in `backend/.env`).
-**Assistant** (design 09; ✦ on the Today header -> `feature/assistant`; backend `POST /ai/assist`),
+**Assistant** (design 09; now also CREATE_TASK / CREATE_EVENT / CREATE_REMINDER / COMPLETE, see Gotchas; ✦ on the Today header -> `feature/assistant`; backend `POST /ai/assist`),
 **Brain dump** (design 14; ✎ on the Today header -> `feature/braindump`; backend `POST /ai/braindump`).
 Focus (11) is built (`feature/focus/ui`; "Focus · 25:00" on the task page -> `Destination.Focus`; countdown derived from the clock, presets 15/25/45, not persisted). Projects (12) is built (`feature/projects/ui`), Search (13) too (`feature/search/ui`, Today ⋯ menu -> Search; debounced title search via `TasksRepository.search`).
 
@@ -144,3 +144,14 @@ Focus (11) is built (`feature/focus/ui`; "Focus · 25:00" on the task page -> `D
 - DataStore tests that "kill the process": after `scope.cancel()` also `join()` the job, or the reopened store can still see the old
   one registered (flaky "multiple DataStores active" failure).
 - `adb shell input text '#x'` types `%23` unless quoted as `"input text '#x'"`.
+- Assistant actions: `assistant.ts` returns MOVE/SPLIT/PRIORITY/COMPLETE (need a known `taskId`) and CREATE_TASK/CREATE_EVENT/CREATE_REMINDER (checked: a title,
+  a future time for events/reminders, one hour default length, repeats dropped, max 8). The model also sees the next 14 days of events, upcoming reminders and project
+  names. The app applies a card only on Accept, through `TasksRepository` / `CalendarRepository` / `RemindersRepository` (so reminders get a real alarm).
+- Ringing reminders: `ReminderNotifications` posts an INSISTENT alarm-channel notification (`reminder_alerts`; channels are immutable, so a new id) with a full-screen
+  intent to `ReminderAlarmActivity` (shows over the lock screen, Back = dismiss). Android 14+ lets people switch full-screen alerts off per app: `canShowFullScreen()`.
+  Snooze goes through `ReminderSnoozer` (server first, local alarm if that fails). The notification stops ringing only when cancelled (`cancel(id)`), or after 5 min.
+- Event alerts: `NewEvent.alertMinutes` (default 30) makes `CalendarRepositoryImpl.createEvent` also create a reminder with `eventId` set (backend column, cascade on event
+  delete); all-day events ring at 09:00; an alert already in the past is skipped; a failing alert never fails the event. Stand-alone reminders (no task, no event) show on the
+  calendar agenda as `reminder`; task reminders and event alerts do not (they would repeat the task or event).
+- Calendar: `CalendarViewModel` owns the create draft (`CreateDraft`) and the detail sheet; `TimeGrid` (week/day) taps map to half-hour slots (`slotMinutes`). In Compose tests a
+  child of a `clickable` parent is only found with `useUnmergedTree = true`. After `pnpm prisma:deploy` + `pnpm build`, restart the dev backend so it knows `eventId`.

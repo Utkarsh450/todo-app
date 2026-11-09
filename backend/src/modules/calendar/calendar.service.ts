@@ -34,12 +34,23 @@ export class CalendarService {
     }
   }
 
-  /** Events plus non-archived dated tasks within [from, to). */
+  /**
+   * Events, non-archived dated tasks and stand-alone reminders within [from, to). A reminder that belongs to a task
+   * or is an event's alert is not listed on its own: it would only repeat the task or the event.
+   */
   async agenda(from: Date, to: Date) {
-    const [events, tasks] = await Promise.all([
+    const [events, tasks, reminders] = await Promise.all([
       this.listEvents(from, to),
       this.db.task.findMany({ where: { archived: false, dueAt: { gte: from, lt: to } } }),
+      this.db.reminder.findMany({
+        where: {
+          enabled: true,
+          taskId: null,
+          eventId: null,
+          OR: [{ snoozedUntil: null, remindAt: { gte: from, lt: to } }, { snoozedUntil: { gte: from, lt: to } }],
+        },
+      }),
     ]);
-    return buildAgenda(events, tasks);
+    return buildAgenda(events, tasks, reminders);
   }
 }

@@ -70,4 +70,35 @@ describe('calendar API (integration)', () => {
     expect(res.statusCode).toBe(200);
     expect(res.json().map((i: { kind: string; title: string }) => `${i.kind}:${i.title}`)).toEqual(['task:Review PR', 'event:1:1']);
   });
+
+  it('lists stand-alone reminders on the agenda, but not task reminders, event alerts or disabled ones', async () => {
+    const post = (url: string, payload: object) => ctx.app.inject({ method: 'POST', url, payload });
+    const event = (await post('/api/events', { title: 'Dentist', startAt: '2026-11-07T15:00:00Z', endAt: '2026-11-07T16:00:00Z' })).json();
+    const task = (await post('/api/tasks', { title: 'Pay bill' })).json();
+    await post('/api/reminders', { title: 'Stretch', remindAt: '2026-11-07T08:00:00Z' });
+    await post('/api/reminders', { title: 'Dentist alert', remindAt: '2026-11-07T14:30:00Z', eventId: event.id });
+    await post('/api/reminders', { title: 'Pay bill alert', remindAt: '2026-11-07T09:00:00Z', taskId: task.id });
+    await post('/api/reminders', { title: 'Off', remindAt: '2026-11-07T10:00:00Z', enabled: false });
+    await post('/api/reminders', { title: 'Other day', remindAt: '2026-11-09T10:00:00Z' });
+
+    const res = await ctx.app.inject({ method: 'GET', url: '/api/calendar/agenda?from=2026-11-07T00:00:00Z&to=2026-11-08T00:00:00Z' });
+    expect(res.json().map((i: { kind: string; title: string }) => `${i.kind}:${i.title}`)).toEqual(['reminder:Stretch', 'event:Dentist']);
+  });
+
+  it('shows a snoozed reminder at its snooze time', async () => {
+    const r = (await ctx.app.inject({ method: 'POST', url: '/api/reminders', payload: { title: 'Call', remindAt: '2026-11-07T08:00:00Z' } })).json();
+    await ctx.app.inject({ method: 'POST', url: `/api/reminders/${r.id}/snooze`, payload: { until: '2026-11-07T12:00:00Z' } });
+    const res = await ctx.app.inject({ method: 'GET', url: '/api/calendar/agenda?from=2026-11-07T00:00:00Z&to=2026-11-08T00:00:00Z' });
+    expect(res.json()[0]).toMatchObject({ kind: 'reminder', title: 'Call', startAt: '2026-11-07T12:00:00.000Z' });
+  });
+
+  it("deleting an event deletes the alert that belongs to it", async () => {
+    const event = (await ctx.app.inject({ method: 'POST', url: '/api/events', payload: { title: 'Dentist', startAt: '2026-11-07T15:00:00Z', endAt: '2026-11-07T16:00:00Z' } })).json();
+    const alert = (await ctx.app.inject({ method: 'POST', url: '/api/reminders', payload: { title: 'Dentist', remindAt: '2026-11-07T14:30:00Z', eventId: event.id } })).json();
+    expect(alert.eventId).toBe(event.id);
+
+    await ctx.app.inject({ method: 'DELETE', url: `/api/events/${event.id}` });
+
+    expect((await ctx.app.inject({ method: 'GET', url: '/api/reminders' })).json()).toEqual([]);
+  });
 });

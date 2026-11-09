@@ -34,7 +34,7 @@ class RemindersRepositoryImpl @Inject constructor(
     }
 
     override suspend fun create(reminder: NewReminder) = resultOf {
-        api.create(CreateReminderRequest(reminder.title, reminder.remindAt, reminder.taskId, reminder.repeatRule, reminder.locationTrigger)).toDomain()
+        api.create(CreateReminderRequest(reminder.title, reminder.remindAt, reminder.taskId, reminder.repeatRule, reminder.locationTrigger, reminder.eventId)).toDomain()
     }.synced()
 
     override suspend fun setEnabled(id: String, enabled: Boolean) = resultOf {
@@ -87,5 +87,5 @@ class RemindersRepositoryImpl @Inject constructor(
 
 internal fun ReminderDto.toDomain() = Reminder(
     id = id, taskId = taskId, title = title, remindAt = remindAt, repeatRule = repeatRule,
-    locationTrigger = locationTrigger, enabled = enabled, snoozedUntil = snoozedUntil,
+    locationTrigger = locationTrigger, enabled = enabled, snoozedUntil = snoozedUntil, eventId = eventId,
 )

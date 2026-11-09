@@ -3,6 +3,7 @@ import { z } from 'zod';
 export const reminderSchema = z.object({
   id: z.uuid(),
   taskId: z.uuid().nullable(),
+  eventId: z.uuid().nullable(),
   title: z.string(),
   remindAt: z.date(),
   repeatRule: z.string().nullable(),
@@ -16,6 +17,7 @@ export const createReminderBody = z.object({
   title: z.string().trim().min(1).max(200),
   remindAt: z.coerce.date(),
   taskId: z.uuid().nullable().optional(),
+  eventId: z.uuid().nullable().optional(),
   repeatRule: z.string().trim().max(60).nullable().optional(),
   locationTrigger: z.string().trim().max(120).nullable().optional(),
   enabled: z.boolean().optional(),

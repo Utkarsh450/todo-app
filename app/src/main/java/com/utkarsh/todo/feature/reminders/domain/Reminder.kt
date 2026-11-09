@@ -11,6 +11,8 @@ data class Reminder(
     val locationTrigger: String?,
     val enabled: Boolean,
     val snoozedUntil: Instant?,
+    /** The calendar event this reminder is the alert for, if any. */
+    val eventId: String? = null,
 ) {
     /** A snoozed reminder fires at its snooze time, otherwise at its original time. */
     val effectiveAt: Instant get() = snoozedUntil ?: remindAt
@@ -22,6 +24,7 @@ data class NewReminder(
     val taskId: String? = null,
     val repeatRule: String? = null,
     val locationTrigger: String? = null,
+    val eventId: String? = null,
 )
 
 /** Reminder buckets of the Reminders screen, in display order. */

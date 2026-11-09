@@ -26,7 +26,7 @@ export const rangeQuery = z
   .refine((v) => v.to > v.from, { message: 'to must be after from', path: ['to'] });
 
 export const agendaItemSchema = z.object({
-  kind: z.enum(['event', 'task']),
+  kind: z.enum(['event', 'task', 'reminder']),
   id: z.uuid(),
   title: z.string(),
   startAt: z.date(),

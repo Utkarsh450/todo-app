@@ -80,7 +80,7 @@ fun AppNavHost(modifier: Modifier = Modifier) {
                     onSearch = { nav.navigate(Destination.Search) },
                 )
             }
-            composable<Destination.Calendar> { CalendarRoute() }
+            composable<Destination.Calendar> { CalendarRoute(onOpenTask = { nav.navigate(Destination.TaskDetail(it)) }) }
             composable<Destination.Reminders> { RemindersRoute() }
             composable<Destination.Insights> { InsightsRoute() }
             composable<Destination.Projects> {

@@ -16,6 +16,9 @@ re-prioritising them, and each change happens only when you tap Accept) · skele
 note, Grok sorts it into tasks with dates, priority, repeat and project, you untick what you don't want, then they are created) ·
 **Projects** (⋯ on Today: progress per project, tick tasks, make/rename/recolour/delete) · **Search** · **Focus** timer on a task page ·
 **Offline reading**: screens you already opened keep showing their last saved data, with an "Offline" banner, when the server can't be reached.
+· **Grok can do things**: ask it to add a task, put an event on the calendar, set a reminder or tick a task off (it also moves, splits and re-prioritises); every action is a card you accept or skip ("Accept all" does the lot).
+· **Ringing reminders**: a due reminder takes over the screen (even locked) with the alarm sound, a pulsing clock, 5/10/30/60 min snooze and Dismiss; the notification has the same buttons.
+· **Google-style calendar**: Schedule, Day, Week and Month views, events/tasks/reminders as bars and blocks, a now-line, tap any empty slot (or the + menu) to create an event, task or reminder; events get a 30-minute alert by default.
 
 ## AI (Grok or Groq)
 AI calls go through the backend, so the key never lives on the phone. Get a key at <https://console.x.ai>, then put it

@@ -189,7 +189,7 @@ class QuickAddViewModelTest {
 
     private fun captureEvent(): io.mockk.CapturingSlot<NewEvent> {
         val slot = slot<NewEvent>()
-        coEvery { calendar.createEvent(capture(slot)) } returns Result.success(Unit)
+        coEvery { calendar.createEvent(capture(slot)) } returns Result.success("e1")
         return slot
     }
 

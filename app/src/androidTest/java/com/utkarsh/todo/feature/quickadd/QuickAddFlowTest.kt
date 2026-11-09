@@ -69,10 +69,11 @@ class QuickAddFlowTest {
     private val calendar = object : CalendarRepository {
         override val changes: Flow<Unit> = MutableSharedFlow()
         override suspend fun agenda(from: Instant, to: Instant) = Result.success(emptyList<AgendaItem>())
-        override suspend fun createEvent(event: NewEvent): Result<Unit> {
+        override suspend fun createEvent(event: NewEvent): Result<String> {
             createdEvents += event
-            return if (eventFails) Result.failure(RuntimeException("offline")) else Result.success(Unit)
+            return if (eventFails) Result.failure(RuntimeException("offline")) else Result.success("e1")
         }
+        override suspend fun deleteEvent(id: String): Result<Unit> = Result.success(Unit)
     }
     private val notes = object : NotesRepository {
         override val changes: Flow<Unit> = MutableSharedFlow()

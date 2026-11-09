@@ -91,7 +91,7 @@ class QuickAddViewModel @Inject constructor(
         viewModelScope.launch {
             val result = when (state.type) {
                 QuickAddType.TASK -> tasks.create(taskFrom(parsed)).map { }
-                QuickAddType.EVENT -> calendar.createEvent(eventFrom(parsed))
+                QuickAddType.EVENT -> calendar.createEvent(eventFrom(parsed)).map { }
                 QuickAddType.NOTE -> notes.append(LocalDate.now(clock), parsed.title)
             }
             result
