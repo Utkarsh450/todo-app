@@ -23,3 +23,15 @@ describe('parseEnv', () => {
     expect(parseEnv({ ...base, XAI_API_KEY: ' k ', XAI_MODEL: 'grok-x', XAI_TIMEOUT_MS: '5000' })).toMatchObject({ XAI_API_KEY: 'k', XAI_MODEL: 'grok-x', XAI_TIMEOUT_MS: 5000 });
   });
 });
+
+describe('API_KEY', () => {
+  const base = { DATABASE_URL: 'postgresql://u@localhost/db' };
+  it('is off by default and treats an empty value as unset', () => {
+    expect(parseEnv(base).API_KEY).toBeUndefined();
+    expect(parseEnv({ ...base, API_KEY: '' }).API_KEY).toBeUndefined();
+  });
+  it('accepts a long key and refuses a short one', () => {
+    expect(parseEnv({ ...base, API_KEY: ' 0123456789abcdef ' }).API_KEY).toBe('0123456789abcdef');
+    expect(() => parseEnv({ ...base, API_KEY: 'short' })).toThrow(/API_KEY/);
+  });
+});

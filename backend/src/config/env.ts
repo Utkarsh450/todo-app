@@ -12,6 +12,11 @@ const envSchema = z.object({
     .string()
     .optional()
     .transform((v) => (v ?? '').split(',').map((o) => o.trim()).filter(Boolean)),
+  /**
+   * When set, every /api request except /api/health must send it as the `X-Api-Key` header. Set it whenever the API can be reached
+   * from the internet: without it anyone could read your data and spend your AI key. At least 16 characters.
+   */
+  API_KEY: z.string().trim().min(16, 'must be at least 16 characters').optional().or(z.literal('').transform(() => undefined)),
   /** Grok (xAI). Optional: without a key the AI features answer "not set up" and everything else works. */
   XAI_API_KEY: z.string().trim().optional().transform((v) => v || undefined),
   XAI_BASE_URL: z.string().url().default('https://api.x.ai/v1'),

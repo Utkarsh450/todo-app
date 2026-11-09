@@ -21,6 +21,9 @@ android {
         // The Android emulator reaches the host machine at 10.0.2.2. Override with -PapiBaseUrl=...
         val apiBaseUrl = (project.findProperty("apiBaseUrl") as String?) ?: "http://10.0.2.2:3000/api/"
         buildConfigField("String", "API_BASE_URL", "\"$apiBaseUrl\"")
+        // A hosted backend wants this key in the X-Api-Key header. Pass -PapiKey=... or set PAPER_API_KEY; never commit it.
+        val apiKey = (project.findProperty("apiKey") as String?) ?: System.getenv("PAPER_API_KEY") ?: ""
+        buildConfigField("String", "API_KEY", "\"$apiKey\"")
     }
 
     // Release signing comes from Gradle properties or environment variables, never from the repo:

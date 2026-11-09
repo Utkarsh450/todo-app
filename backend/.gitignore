@@ -5,3 +5,7 @@ src/generated
 coverage
 *.log
 logs
+.vercel
+.env
+.env.local
+.env.*.local

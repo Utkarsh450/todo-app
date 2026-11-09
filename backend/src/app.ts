@@ -5,7 +5,8 @@ import { serializerCompiler, validatorCompiler, hasZodFastifySchemaValidationErr
 import type { Env } from './config/env.js';
 import { createXaiClient, type AiClient } from './modules/ai/ai.client.js';
 import { aiRoutes } from './modules/ai/ai.routes.js';
-import { AppError, databaseProblem } from './lib/errors.js';
+import { AppError, databaseProblem, unauthorized } from './lib/errors.js';
+import { apiKeyMatches } from './lib/api-key.js';
 import type { Logger } from './lib/logger.js';
 import type { Db } from './lib/prisma.js';
 import { calendarRoutes } from './modules/calendar/calendar.routes.js';
@@ -48,6 +49,15 @@ export async function buildApp({ env, db, logger, ai }: AppDeps): Promise<Fastif
 
   await app.register(helmet);
   await app.register(cors, { origin: env.CORS_ORIGIN.length > 0 ? env.CORS_ORIGIN : false });
+
+  const apiKey = env.API_KEY;
+  if (apiKey) {
+    app.addHook('onRequest', async (request) => {
+      const path = request.url.split('?')[0] ?? '';
+      if (request.method === 'OPTIONS' || path === '/api/health') return;
+      if (!apiKeyMatches(request.headers['x-api-key'], apiKey)) throw unauthorized();
+    });
+  }
 
   app.addHook('onResponse', async (request, reply) => {
     logger.http('request', { method: request.method, url: request.url, status: reply.statusCode, ms: Math.round(reply.elapsedTime) });

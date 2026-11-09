@@ -10,6 +10,9 @@ export class AppError extends Error {
   }
 }
 
+/** The API key is missing or wrong. Deliberately says nothing about which. */
+export const unauthorized = () => new AppError(401, 'A valid API key is required.', 'UNAUTHORIZED');
+
 export const notFound = (what: string) => new AppError(404, `${what} not found`, 'NOT_FOUND');
 
 /** The AI features need a key; say exactly how to add one. */

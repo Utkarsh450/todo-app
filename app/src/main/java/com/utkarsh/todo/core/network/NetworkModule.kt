@@ -48,7 +48,9 @@ object NetworkModule {
     @Singleton
     fun okHttp(store: OfflineStore, monitor: OfflineMonitor): OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(10, TimeUnit.SECONDS)
-        .readTimeout(15, TimeUnit.SECONDS)
+        // A hosted backend that has been idle needs ~20 s to wake up (the function and a sleeping database), so be patient.
+        .readTimeout(30, TimeUnit.SECONDS)
+        .addInterceptor(ApiKeyInterceptor(BuildConfig.API_KEY))
         .addInterceptor(OfflineCacheInterceptor(store, monitor))
         .apply {
             if (BuildConfig.DEBUG) {
