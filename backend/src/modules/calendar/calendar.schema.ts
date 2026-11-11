@@ -7,6 +7,10 @@ export const eventSchema = z.object({
   endAt: z.date(),
   allDay: z.boolean(),
   projectId: z.uuid().nullable(),
+  location: z.string().nullable(),
+  videoLink: z.string().nullable(),
+  busy: z.boolean(),
+  guests: z.array(z.string()),
   createdAt: z.date(),
 });
 
@@ -16,6 +20,10 @@ const eventFields = z.object({
   endAt: z.coerce.date(),
   allDay: z.boolean().optional(),
   projectId: z.uuid().nullable().optional(),
+  location: z.string().trim().max(200).nullable().optional(),
+  videoLink: z.string().trim().max(500).nullable().optional(),
+  busy: z.boolean().optional(),
+  guests: z.array(z.string().trim().min(1).max(120)).max(50).optional(),
 });
 
 export const createEventBody = eventFields.refine((v) => v.endAt >= v.startAt, { message: 'endAt must not be before startAt', path: ['endAt'] });

@@ -114,6 +114,11 @@ model CalendarEvent {
   allDay    Boolean  @default(false)
   projectId String?  @db.Uuid
   project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  location  String?
+  videoLink String?
+  /// "Show as": busy blocks the time on a shared calendar, free does not.
+  busy      Boolean  @default(true)
+  guests    String[] @default([])
   createdAt DateTime @default(now())
   reminders Reminder[]
 

@@ -44,6 +44,18 @@ describe('calendar API (integration)', () => {
   beforeEach(async () => { await resetDatabase(ctx.db); });
   afterAll(async () => { await ctx.app.close(); });
 
+  it('keeps an event\'s location, video link, guests and busy/free, with sensible defaults', async () => {
+    const plain = (await ctx.app.inject({ method: 'POST', url: '/api/events', payload: { title: 'Plain', startAt: '2026-11-07T10:00:00Z', endAt: '2026-11-07T11:00:00Z' } })).json();
+    expect(plain).toMatchObject({ location: null, videoLink: null, busy: true, guests: [] });
+    const rich = (await ctx.app.inject({
+      method: 'POST', url: '/api/events',
+      payload: { title: 'Sync', startAt: '2026-11-07T12:00:00Z', endAt: '2026-11-07T13:00:00Z', location: 'Room 4', videoLink: 'https://meet.example/abc', guests: ['sam@example.com', 'priya@example.com'], busy: false },
+    })).json();
+    expect(rich).toMatchObject({ location: 'Room 4', videoLink: 'https://meet.example/abc', busy: false, guests: ['sam@example.com', 'priya@example.com'] });
+    const bad = await ctx.app.inject({ method: 'POST', url: '/api/events', payload: { title: 'x', startAt: '2026-11-07T12:00:00Z', endAt: '2026-11-07T13:00:00Z', guests: [''] } });
+    expect(bad.statusCode).toBe(400);
+  });
+
   it('creates, updates and deletes an event', async () => {
     const created = await ctx.app.inject({ method: 'POST', url: '/api/events', payload: { title: 'Sprint planning', startAt: '2026-11-07T10:00:00Z', endAt: '2026-11-07T11:00:00Z' } });
     expect(created.statusCode).toBe(201);
