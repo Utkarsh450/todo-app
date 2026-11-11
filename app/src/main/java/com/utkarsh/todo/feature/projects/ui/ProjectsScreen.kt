@@ -59,7 +59,7 @@ import kotlinx.coroutines.delay
 private const val MESSAGE_VISIBLE_MS = 3_000L
 
 @Composable
-fun ProjectsRoute(onBack: () -> Unit, onOpenTask: (String) -> Unit, modifier: Modifier = Modifier, viewModel: ProjectsViewModel = hiltViewModel()) {
+fun ProjectsRoute(onOpenTask: (String) -> Unit, modifier: Modifier = Modifier, onBack: (() -> Unit)? = null, viewModel: ProjectsViewModel = hiltViewModel()) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     OnReconnect { viewModel.load(showSkeleton = false) }
     ProjectsScreen(
@@ -86,7 +86,7 @@ fun ProjectsRoute(onBack: () -> Unit, onOpenTask: (String) -> Unit, modifier: Mo
 @Composable
 fun ProjectsScreen(
     state: ProjectsUiState,
-    onBack: () -> Unit,
+    onBack: (() -> Unit)?,
     onToggleExpanded: (String) -> Unit,
     onToggleTask: (String) -> Unit,
     onOpenTask: (String) -> Unit,
@@ -127,7 +127,7 @@ fun ProjectsScreen(
     Box(modifier.fillMaxSize().paperSurface().statusBarsPadding()) {
         Column(Modifier.fillMaxSize()) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("‹ Today", style = Paper.type.button, color = colors.ink, modifier = Modifier.clickable(onClick = onBack).padding(end = 12.dp, top = 4.dp, bottom = 4.dp).testTag("projects-back"))
+                onBack?.let { back -> Text("‹ Today", style = Paper.type.button, color = colors.ink, modifier = Modifier.clickable(onClick = back).padding(end = 12.dp, top = 4.dp, bottom = 4.dp).testTag("projects-back")) }
                 Box(Modifier.weight(1f))
                 MonoLabel("+ New project", color = colors.accent, modifier = Modifier.clickable(onClick = onNew).padding(8.dp).testTag("new-project"))
             }

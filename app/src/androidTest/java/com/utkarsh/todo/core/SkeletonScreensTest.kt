@@ -17,7 +17,7 @@ import com.utkarsh.todo.feature.calendar.ui.CalendarScreen
 import com.utkarsh.todo.feature.calendar.ui.CalendarUiState
 import com.utkarsh.todo.feature.insights.ui.InsightsScreen
 import com.utkarsh.todo.feature.insights.ui.InsightsUiState
-import com.utkarsh.todo.feature.reminders.ui.RemindersScreen
+import com.utkarsh.todo.feature.reminders.ui.DueSoonScreen
 import com.utkarsh.todo.feature.reminders.ui.RemindersUiState
 import com.utkarsh.todo.feature.taskdetail.ui.TaskDetailScreen
 import com.utkarsh.todo.feature.taskdetail.ui.TaskDetailUiState
@@ -83,7 +83,7 @@ class SkeletonScreensTest {
     @Test
     fun reminders_show_a_skeleton_while_loading() {
         compose.setContent {
-            PaperTheme { RemindersScreen(RemindersUiState(isLoading = true), { _, _ -> }, {}, {}, {}, {}, {}, {}, {}) }
+            PaperTheme { DueSoonScreen(RemindersUiState(isLoading = true), { _, _ -> }, {}, {}, {}, {}, {}, {}) }
         }
         compose.onNodeWithTag("reminders-skeleton").assertIsDisplayed()
         compose.onNodeWithContentDescription("Loading reminders").assertIsDisplayed()

@@ -68,7 +68,7 @@ class PaperComponentsTest {
         val items = listOf(
             NavBarItem("today", "Today", Icons.Filled.Home),
             NavBarItem("calendar", "Calendar", Icons.Filled.DateRange),
-            NavBarItem("reminders", "Reminders", Icons.Filled.Notifications),
+            NavBarItem("projects", "Projects", Icons.Filled.Notifications),
             NavBarItem("insights", "Insights", Icons.Filled.Star),
         )
         compose.setContent {

@@ -51,6 +51,8 @@ data class RemindersUiState(
     val error: String? = null,
     val hero: HeroUi? = null,
     val sections: List<ReminderSection> = emptyList(),
+    /** Alerts that are switched on: the "N active" count in the header. */
+    val activeCount: Int = 0,
     val undo: UndoPrompt? = null,
 )
 
@@ -143,7 +145,7 @@ class RemindersViewModel @Inject constructor(
             ReminderSection(SectionKind.LATER, "Later", groups.later.map(::row)),
         ).filter { it.rows.isNotEmpty() }
         val next = (groups.today + groups.thisWeek + groups.later).firstOrNull { it.enabled && it.effectiveAt.isAfter(clock.instant()) }
-        _state.update { it.copy(isLoading = false, sections = sections, hero = next?.let(::hero)) }
+        _state.update { it.copy(isLoading = false, sections = sections, hero = next?.let(::hero), activeCount = groups.all.count { r -> r.enabled }) }
     }
 
     private fun row(r: Reminder): ReminderRow {

@@ -11,10 +11,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -68,7 +70,7 @@ fun TodayRoute(
     onCustomize: () -> Unit,
     onAssistant: () -> Unit,
     onBrainDump: () -> Unit,
-    onProjects: () -> Unit,
+    onDueSoon: () -> Unit,
     onSearch: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: TodayViewModel = hiltViewModel(),
@@ -93,7 +95,7 @@ fun TodayRoute(
         onCustomize = onCustomize,
         onAssistant = onAssistant,
         onBrainDump = onBrainDump,
-        onProjects = onProjects,
+        onDueSoon = onDueSoon,
         onSearch = onSearch,
     )
 }
@@ -120,8 +122,8 @@ fun TodayScreen(
     onAssistant: (() -> Unit)? = null,
     /** Shows the brain dump button when set. */
     onBrainDump: (() -> Unit)? = null,
-    /** Adds "Projects" to the ⋯ menu when set. */
-    onProjects: (() -> Unit)? = null,
+    /** Makes the "Due soon" banner open the Due soon screen. */
+    onDueSoon: (() -> Unit)? = null,
     /** Adds "Search" to the ⋯ menu when set. */
     onSearch: (() -> Unit)? = null,
 ) {
@@ -144,7 +146,7 @@ fun TodayScreen(
                         modifier = Modifier.semantics { contentDescription = "Ask Grok" }.clip(RoundedCornerShape(8.dp)).clickable(onClick = open).padding(horizontal = 10.dp, vertical = 4.dp).testTag("open-assistant"),
                     )
                 }
-                MoreMenu(onSearch = onSearch, onProjects = onProjects, onCustomize = onCustomize)
+                MoreMenu(onSearch = onSearch, onCustomize = onCustomize)
                 PaperSegmentedControl(
                     options = TodayView.entries,
                     selected = state.view,
@@ -161,6 +163,7 @@ fun TodayScreen(
                 color = colors.ink,
                 modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 10.dp, bottom = 16.dp).testTag("today-title"),
             )
+            if (!state.dueSoon.isEmpty) DueSoonBanner(state.dueSoon, onDueSoon, Modifier.padding(start = 14.dp, end = 14.dp, bottom = 12.dp))
             when {
                 state.isLoading && state.items.isEmpty() -> TodaySkeleton()
                 state.errorMessage != null && state.items.isEmpty() -> ErrorState(state.errorMessage, onRetry)
@@ -174,10 +177,30 @@ fun TodayScreen(
     }
 }
 
-/** The ⋯ button and its menu (Search, Projects, Customize). Hidden when there is nothing to put in it. */
+/** The dark bar under the title: "1 overdue · 4 alerts today", opens the Due soon screen. */
 @Composable
-private fun MoreMenu(onSearch: (() -> Unit)?, onProjects: (() -> Unit)?, onCustomize: (() -> Unit)?) {
-    if (onSearch == null && onProjects == null && onCustomize == null) return
+private fun DueSoonBanner(summary: DueSoonSummary, onOpen: (() -> Unit)?, modifier: Modifier = Modifier) {
+    val colors = Paper.colors
+    val text = listOfNotNull(
+        if (summary.overdue > 0) "${summary.overdue} overdue" else null,
+        if (summary.today > 0) "${summary.today} ${if (summary.today == 1) "alert" else "alerts"} today" else null,
+    ).joinToString(" · ")
+    Row(
+        modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(colors.ink)
+            .let { if (onOpen != null) it.clickable(onClick = onOpen) else it }
+            .padding(horizontal = 14.dp, vertical = 13.dp).testTag("due-soon-banner"),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.size(7.dp).clip(CircleShape).background(colors.accentLight))
+        Text(text, style = Paper.type.body, color = colors.card, modifier = Modifier.weight(1f).padding(start = 10.dp))
+        MonoLabel("Due soon →", color = colors.mutedSoft)
+    }
+}
+
+/** The ⋯ button and its menu (Search, Customize). Hidden when there is nothing to put in it. */
+@Composable
+private fun MoreMenu(onSearch: (() -> Unit)?, onCustomize: (() -> Unit)?) {
+    if (onSearch == null && onCustomize == null) return
     val colors = Paper.colors
     var open by remember { mutableStateOf(false) }
     Box {
@@ -191,13 +214,6 @@ private fun MoreMenu(onSearch: (() -> Unit)?, onProjects: (() -> Unit)?, onCusto
                     text = { Text("Search", style = Paper.type.body, color = colors.ink) },
                     onClick = { open = false; go() },
                     modifier = Modifier.testTag("open-search"),
-                )
-            }
-            onProjects?.let { go ->
-                DropdownMenuItem(
-                    text = { Text("Projects", style = Paper.type.body, color = colors.ink) },
-                    onClick = { open = false; go() },
-                    modifier = Modifier.testTag("open-projects"),
                 )
             }
             onCustomize?.let { go ->

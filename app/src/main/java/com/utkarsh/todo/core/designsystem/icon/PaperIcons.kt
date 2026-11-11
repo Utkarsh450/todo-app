@@ -49,6 +49,16 @@ object PaperIcons {
         }
     }
 
+    /** Folder: the Projects tab. */
+    val Projects: ImageVector by lazy {
+        icon("Projects") {
+            strokePath(1.5f, round = true) {
+                moveTo(3f, 5.5f); horizontalLineTo(8f); lineTo(9.5f, 7.5f); horizontalLineTo(17f)
+                verticalLineTo(15.5f); horizontalLineTo(3f); close()
+            }
+        }
+    }
+
     /** Microphone: voice input. */
     val Mic: ImageVector by lazy {
         icon("Mic") {

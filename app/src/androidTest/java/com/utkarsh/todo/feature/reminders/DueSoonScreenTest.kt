@@ -15,7 +15,7 @@ import com.utkarsh.todo.core.designsystem.theme.PaperTheme
 import com.utkarsh.todo.feature.reminders.ui.HeroUi
 import com.utkarsh.todo.feature.reminders.ui.ReminderRow
 import com.utkarsh.todo.feature.reminders.ui.ReminderSection
-import com.utkarsh.todo.feature.reminders.ui.RemindersScreen
+import com.utkarsh.todo.feature.reminders.ui.DueSoonScreen
 import com.utkarsh.todo.feature.reminders.ui.RemindersUiState
 import com.utkarsh.todo.feature.reminders.ui.SectionKind
 import com.utkarsh.todo.feature.reminders.ui.SnoozeOption
@@ -24,7 +24,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 
-class RemindersScreenTest {
+class DueSoonScreenTest {
     @get:Rule
     val compose = createComposeRule()
 
@@ -38,7 +38,7 @@ class RemindersScreenTest {
         hero: HeroUi? = HeroUi("r1", "Drink water", "In 19 min · 2:00 PM", snoozed = false),
         undo: UndoPrompt? = null,
     ) = RemindersUiState(
-        isLoading = false, hero = hero, undo = undo,
+        isLoading = false, hero = hero, undo = undo, activeCount = 2,
         sections = listOf(
             ReminderSection(SectionKind.OVERDUE, "Overdue", listOf(bill)),
             ReminderSection(SectionKind.TODAY, "Today", listOf(water, groceries)),
@@ -49,13 +49,12 @@ class RemindersScreenTest {
         events.clear()
         compose.setContent {
             PaperTheme {
-                RemindersScreen(
+                DueSoonScreen(
                     state = state,
                     onToggle = { id, on -> events += "toggle:$id:$on" },
                     onSnoozeRow = { events += "snooze:$it" },
                     onDelete = { events += "delete:$it" },
                     onSnoozeHero = { events += "hero:${it.label}" },
-                    onAdd = { events += "add" },
                     onUndo = { events += "undo" },
                     onDismissUndo = {},
                     onRetry = { events += "retry" },
@@ -68,7 +67,9 @@ class RemindersScreenTest {
     fun shows_hero_sections_and_rows() {
         show(state())
 
-        compose.onNodeWithTag("reminders-title").assertIsDisplayed()
+        compose.onNodeWithTag("due-soon-title").assertIsDisplayed()
+        compose.onNodeWithText("Due soon").assertIsDisplayed()
+        compose.onNodeWithText("2 ACTIVE").assertIsDisplayed()
         compose.onNodeWithTag("next-up").assertIsDisplayed()
         compose.onNodeWithText("NEXT UP").assertIsDisplayed()
         compose.onNodeWithText("In 19 min · 2:00 PM").assertIsDisplayed()
@@ -116,19 +117,19 @@ class RemindersScreenTest {
     }
 
     @Test
-    fun add_row_and_undo_work() {
+    fun undo_works_and_there_is_no_new_reminder_button() {
         show(state(undo = UndoPrompt("Reminder deleted")))
 
-        compose.onNodeWithTag("add-reminder").performClick()
+        compose.onNodeWithTag("add-reminder").assertDoesNotExist() // creating happens only through the + button
         compose.onNodeWithText("Undo").performClick()
 
-        assertEquals(listOf("add", "undo"), events)
+        assertEquals(listOf("undo"), events)
     }
 
     @Test
     fun empty_state_is_friendly() {
         show(RemindersUiState(isLoading = false))
-        compose.onNodeWithText("No reminders. Nothing to remember.").assertIsDisplayed()
+        compose.onNodeWithText("Nothing is due soon.").assertIsDisplayed()
     }
 
     @Test

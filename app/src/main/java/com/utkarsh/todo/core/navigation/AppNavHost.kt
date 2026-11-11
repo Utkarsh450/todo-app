@@ -39,7 +39,7 @@ import com.utkarsh.todo.feature.projects.ui.ProjectsRoute
 import com.utkarsh.todo.feature.focus.ui.FocusRoute
 import com.utkarsh.todo.feature.quickadd.ui.QuickAddSheet
 import com.utkarsh.todo.feature.search.ui.SearchRoute
-import com.utkarsh.todo.feature.reminders.ui.RemindersRoute
+import com.utkarsh.todo.feature.reminders.ui.DueSoonRoute
 import com.utkarsh.todo.feature.assistant.ui.AssistantRoute
 import com.utkarsh.todo.feature.braindump.ui.BrainDumpRoute
 import com.utkarsh.todo.feature.taskdetail.ui.TaskDetailRoute
@@ -51,7 +51,7 @@ private data class TopLevel(val key: String, val label: String, val route: Desti
 private val topLevel = listOf(
     TopLevel("today", "Today", Destination.Today, Destination.Today::class, PaperIcons.Today),
     TopLevel("calendar", "Calendar", Destination.Calendar, Destination.Calendar::class, PaperIcons.Calendar),
-    TopLevel("reminders", "Reminders", Destination.Reminders, Destination.Reminders::class, PaperIcons.Reminders),
+    TopLevel("projects", "Projects", Destination.Projects, Destination.Projects::class, PaperIcons.Projects),
     TopLevel("insights", "Insights", Destination.Insights, Destination.Insights::class, PaperIcons.Insights),
 )
 
@@ -76,15 +76,15 @@ fun AppNavHost(modifier: Modifier = Modifier) {
                     onCustomize = { nav.navigate(Destination.Customize) },
                     onAssistant = { nav.navigate(Destination.Assistant) },
                     onBrainDump = { nav.navigate(Destination.BrainDump) },
-                    onProjects = { nav.navigate(Destination.Projects) },
+                    onDueSoon = { nav.navigate(Destination.DueSoon) },
                     onSearch = { nav.navigate(Destination.Search) },
                 )
             }
             composable<Destination.Calendar> { CalendarRoute(onOpenTask = { nav.navigate(Destination.TaskDetail(it)) }) }
-            composable<Destination.Reminders> { RemindersRoute() }
+            composable<Destination.DueSoon> { DueSoonRoute() }
             composable<Destination.Insights> { InsightsRoute() }
             composable<Destination.Projects> {
-                ProjectsRoute(onBack = { nav.popBackStack() }, onOpenTask = { nav.navigate(Destination.TaskDetail(it)) })
+                ProjectsRoute(onOpenTask = { nav.navigate(Destination.TaskDetail(it)) })
             }
             composable<Destination.Search> {
                 SearchRoute(onBack = { nav.popBackStack() }, onOpenTask = { nav.navigate(Destination.TaskDetail(it)) })

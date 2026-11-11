@@ -14,6 +14,7 @@ import com.utkarsh.todo.feature.tasks.domain.Priority
 import com.utkarsh.todo.feature.today.domain.TaskItem
 import com.utkarsh.todo.feature.today.domain.TodayView
 import com.utkarsh.todo.feature.today.domain.UndoPrompt
+import com.utkarsh.todo.feature.today.ui.DueSoonSummary
 import com.utkarsh.todo.feature.today.ui.TodayScreen
 import com.utkarsh.todo.feature.today.ui.TodayUiState
 import org.junit.Assert.assertEquals
@@ -31,7 +32,7 @@ class TodayScreenTest {
 
     private val events = mutableListOf<String>()
 
-    private fun show(state: TodayUiState) {
+    private fun show(state: TodayUiState, withDueSoon: Boolean = false) {
         events.clear()
         compose.setContent {
             PaperTheme {
@@ -45,6 +46,7 @@ class TodayScreenTest {
                     onUndo = { events += "undo" },
                     onDismissUndo = {},
                     onRetry = { events += "retry" },
+                    onDueSoon = if (withDueSoon) ({ events += "due-soon" }) else null,
                 )
             }
         }
@@ -136,5 +138,29 @@ class TodayScreenTest {
         compose.onNodeWithText("Retry").performClick()
 
         assertEquals(listOf("retry"), events)
+    }
+
+    @Test
+    fun due_soon_banner_says_what_is_overdue_and_due_today_and_opens_the_screen() {
+        show(loaded(item("a", "Review PR")).copy(dueSoon = DueSoonSummary(overdue = 1, today = 4)), withDueSoon = true)
+
+        compose.onNodeWithTag("due-soon-banner").assertIsDisplayed()
+        compose.onNodeWithText("1 overdue · 4 alerts today").assertIsDisplayed()
+        compose.onNodeWithText("DUE SOON →").assertIsDisplayed()
+        compose.onNodeWithTag("due-soon-banner").performClick()
+
+        assertEquals(listOf("due-soon"), events)
+    }
+
+    @Test
+    fun due_soon_banner_uses_the_singular_and_leaves_out_what_is_zero() {
+        show(loaded(item("a", "Review PR")).copy(dueSoon = DueSoonSummary(overdue = 0, today = 1)))
+        compose.onNodeWithText("1 alert today").assertIsDisplayed()
+    }
+
+    @Test
+    fun there_is_no_banner_when_nothing_is_due_soon() {
+        show(loaded(item("a", "Review PR")))
+        compose.onNodeWithTag("due-soon-banner").assertDoesNotExist()
     }
 }

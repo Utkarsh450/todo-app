@@ -35,10 +35,9 @@ class TodayBlocksTest {
 
     private var askedGrok = 0
     private var openedDump = 0
-    private var openedProjects = 0
     private var openedSearch = 0
 
-    private fun show(blocks: List<TodayBlock>?, withCustomize: Boolean = false, withAssistant: Boolean = false, withBrainDump: Boolean = false, withProjects: Boolean = false, withSearch: Boolean = false) {
+    private fun show(blocks: List<TodayBlock>?, withCustomize: Boolean = false, withAssistant: Boolean = false, withBrainDump: Boolean = false, withSearch: Boolean = false) {
         compose.setContent {
             PaperTheme {
                 TodayScreen(
@@ -49,7 +48,6 @@ class TodayBlocksTest {
                     onCustomize = if (withCustomize) ({ opened++ }) else null,
                     onAssistant = if (withAssistant) ({ askedGrok++ }) else null,
                     onBrainDump = if (withBrainDump) ({ openedDump++ }) else null,
-                    onProjects = if (withProjects) ({ openedProjects++ }) else null,
                     onSearch = if (withSearch) ({ openedSearch++ }) else null,
                 )
             }
@@ -111,19 +109,11 @@ class TodayBlocksTest {
 
     @Test
     fun the_more_menu_lists_only_what_has_somewhere_to_go() {
-        show(null, withProjects = true)
+        show(null, withSearch = true)
         compose.onNodeWithTag("open-more").performClick()
-        compose.onNodeWithTag("open-projects").assertIsDisplayed()
+        compose.onNodeWithTag("open-search").assertIsDisplayed()
         compose.onNodeWithTag("open-customize").assertDoesNotExist()
-    }
-
-    @Test
-    fun tapping_projects_in_the_more_menu_opens_projects_and_closes_the_menu() {
-        show(null, withProjects = true, withCustomize = true)
-        compose.onNodeWithTag("open-more").performClick()
-        compose.onNodeWithTag("open-projects").performClick()
-        assertEquals(1, openedProjects)
-        compose.onNodeWithTag("open-projects").assertDoesNotExist()
+        compose.onNodeWithTag("open-projects").assertDoesNotExist() // Projects is a tab now
     }
 
     @Test

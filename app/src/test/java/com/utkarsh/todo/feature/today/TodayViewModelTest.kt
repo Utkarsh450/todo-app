@@ -3,6 +3,9 @@ package com.utkarsh.todo.feature.today
 import com.utkarsh.todo.core.common.dayRange
 import com.utkarsh.todo.feature.projects.domain.Project
 import com.utkarsh.todo.feature.projects.domain.ProjectsRepository
+import com.utkarsh.todo.feature.reminders.domain.Reminder
+import com.utkarsh.todo.feature.reminders.domain.ReminderGroups
+import com.utkarsh.todo.feature.reminders.domain.RemindersRepository
 import com.utkarsh.todo.feature.tasks.domain.Field
 import com.utkarsh.todo.feature.tasks.domain.Priority
 import com.utkarsh.todo.feature.tasks.domain.Subtask
@@ -43,6 +46,10 @@ class TodayViewModelTest {
     private val changes = MutableSharedFlow<Unit>()
     private val tasks = mockk<TasksRepository>()
     private val projects = mockk<ProjectsRepository>()
+    private val reminders = mockk<RemindersRepository>()
+
+    private fun alert(id: String, enabled: Boolean = true) =
+        Reminder(id, null, "Alert $id", Instant.parse("2026-11-07T08:00:00Z"), null, null, enabled, null)
 
     private fun task(
         id: String,
@@ -59,6 +66,7 @@ class TodayViewModelTest {
         Dispatchers.setMain(UnconfinedTestDispatcher())
         coEvery { projects.projects() } returns Result.success(listOf(Project("p1", "Design", "#935EDF")))
         every { tasks.changes } returns changes
+        coEvery { reminders.grouped(any(), any(), any()) } returns Result.success(ReminderGroups())
     }
 
     @After
@@ -66,7 +74,7 @@ class TodayViewModelTest {
 
     private fun viewModel(vararg initial: Task): TodayViewModel {
         coEvery { tasks.dueBetween(range.start, range.end) } returns Result.success(initial.toList())
-        return TodayViewModel(tasks, projects, clock)
+        return TodayViewModel(tasks, projects, reminders, clock)
     }
 
     @Test
@@ -96,7 +104,7 @@ class TodayViewModelTest {
     @Test
     fun `load failure exposes an error and retry recovers`() = runTest {
         coEvery { tasks.dueBetween(range.start, range.end) } returns Result.failure(RuntimeException("offline"))
-        val vm = TodayViewModel(tasks, projects, clock)
+        val vm = TodayViewModel(tasks, projects, reminders, clock)
         assertEquals("offline", vm.uiState.value.errorMessage)
 
         coEvery { tasks.dueBetween(range.start, range.end) } returns Result.success(listOf(task("a")))
@@ -203,5 +211,31 @@ class TodayViewModelTest {
         vm.setView(TodayView.PLAN)
         assertEquals(TodayView.PLAN, vm.uiState.value.view)
         assertEquals(1, vm.uiState.value.items.size)
+    }
+
+    @Test
+    fun `the due soon banner counts switched-on overdue and today alerts only`() {
+        coEvery { reminders.grouped(any(), any(), any()) } returns Result.success(
+            ReminderGroups(
+                overdue = listOf(alert("o1"), alert("o2", enabled = false)),
+                today = listOf(alert("t1"), alert("t2"), alert("t3", enabled = false)),
+            ),
+        )
+
+        val summary = viewModel().uiState.value.dueSoon
+
+        assertEquals(1, summary.overdue)
+        assertEquals(2, summary.today)
+        assertEquals(false, summary.isEmpty)
+    }
+
+    @Test
+    fun `no alerts means an empty banner and a failing alert lookup never breaks Today`() {
+        assertEquals(true, viewModel(task("a")).uiState.value.dueSoon.isEmpty)
+
+        coEvery { reminders.grouped(any(), any(), any()) } returns Result.failure(RuntimeException("offline"))
+        val vm = viewModel(task("a"))
+        assertEquals(true, vm.uiState.value.dueSoon.isEmpty)
+        assertEquals(1, vm.uiState.value.left)
     }
 }

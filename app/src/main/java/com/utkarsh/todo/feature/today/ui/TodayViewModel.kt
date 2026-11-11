@@ -7,6 +7,7 @@ import com.utkarsh.todo.core.common.formatDayCaption
 import com.utkarsh.todo.core.common.formatTime
 import com.utkarsh.todo.feature.projects.domain.Project
 import com.utkarsh.todo.feature.projects.domain.ProjectsRepository
+import com.utkarsh.todo.feature.reminders.domain.RemindersRepository
 import com.utkarsh.todo.feature.tasks.domain.Field
 import com.utkarsh.todo.feature.tasks.domain.Task
 import com.utkarsh.todo.feature.tasks.domain.TaskPatch
@@ -26,12 +27,18 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+/** What the "Due soon" banner on Today says: alerts that are overdue and alerts still to ring today. */
+data class DueSoonSummary(val overdue: Int, val today: Int) {
+    val isEmpty: Boolean get() = overdue == 0 && today == 0
+}
+
 data class TodayUiState(
     val isLoading: Boolean = true,
     val errorMessage: String? = null,
     val caption: String = "",
     val items: List<TaskItem> = emptyList(),
     val view: TodayView = TodayView.BLOCKS,
+    val dueSoon: DueSoonSummary = DueSoonSummary(0, 0),
     val undo: UndoPrompt? = null,
 ) {
     val left: Int get() = items.count { !it.done }
@@ -47,6 +54,7 @@ private sealed interface UndoAction {
 class TodayViewModel @Inject constructor(
     private val tasks: TasksRepository,
     private val projects: ProjectsRepository,
+    private val reminders: RemindersRepository,
     private val clock: Clock,
 ) : ViewModel() {
 
@@ -71,7 +79,11 @@ class TodayViewModel @Inject constructor(
             val range = clock.dayRange()
             val tasksResult = async { tasks.dueBetween(range.start, range.end) }
             val projectsResult = async { projects.projects() }
+            val dueSoonResult = async { reminders.grouped(clock.instant(), range.end, range.end) }
             projectsById = projectsResult.await().getOrDefault(emptyList()).associateBy { it.id }
+            dueSoonResult.await().onSuccess { groups ->
+                _state.update { it.copy(dueSoon = DueSoonSummary(groups.overdue.count { r -> r.enabled }, groups.today.count { r -> r.enabled })) }
+            }
             tasksResult.await()
                 .onSuccess { current = it; publish() }
                 .onFailure { e -> _state.update { it.copy(isLoading = false, errorMessage = e.message ?: "Couldn't load tasks") } }

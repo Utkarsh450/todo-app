@@ -20,16 +20,11 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -47,15 +42,13 @@ import com.utkarsh.todo.core.designsystem.component.SwipeActionRow
 import com.utkarsh.todo.core.designsystem.component.UndoSnackbar
 import com.utkarsh.todo.core.designsystem.theme.Paper
 import com.utkarsh.todo.core.designsystem.theme.paperSurface
-import com.utkarsh.todo.feature.quickadd.ui.QuickAddContent
 import kotlinx.coroutines.delay
 
 private const val UNDO_VISIBLE_MS = 4_000L
 
 @Composable
-fun RemindersRoute(modifier: Modifier = Modifier, viewModel: RemindersViewModel = hiltViewModel()) {
+fun DueSoonRoute(modifier: Modifier = Modifier, viewModel: RemindersViewModel = hiltViewModel()) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    var adding by rememberSaveable { mutableStateOf(false) }
     OnReconnect { viewModel.refresh() }
 
     // Android 13+ needs runtime permission before notifications can be shown.
@@ -64,29 +57,27 @@ fun RemindersRoute(modifier: Modifier = Modifier, viewModel: RemindersViewModel 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) permission.launch(Manifest.permission.POST_NOTIFICATIONS)
     }
 
-    RemindersScreen(
+    DueSoonScreen(
         state = state,
         onToggle = viewModel::setEnabled,
         onSnoozeRow = viewModel::snoozeRow,
         onDelete = viewModel::delete,
         onSnoozeHero = viewModel::snoozeHero,
-        onAdd = { adding = true },
         onUndo = viewModel::undoDelete,
         onDismissUndo = viewModel::dismissUndo,
         onRetry = viewModel::refresh,
         modifier = modifier,
     )
-    if (adding) AddReminderSheet(onDismiss = { adding = false; viewModel.refresh() })
 }
 
+/** Screen 06: what is due soon, opened from the banner on Today. */
 @Composable
-fun RemindersScreen(
+fun DueSoonScreen(
     state: RemindersUiState,
     onToggle: (String, Boolean) -> Unit,
     onSnoozeRow: (String) -> Unit,
     onDelete: (String) -> Unit,
     onSnoozeHero: (SnoozeOption) -> Unit,
-    onAdd: () -> Unit,
     onUndo: () -> Unit,
     onDismissUndo: () -> Unit,
     onRetry: () -> Unit,
@@ -97,8 +88,10 @@ fun RemindersScreen(
 
     Box(modifier.fillMaxSize().paperSurface().statusBarsPadding()) {
         Column(Modifier.fillMaxSize()) {
-            MonoLabel("Notifications", Modifier.padding(start = 20.dp, top = 16.dp))
-            Text("Reminders", style = Paper.type.displayLarge, color = colors.ink, modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 16.dp).testTag("reminders-title"))
+            Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 24.dp, bottom = 16.dp), verticalAlignment = Alignment.Bottom) {
+                Text("Due soon", style = Paper.type.displayLarge, color = colors.ink, modifier = Modifier.weight(1f).testTag("due-soon-title"))
+                MonoLabel("${state.activeCount} active", Modifier.padding(bottom = 8.dp).testTag("due-soon-active"))
+            }
             when {
                 state.isLoading && state.sections.isEmpty() -> RemindersSkeleton()
                 state.error != null && state.sections.isEmpty() -> Column(Modifier.fillMaxSize().padding(24.dp), Arrangement.Center, Alignment.CenterHorizontally) {
@@ -109,16 +102,10 @@ fun RemindersScreen(
                 else -> LazyColumn(Modifier.fillMaxSize().padding(horizontal = 14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     state.hero?.let { hero -> item(key = "hero") { NextUpCard(hero, onSnoozeHero) } }
                     if (state.sections.isEmpty()) item(key = "empty") {
-                        Text("No reminders. Nothing to remember.", style = Paper.type.note, color = colors.muted, modifier = Modifier.padding(8.dp))
+                        Text("Nothing is due soon.", style = Paper.type.note, color = colors.muted, modifier = Modifier.padding(8.dp))
                     }
                     state.sections.forEach { section ->
                         item(key = "section-${section.kind}") { SectionCard(section, onToggle, onSnoozeRow, onDelete) }
-                    }
-                    item(key = "add") {
-                        Box(
-                            Modifier.fillMaxWidth().height(44.dp).clip(RoundedCornerShape(10.dp)).border(1.5.dp, colors.dashed, RoundedCornerShape(10.dp)).clickable(onClick = onAdd).testTag("add-reminder"),
-                            contentAlignment = Alignment.Center,
-                        ) { Text("+ New reminder", style = Paper.type.button.copy(fontSize = 13.sp), color = colors.muted) }
                     }
                     item(key = "spacer") { Box(Modifier.height(24.dp)) }
                 }
@@ -186,26 +173,5 @@ private fun ReminderRowContent(row: ReminderRow, overdue: Boolean, onToggle: (Bo
             (row.repeat ?: row.location)?.let { Text(it, style = Paper.type.monoMeta, color = colors.accent, modifier = Modifier.padding(top = 2.dp)) }
         }
         PaperSwitch(checked = row.enabled, onCheckedChange = onToggle, label = "Reminder ${row.title}")
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun AddReminderSheet(onDismiss: () -> Unit, viewModel: AddReminderViewModel = hiltViewModel()) {
-    val state by viewModel.uiState.collectAsStateWithLifecycle()
-    LaunchedEffect(viewModel) { viewModel.added.collect { onDismiss() } }
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        containerColor = Paper.colors.paper,
-        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-    ) {
-        QuickAddContent(
-            state = state,
-            onTextChange = viewModel::onTextChange,
-            onSubmit = viewModel::submit,
-            destination = "→ Reminders",
-            placeholder = "Remind me to…",
-            submitLabel = "Add reminder",
-        )
     }
 }
