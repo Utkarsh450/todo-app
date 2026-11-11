@@ -29,6 +29,10 @@ data class CreateEventRequest(
     @Serializable(with = InstantSerializer::class) val endAt: Instant,
     val allDay: Boolean,
     val projectId: String?,
+    val location: String? = null,
+    val videoLink: String? = null,
+    val guests: List<String> = emptyList(),
+    val busy: Boolean = true,
 )
 
 @Serializable

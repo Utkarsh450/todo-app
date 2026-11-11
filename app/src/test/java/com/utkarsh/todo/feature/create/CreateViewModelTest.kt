@@ -145,27 +145,27 @@ class CreateViewModelTest {
         val created = slot<NewTask>()
         coVerify { tasks.create(capture(created)) }
         assertEquals(NewTask("Pay rent", "", "p1", Priority.HIGH, Instant.parse("2026-11-12T12:30:00Z"), "Every Week", emptyList()), created.captured)
-        coVerify(exactly = 1) { reminders.create(NewReminder("Pay rent", Instant.parse("2026-11-12T12:30:00Z"), "t1", "Every Week", style = AlertStyle.NOTIFICATION)) }
-        coVerify(exactly = 1) { reminders.create(NewReminder("Pay rent", Instant.parse("2026-11-12T11:30:00Z"), "t1", "Every Week", style = AlertStyle.NOTIFICATION)) }
+        coVerify(exactly = 1) { reminders.create(NewReminder("Pay rent", Instant.parse("2026-11-12T12:30:00Z"), "t1", "Every Week", style = AlertStyle.ALARM)) }
+        coVerify(exactly = 1) { reminders.create(NewReminder("Pay rent", Instant.parse("2026-11-12T11:30:00Z"), "t1", "Every Week", style = AlertStyle.ALARM)) }
         coVerify(exactly = 2) { reminders.create(any()) }
     }
 
     @Test
-    fun `alerts are notifications unless the alarm style is chosen, and notes are kept with the task`() = runTest {
+    fun `alerts are alarms that take over the screen unless notification is chosen, and notes are kept with the task`() = runTest {
         val vm = viewModel()
-        assertEquals(AlertStyle.NOTIFICATION, vm.uiState.value.form.alertStyle)
+        assertEquals(AlertStyle.ALARM, vm.uiState.value.form.alertStyle)
         vm.setTitle("Call bank")
         vm.setNotes("  ask about the card  ")
         vm.setTime(LocalTime.of(18, 0))
         vm.toggleAlert(0)
-        vm.setAlertStyle(AlertStyle.ALARM)
+        vm.setAlertStyle(AlertStyle.NOTIFICATION)
 
         vm.save()
 
         val created = slot<NewTask>()
         coVerify { tasks.create(capture(created)) }
         assertEquals("ask about the card", created.captured.notes)
-        coVerify(exactly = 1) { reminders.create(match { it.style == AlertStyle.ALARM && it.taskId == "t1" }) }
+        coVerify(exactly = 1) { reminders.create(match { it.style == AlertStyle.NOTIFICATION && it.taskId == "t1" }) }
     }
 
     @Test
@@ -173,11 +173,11 @@ class CreateViewModelTest {
         val vm = viewModel()
         vm.setType(CreateType.EVENT)
         vm.setTitle("Standup")
-        vm.setAlertStyle(AlertStyle.ALARM)
+        vm.setAlertStyle(AlertStyle.NOTIFICATION)
         vm.save()
         val event = slot<NewEvent>()
         coVerify { calendar.createEvent(capture(event)) }
-        assertEquals(AlertStyle.ALARM, event.captured.alertStyle)
+        assertEquals(AlertStyle.NOTIFICATION, event.captured.alertStyle)
     }
 
     @Test
@@ -226,5 +226,43 @@ class CreateViewModelTest {
         vm.save()
         assertNull(vm.uiState.value.error)
         coVerify(exactly = 2) { tasks.create(any()) }
+    }
+
+    @Test
+    fun `an event carries its place, video link, guests and busy or free`() = runTest {
+        val vm = viewModel()
+        vm.setType(CreateType.EVENT)
+        vm.setTitle("Design sync")
+        vm.setLocation("  Room 4 ")
+        vm.setVideoLink("https://meet.example/abc")
+        vm.addGuest(" sam@example.com ")
+        vm.addGuest("SAM@example.com") // the same guest again
+        vm.addGuest("   ")
+        vm.addGuest("priya@example.com")
+        vm.removeGuest("priya@example.com")
+        vm.setBusy(false)
+
+        vm.save()
+
+        val event = slot<NewEvent>()
+        coVerify { calendar.createEvent(capture(event)) }
+        assertEquals("Room 4", event.captured.location)
+        assertEquals("https://meet.example/abc", event.captured.videoLink)
+        assertEquals(listOf("sam@example.com"), event.captured.guests)
+        assertEquals(false, event.captured.busy)
+    }
+
+    @Test
+    fun `blank place and video link are sent as nothing`() = runTest {
+        val vm = viewModel()
+        vm.setType(CreateType.EVENT)
+        vm.setTitle("Quiet")
+        vm.setLocation("   ")
+        vm.save()
+        val event = slot<NewEvent>()
+        coVerify { calendar.createEvent(capture(event)) }
+        assertNull(event.captured.location)
+        assertNull(event.captured.videoLink)
+        assertEquals(true, event.captured.busy)
     }
 }

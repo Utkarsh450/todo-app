@@ -131,6 +131,19 @@ class CalendarRepositoryTest {
     }
 
     @Test
+    fun `an event sends its place, video link, guests and busy flag to the server`() = runTest {
+        server.enqueue(created())
+
+        repository.createEvent(event.copy(location = "Room 4", videoLink = "https://meet.example/abc", guests = listOf("sam@example.com"), busy = false)).getOrThrow()
+
+        val body = server.takeRequest().body!!.utf8()
+        assertTrue(body.contains(""""location":"Room 4""""))
+        assertTrue(body.contains(""""videoLink":"https://meet.example/abc""""))
+        assertTrue(body.contains(""""guests":["sam@example.com"]"""))
+        assertTrue(body.contains(""""busy":false"""))
+    }
+
+    @Test
     fun `the alerts of an event carry the style that was chosen`() = runTest {
         server.enqueue(created())
 

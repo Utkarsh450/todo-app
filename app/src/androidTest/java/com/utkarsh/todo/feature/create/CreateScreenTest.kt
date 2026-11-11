@@ -54,6 +54,11 @@ class CreateScreenTest {
                         onRepeat = { events += "repeat:$it" },
                         onAlertStyle = { events += "style:$it" },
                         onNotes = { events += "notes:$it" },
+                        onLocation = { events += "where:$it" },
+                        onVideoLink = { events += "video:$it" },
+                        onBusy = { events += "busy:$it" },
+                        onAddGuest = { events += "guest+:$it" },
+                        onRemoveGuest = { events += "guest-:$it" },
                         onPriority = { events += "priority:$it" },
                         onProject = { events += "project:$it" },
                         onSave = { events += "save" },
@@ -148,9 +153,9 @@ class CreateScreenTest {
         show()
         tap("alert-custom")
         compose.onNodeWithTag("alerts-sheet").assertIsDisplayed()
+        compose.onNodeWithTag("alert-unit-hours").performClick() // before typing: the keyboard would cover it
         compose.onNodeWithTag("alert-amount").performTextClearance()
         compose.onNodeWithTag("alert-amount").performTextInput("2")
-        compose.onNodeWithTag("alert-unit-hours").performClick()
         compose.onNodeWithTag("alert-add").performClick()
         assertEquals(listOf("addalert:120"), events)
     }
@@ -169,9 +174,9 @@ class CreateScreenTest {
         show()
         tap("repeat-custom-open")
         compose.onNodeWithTag("repeat-sheet").assertIsDisplayed()
+        compose.onNodeWithTag("repeat-unit-months").performClick() // before typing: the keyboard would cover it
         compose.onNodeWithTag("repeat-amount").performTextClearance()
         compose.onNodeWithTag("repeat-amount").performTextInput("3")
-        compose.onNodeWithTag("repeat-unit-months").performClick()
         compose.onNodeWithTag("repeat-set").performClick()
         assertEquals(listOf("repeat:Every 3 Months"), events)
     }
@@ -190,7 +195,7 @@ class CreateScreenTest {
         compose.onNodeWithTag("create-preview").performScrollTo().assertIsDisplayed()
         compose.onNodeWithTag("preview-title").assertIsDisplayed()
         compose.onNodeWithTag("preview-when").assertIsDisplayed()
-        compose.onNodeWithText("Today · 6:00 PM · ↻ Weekly · 🔔 30 min before").assertExists()
+        compose.onNodeWithText("Today · 6:00 PM · ↻ Weekly · 🔔 30 min before · alarm").assertExists()
         compose.onNodeWithText("● Design").assertExists()
     }
 
@@ -235,6 +240,26 @@ class CreateScreenTest {
     fun an_event_has_no_notes_field() {
         show(event())
         compose.onNodeWithTag("create-notes").assertDoesNotExist()
+    }
+
+    @Test
+    fun an_event_has_place_video_guests_and_show_as() {
+        show(event().copy(guests = listOf("sam@example.com")))
+        compose.onNodeWithTag("event-location").performScrollTo().performTextInput("Room 4")
+        compose.onNodeWithTag("event-video").performScrollTo().performTextInput("https://meet.example/abc")
+        compose.onNodeWithTag("event-guest-input").performScrollTo().performTextInput("priya@example.com")
+        tap("event-guest-add")
+        tap("guest-sam@example.com")
+        tap("show-free")
+        // the fake keeps the field empty, so a field may also report the empty text it is reset to
+        assertEquals(listOf("where:Room 4", "video:https://meet.example/abc", "guest+:priya@example.com", "guest-:sam@example.com", "busy:false"), events.filterNot { it == "where:" || it == "video:" })
+    }
+
+    @Test
+    fun a_task_has_none_of_the_event_details() {
+        show()
+        compose.onNodeWithTag("event-location").assertDoesNotExist()
+        compose.onNodeWithTag("show-busy").assertDoesNotExist()
     }
 
     @Test

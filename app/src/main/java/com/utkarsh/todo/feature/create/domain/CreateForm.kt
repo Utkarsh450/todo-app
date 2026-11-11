@@ -63,9 +63,14 @@ data class CreateForm(
     val priority: Priority = Priority.NORMAL,
     val projectId: String? = null,
     /** How the alerts show up: an ordinary notification, or an alarm that takes over the screen. */
-    val alertStyle: AlertStyle = AlertStyle.NOTIFICATION,
+    val alertStyle: AlertStyle = AlertStyle.ALARM,
     /** Tasks: notes (or a link) kept with the task. */
     val notes: String = "",
+    /** Events only. */
+    val location: String = "",
+    val videoLink: String = "",
+    val guests: List<String> = emptyList(),
+    val busy: Boolean = true,
 ) {
     /** The time everything is measured from: the chosen time, 9:00 for a task with none, 9:00 for an all-day event. */
     val effectiveTime: LocalTime get() = time ?: LocalTime.of(9, 0)

@@ -92,6 +92,11 @@ class CreateActions(
     val onRepeat: (String?) -> Unit = {},
     val onAlertStyle: (AlertStyle) -> Unit = {},
     val onNotes: (String) -> Unit = {},
+    val onLocation: (String) -> Unit = {},
+    val onVideoLink: (String) -> Unit = {},
+    val onBusy: (Boolean) -> Unit = {},
+    val onAddGuest: (String) -> Unit = {},
+    val onRemoveGuest: (String) -> Unit = {},
     val onPriority: (Priority) -> Unit = {},
     val onProject: (String) -> Unit = {},
     val onSave: () -> Unit = {},
@@ -106,7 +111,8 @@ fun CreateRoute(onClose: () -> Unit, modifier: Modifier = Modifier, viewModel: C
         actions = CreateActions(
             onClose = onClose, onType = viewModel::setType, onTitle = viewModel::setTitle, onDate = viewModel::setDate,
             onTime = viewModel::setTime, onDuration = viewModel::setDuration, onAllDay = viewModel::setAllDay,
-            onToggleAlert = viewModel::toggleAlert, onAddAlert = viewModel::addAlert, onRepeat = viewModel::setRepeat, onAlertStyle = viewModel::setAlertStyle, onNotes = viewModel::setNotes,
+            onToggleAlert = viewModel::toggleAlert, onAddAlert = viewModel::addAlert, onRepeat = viewModel::setRepeat, onAlertStyle = viewModel::setAlertStyle, onNotes = viewModel::setNotes, onLocation = viewModel::setLocation, onVideoLink = viewModel::setVideoLink, onBusy = viewModel::setBusy,
+            onAddGuest = viewModel::addGuest, onRemoveGuest = viewModel::removeGuest,
             onPriority = viewModel::setPriority, onProject = viewModel::toggleProject, onSave = viewModel::save,
         ),
         modifier = modifier,
@@ -201,6 +207,7 @@ fun CreateScreen(state: CreateUiState, actions: CreateActions, modifier: Modifie
                     Priority.entries.forEach { p -> Chip(p.name.lowercase().replaceFirstChar { it.uppercase() }, form.priority == p, "priority-${p.name.lowercase()}") { actions.onPriority(p) } }
                 }
             }
+            if (form.type == CreateType.EVENT) EventDetails(form, actions)
             if (state.projects.isNotEmpty()) {
                 Group("Project") {
                     state.projects.forEach { p ->
@@ -228,6 +235,48 @@ fun CreateScreen(state: CreateUiState, actions: CreateActions, modifier: Modifie
         "alert" -> AlertsSheet({ picking = null }) { actions.onAddAlert(it); picking = null }
         "repeat" -> RepeatSheet({ picking = null }) { actions.onRepeat(it); picking = null }
     }
+}
+
+/** Where, video link, guests and busy/free: the rest of what an event can carry. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun EventDetails(form: CreateForm, actions: CreateActions) {
+    val colors = Paper.colors
+    var guest by rememberSaveable { mutableStateOf("") }
+    MonoLabel("Where", Modifier.padding(top = 18.dp, bottom = 6.dp))
+    DetailField(form.location, actions.onLocation, "Add a place", "event-location")
+    MonoLabel("Video call", Modifier.padding(top = 14.dp, bottom = 6.dp))
+    DetailField(form.videoLink, actions.onVideoLink, "Add a video link", "event-video")
+    MonoLabel("Guests", Modifier.padding(top = 14.dp, bottom = 6.dp))
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.weight(1f)) { DetailField(guest, { guest = it }, "Email or name", "event-guest-input", ImeAction.Done) { actions.onAddGuest(guest); guest = "" } }
+        Text(
+            "Add", style = Paper.type.label, color = colors.accent,
+            modifier = Modifier.clickable { actions.onAddGuest(guest); guest = "" }.padding(horizontal = 12.dp, vertical = 9.dp).testTag("event-guest-add"),
+        )
+    }
+    if (form.guests.isNotEmpty()) {
+        FlowRow(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            form.guests.forEach { g -> Chip("$g  ✕", true, "guest-$g") { actions.onRemoveGuest(g) } }
+        }
+    }
+    Group("Show as") {
+        Chip("Busy", form.busy, "show-busy") { actions.onBusy(true) }
+        Chip("Free", !form.busy, "show-free") { actions.onBusy(false) }
+    }
+}
+
+@Composable
+private fun DetailField(value: String, onChange: (String) -> Unit, placeholder: String, tag: String, ime: ImeAction = ImeAction.Next, onDone: () -> Unit = {}) {
+    val colors = Paper.colors
+    BasicTextField(
+        value = value, onValueChange = onChange, singleLine = true,
+        textStyle = Paper.type.body.copy(color = colors.ink), cursorBrush = SolidColor(colors.ink),
+        keyboardOptions = KeyboardOptions(imeAction = ime),
+        keyboardActions = androidx.compose.foundation.text.KeyboardActions(onDone = { onDone() }),
+        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(colors.card).border(1.dp, colors.rule, RoundedCornerShape(8.dp)).padding(horizontal = 12.dp, vertical = 10.dp).testTag(tag),
+        decorationBox = { inner -> Box { if (value.isEmpty()) Text(placeholder, style = Paper.type.body, color = colors.mutedSoft); inner() } },
+    )
 }
 
 private fun durationLabel(minutes: Int): String = if (minutes % 60 == 0) "${minutes / 60} h" else "$minutes min"

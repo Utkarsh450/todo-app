@@ -27,6 +27,11 @@ data class NewEvent(
     /** Minutes before the start that an alert should ring (like Google Calendar's); empty for none. */
     val alerts: List<Int> = listOf(DEFAULT_ALERT_MINUTES),
     val alertStyle: AlertStyle = AlertStyle.ALARM,
+    val location: String? = null,
+    val videoLink: String? = null,
+    val guests: List<String> = emptyList(),
+    /** "Show as": busy (the default) or free. */
+    val busy: Boolean = true,
 )
 
 const val DEFAULT_ALERT_MINUTES = 30

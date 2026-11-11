@@ -102,6 +102,20 @@ class CreateViewModel @Inject constructor(
 
     fun setAlertStyle(style: AlertStyle) = edit { it.copy(alertStyle = style) }
 
+    fun setLocation(text: String) = edit { it.copy(location = text) }
+
+    fun setVideoLink(text: String) = edit { it.copy(videoLink = text) }
+
+    fun setBusy(busy: Boolean) = edit { it.copy(busy = busy) }
+
+    /** Adds a guest (an email or a name); blanks and repeats are ignored. */
+    fun addGuest(text: String) = edit { form ->
+        val guest = text.trim()
+        if (guest.isEmpty() || form.guests.any { it.equals(guest, ignoreCase = true) }) form else form.copy(guests = form.guests + guest)
+    }
+
+    fun removeGuest(guest: String) = edit { it.copy(guests = it.guests - guest) }
+
     fun setNotes(notes: String) = edit { it.copy(notes = notes) }
 
     fun setPriority(priority: Priority) = edit { it.copy(priority = priority) }
@@ -121,7 +135,8 @@ class CreateViewModel @Inject constructor(
                 CreateType.TASK -> tasks.create(NewTask(title = title, notes = form.notes.trim(), projectId = form.projectId, priority = form.priority, dueAt = form.startInstant(zone), repeatRule = form.repeat))
                     .onSuccess { task -> form.alertInstants(zone, clock.instant()).forEach { at -> reminders.create(NewReminder(title = title, remindAt = at, taskId = task.id, repeatRule = form.repeat, style = form.alertStyle)) } }
                     .map { }
-                CreateType.EVENT -> calendar.createEvent(NewEvent(title, form.startInstant(zone), form.endInstant(zone), form.allDay, form.projectId, form.alerts.toList(), form.alertStyle)).map { }
+                CreateType.EVENT -> calendar.createEvent(NewEvent(title, form.startInstant(zone), form.endInstant(zone), form.allDay, form.projectId, form.alerts.toList(), form.alertStyle,
+                    form.location.trim().ifEmpty { null }, form.videoLink.trim().ifEmpty { null }, form.guests, form.busy)).map { }
             }
             result
                 .onSuccess { _saved.send(Unit) }

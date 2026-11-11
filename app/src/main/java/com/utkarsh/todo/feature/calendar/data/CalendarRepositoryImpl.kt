@@ -28,7 +28,7 @@ class CalendarRepositoryImpl @Inject constructor(
         resultOf { api.agenda(from.toString(), to.toString()).map { it.toDomain() } }
 
     override suspend fun createEvent(event: NewEvent) = resultOf {
-        api.createEvent(CreateEventRequest(event.title, event.start, event.end, event.allDay, event.projectId)).id
+        api.createEvent(CreateEventRequest(event.title, event.start, event.end, event.allDay, event.projectId, event.location, event.videoLink, event.guests, event.busy)).id
     }.onSuccess { id -> addAlert(id, event) }.also { result -> result.onSuccess { _changes.tryEmit(Unit) } }
 
     override suspend fun deleteEvent(id: String) = resultOf { api.deleteEvent(id) }.also { result -> result.onSuccess { _changes.tryEmit(Unit) } }

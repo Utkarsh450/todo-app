@@ -36,6 +36,7 @@ import com.utkarsh.todo.feature.projects.ui.ProjectsRoute
 import com.utkarsh.todo.feature.focus.ui.FocusRoute
 import com.utkarsh.todo.feature.create.ui.CreateRoute
 import com.utkarsh.todo.feature.search.ui.SearchRoute
+import com.utkarsh.todo.feature.reminders.ui.AlertPermissionPrompt
 import com.utkarsh.todo.feature.reminders.ui.DueSoonRoute
 import com.utkarsh.todo.feature.assistant.ui.AssistantRoute
 import com.utkarsh.todo.feature.braindump.ui.BrainDumpRoute
@@ -102,6 +103,7 @@ fun AppNavHost(modifier: Modifier = Modifier) {
             composable<Destination.Focus> { FocusRoute(onBack = { nav.popBackStack() }) }
         }
         if (offline) OfflineBanner(onRetry = offlineViewModel::recheck)
+        AlertPermissionPrompt()
         if (selected != null) {
             PaperNavBar(
                 items = topLevel.map { NavBarItem(it.key, it.label, it.icon) },
