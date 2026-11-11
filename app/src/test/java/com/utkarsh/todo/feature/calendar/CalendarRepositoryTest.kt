@@ -5,6 +5,7 @@ import com.utkarsh.todo.core.network.buildRetrofit
 import com.utkarsh.todo.feature.calendar.data.CalendarApi
 import com.utkarsh.todo.feature.calendar.data.CalendarRepositoryImpl
 import com.utkarsh.todo.feature.calendar.domain.NewEvent
+import com.utkarsh.todo.feature.reminders.domain.AlertStyle
 import com.utkarsh.todo.feature.reminders.domain.NewReminder
 import com.utkarsh.todo.feature.reminders.domain.Reminder
 import com.utkarsh.todo.feature.reminders.domain.RemindersRepository
@@ -122,11 +123,32 @@ class CalendarRepositoryTest {
         server.enqueue(created())
         server.enqueue(created())
 
-        repository.createEvent(event.copy(alertMinutes = 60)).getOrThrow()
-        repository.createEvent(event.copy(alertMinutes = null)).getOrThrow()
+        repository.createEvent(event.copy(alerts = listOf(60))).getOrThrow()
+        repository.createEvent(event.copy(alerts = emptyList())).getOrThrow()
 
         coVerify(exactly = 1) { reminders.create(match { it.remindAt == Instant.parse("2026-11-13T06:30:00Z") }) }
         coVerify(exactly = 1) { reminders.create(any()) }
+    }
+
+    @Test
+    fun `the alerts of an event carry the style that was chosen`() = runTest {
+        server.enqueue(created())
+
+        repository.createEvent(event.copy(alertStyle = AlertStyle.NOTIFICATION)).getOrThrow()
+
+        coVerify(exactly = 1) { reminders.create(match { it.style == AlertStyle.NOTIFICATION }) }
+    }
+
+    @Test
+    fun `several alerts make several reminders, each tied to the event, and repeats are dropped`() = runTest {
+        server.enqueue(created())
+
+        repository.createEvent(event.copy(alerts = listOf(60, 10, 10, 0))).getOrThrow()
+
+        coVerify(exactly = 1) { reminders.create(match { it.remindAt == Instant.parse("2026-11-13T06:30:00Z") && it.eventId == "e1" }) }
+        coVerify(exactly = 1) { reminders.create(match { it.remindAt == Instant.parse("2026-11-13T07:20:00Z") }) }
+        coVerify(exactly = 1) { reminders.create(match { it.remindAt == Instant.parse("2026-11-13T07:30:00Z") }) }
+        coVerify(exactly = 3) { reminders.create(any()) }
     }
 
     @Test

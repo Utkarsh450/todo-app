@@ -3,6 +3,7 @@ package com.utkarsh.todo.feature.reminders.platform
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import com.utkarsh.todo.feature.reminders.domain.AlertStyle
 import com.utkarsh.todo.feature.reminders.domain.Reminder
 import com.utkarsh.todo.feature.reminders.domain.ReminderScheduler
 import com.utkarsh.todo.feature.reminders.domain.RemindersRepository
@@ -31,16 +32,17 @@ class ReminderReceiver : BroadcastReceiver() {
         val title = intent.getStringExtra(EXTRA_TITLE).orEmpty().ifBlank { "Reminder" }
         val rule = intent.getStringExtra(EXTRA_REPEAT)
         val taskId = intent.getStringExtra(EXTRA_TASK_ID)
+        val style = styleOf(intent.getStringExtra(EXTRA_STYLE))
         // Count the next occurrence from the time the reminder was meant to fire, not from when the alarm actually went
         // off: alarms fire a little late, and anchoring on "now" would slide the reminder later every single cycle.
         val scheduledAt = intent.getLongExtra(EXTRA_REMIND_AT, 0L).takeIf { it > 0 }?.let(Instant::ofEpochMilli) ?: clock.instant()
-        notifications.show(id, title, scheduledAt.toEpochMilli(), taskId, rule)
+        notifications.show(id, title, scheduledAt.toEpochMilli(), taskId, rule, style)
 
         if (rule == null) return
         val now = ZonedDateTime.now(clock)
         val next = RepeatRule.next(rule, scheduledAt.atZone(clock.zone), now) ?: return
         // Register the next alarm on the device straight away, so it exists even when the backend can't be reached.
-        scheduler.schedule(Reminder(id, taskId, title, next.toInstant(), rule, null, true, null))
+        scheduler.schedule(Reminder(id, taskId, title, next.toInstant(), rule, null, true, null, style = style))
 
         val pending = goAsync()
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
@@ -59,5 +61,8 @@ class ReminderReceiver : BroadcastReceiver() {
         const val EXTRA_REPEAT = "repeatRule"
         const val EXTRA_REMIND_AT = "remindAtMillis"
         const val EXTRA_TASK_ID = "taskId"
+        const val EXTRA_STYLE = "style"
+
+        fun styleOf(name: String?): AlertStyle = if (name == AlertStyle.NOTIFICATION.name) AlertStyle.NOTIFICATION else AlertStyle.ALARM
     }
 }

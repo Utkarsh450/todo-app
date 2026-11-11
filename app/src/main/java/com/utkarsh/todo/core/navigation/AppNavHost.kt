@@ -8,9 +8,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -37,7 +34,7 @@ import com.utkarsh.todo.feature.customize.ui.CustomizeRoute
 import com.utkarsh.todo.feature.insights.ui.InsightsRoute
 import com.utkarsh.todo.feature.projects.ui.ProjectsRoute
 import com.utkarsh.todo.feature.focus.ui.FocusRoute
-import com.utkarsh.todo.feature.quickadd.ui.QuickAddSheet
+import com.utkarsh.todo.feature.create.ui.CreateRoute
 import com.utkarsh.todo.feature.search.ui.SearchRoute
 import com.utkarsh.todo.feature.reminders.ui.DueSoonRoute
 import com.utkarsh.todo.feature.assistant.ui.AssistantRoute
@@ -63,7 +60,6 @@ fun AppNavHost(modifier: Modifier = Modifier) {
     val offline by offlineViewModel.offline.collectAsStateWithLifecycle()
     // While offline, ask the server every so often whether it is back.
     LaunchedEffect(offline) { while (offline) { delay(RECHECK_MS); offlineViewModel.recheck() } }
-    var showQuickAdd by rememberSaveable { mutableStateOf(false) }
     val entry by nav.currentBackStackEntryAsState()
     val selected = topLevel.firstOrNull { t -> entry?.destination?.hasRoute(t.type) == true }?.key
 
@@ -80,7 +76,14 @@ fun AppNavHost(modifier: Modifier = Modifier) {
                     onSearch = { nav.navigate(Destination.Search) },
                 )
             }
-            composable<Destination.Calendar> { CalendarRoute(onOpenTask = { nav.navigate(Destination.TaskDetail(it)) }) }
+            composable<Destination.Calendar> {
+                CalendarRoute(
+                    onOpenTask = { nav.navigate(Destination.TaskDetail(it)) },
+                    onCreate = { date, time ->
+                        nav.navigate(Destination.Create("EVENT", date.atTime(time).atZone(java.time.ZoneId.systemDefault()).toEpochSecond()))
+                    },
+                )
+            }
             composable<Destination.DueSoon> { DueSoonRoute() }
             composable<Destination.Insights> { InsightsRoute() }
             composable<Destination.Projects> {
@@ -95,6 +98,7 @@ fun AppNavHost(modifier: Modifier = Modifier) {
             composable<Destination.TaskDetail> { entry ->
                 TaskDetailRoute(onBack = { nav.popBackStack() }, onFocus = { nav.navigate(Destination.Focus(entry.toRoute<Destination.TaskDetail>().taskId)) })
             }
+            composable<Destination.Create> { CreateRoute(onClose = { nav.popBackStack() }) }
             composable<Destination.Focus> { FocusRoute(onBack = { nav.popBackStack() }) }
         }
         if (offline) OfflineBanner(onRetry = offlineViewModel::recheck)
@@ -110,11 +114,10 @@ fun AppNavHost(modifier: Modifier = Modifier) {
                         restoreState = true
                     }
                 },
-                onAdd = { showQuickAdd = true },
+                onAdd = { nav.navigate(Destination.Create()) },
             )
         }
     }
-    if (showQuickAdd) QuickAddSheet(onDismiss = { showQuickAdd = false })
     }
 }
 

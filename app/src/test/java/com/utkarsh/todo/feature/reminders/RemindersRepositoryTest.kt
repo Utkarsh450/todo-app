@@ -3,6 +3,7 @@ package com.utkarsh.todo.feature.reminders
 import com.utkarsh.todo.core.network.buildRetrofit
 import com.utkarsh.todo.feature.reminders.data.RemindersApi
 import com.utkarsh.todo.feature.reminders.data.RemindersRepositoryImpl
+import com.utkarsh.todo.feature.reminders.domain.AlertStyle
 import com.utkarsh.todo.feature.reminders.domain.NewReminder
 import com.utkarsh.todo.feature.reminders.domain.Reminder
 import com.utkarsh.todo.feature.reminders.domain.ReminderAlarmStore
@@ -52,9 +53,9 @@ class RemindersRepositoryTest {
     @After
     fun tearDown() = server.close()
 
-    private fun reminder(id: String = "r1", at: String = "2026-11-07T14:00:00.000Z", enabled: Boolean = true, snoozed: String? = null, repeat: String? = null) =
+    private fun reminder(id: String = "r1", at: String = "2026-11-07T14:00:00.000Z", enabled: Boolean = true, snoozed: String? = null, repeat: String? = null, style: String = "ALARM") =
         """{"id":"$id","taskId":null,"title":"Drink water","remindAt":"$at","repeatRule":${repeat?.let { "\"$it\"" }},"locationTrigger":null,
-           "enabled":$enabled,"snoozedUntil":${snoozed?.let { "\"$it\"" }},"createdAt":"2026-11-01T00:00:00.000Z"}"""
+           "enabled":$enabled,"snoozedUntil":${snoozed?.let { "\"$it\"" }},"style":"$style","createdAt":"2026-11-01T00:00:00.000Z"}"""
 
     private fun json(body: String, code: Int = 200) =
         MockResponse.Builder().code(code).addHeader("Content-Type", "application/json").body(body).build()
@@ -66,6 +67,20 @@ class RemindersRepositoryTest {
         repository.create(NewReminder("Drink water", Instant.parse("2026-11-07T14:00:00Z"))).getOrThrow()
 
         assertEquals(setOf("r1"), scheduler.scheduled.keys)
+    }
+
+    @Test
+    fun `the alert style is sent when creating and read back, and an answer without one is an alarm`() = runTest {
+        server.enqueue(json(reminder(style = "NOTIFICATION"), 201))
+
+        val made = repository.create(NewReminder("Drink water", Instant.parse("2026-11-07T14:00:00Z"), style = AlertStyle.NOTIFICATION)).getOrThrow()
+
+        assertEquals(AlertStyle.NOTIFICATION, made.style)
+        assertEquals(AlertStyle.NOTIFICATION, scheduler.scheduled.getValue("r1").style) // the device alarm keeps it
+        assertTrue(server.takeRequest().body!!.utf8().contains(""""style":"NOTIFICATION""""))
+
+        server.enqueue(json("""{"id":"r2","title":"Old","remindAt":"2026-11-07T14:00:00.000Z"}""", 201))
+        assertEquals(AlertStyle.ALARM, repository.create(NewReminder("Old", Instant.parse("2026-11-07T14:00:00Z"))).getOrThrow().style)
     }
 
     @Test

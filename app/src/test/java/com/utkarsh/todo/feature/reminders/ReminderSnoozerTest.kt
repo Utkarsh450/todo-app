@@ -1,5 +1,6 @@
 package com.utkarsh.todo.feature.reminders
 
+import com.utkarsh.todo.feature.reminders.domain.AlertStyle
 import com.utkarsh.todo.feature.reminders.domain.Reminder
 import com.utkarsh.todo.feature.reminders.domain.ReminderScheduler
 import com.utkarsh.todo.feature.reminders.domain.RemindersRepository
@@ -32,6 +33,17 @@ class ReminderSnoozerTest {
 
         coVerify(exactly = 1) { repository.snooze("r", 10) }
         verify(exactly = 0) { scheduler.schedule(any()) }
+    }
+
+    @Test
+    fun `the fallback alarm keeps the style of the alert that was snoozed`() = runTest {
+        coEvery { repository.snooze(any(), any()) } returns Result.failure(RuntimeException("offline"))
+        val armed = slot<Reminder>()
+
+        snoozer.snooze("r", "Dentist", due, null, null, 10, AlertStyle.NOTIFICATION)
+
+        verify { scheduler.schedule(capture(armed)) }
+        assertEquals(AlertStyle.NOTIFICATION, armed.captured.style)
     }
 
     @Test

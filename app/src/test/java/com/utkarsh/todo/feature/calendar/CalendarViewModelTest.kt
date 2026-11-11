@@ -3,9 +3,7 @@ package com.utkarsh.todo.feature.calendar
 import com.utkarsh.todo.feature.calendar.domain.AgendaItem
 import com.utkarsh.todo.feature.calendar.domain.AgendaKind
 import com.utkarsh.todo.feature.calendar.domain.CalendarRepository
-import com.utkarsh.todo.feature.calendar.domain.CreateKind
 import com.utkarsh.todo.feature.calendar.domain.NewEvent
-import com.utkarsh.todo.feature.calendar.ui.CreateStatus
 import com.utkarsh.todo.feature.reminders.domain.NewReminder
 import com.utkarsh.todo.feature.reminders.domain.Reminder
 import com.utkarsh.todo.feature.reminders.domain.RemindersRepository
@@ -256,6 +254,33 @@ class CalendarViewModelTest {
         assertEquals(listOf(LocalDate.of(2026, 11, 9)), vm.uiState.value.columns.map { it.date })
     }
 
+    // ---- 3-day view
+
+    @Test
+    fun `the 3 day view shows the selected day and the next two, and arrows move three days`() {
+        val vm = viewModel()
+        vm.setMode(CalendarMode.THREE_DAY)
+
+        assertEquals(listOf(LocalDate.of(2026, 11, 7), LocalDate.of(2026, 11, 8), LocalDate.of(2026, 11, 9)), vm.uiState.value.columns.map { it.date })
+        assertEquals(1, vm.uiState.value.columns.count { it.isToday })
+
+        vm.next()
+        assertEquals(listOf(LocalDate.of(2026, 11, 10), LocalDate.of(2026, 11, 11), LocalDate.of(2026, 11, 12)), vm.uiState.value.columns.map { it.date })
+        vm.previous()
+        vm.previous()
+        assertEquals(LocalDate.of(2026, 11, 4), vm.uiState.value.columns.first().date)
+    }
+
+    @Test
+    fun `the 3 day view puts timed entries into the right column`() {
+        val vm = viewModel(listOf(item("a", "Standup", "2026-11-08T09:30", "2026-11-08T10:00")))
+        vm.setMode(CalendarMode.THREE_DAY)
+
+        val blocks = vm.uiState.value.columns.map { col -> col.blocks.map { it.title } }
+        assertEquals(listOf(emptyList(), listOf("Standup"), emptyList()), blocks)
+        assertEquals(CalendarMode.THREE_DAY.label, "3 days")
+    }
+
     // ---- week and day grids
 
     @Test
@@ -348,170 +373,6 @@ class CalendarViewModelTest {
         vm.select(LocalDate.of(2026, 11, 30))
 
         assertTrue(to.captured >= ist("2026-12-31T00:00"))
-    }
-
-    // ---- creating
-
-    private fun vmWithCreateStubs(): CalendarViewModel {
-        coEvery { calendar.createEvent(any()) } returns Result.success("e1")
-        coEvery { tasks.create(any()) } returns Result.success(Task("t1", "x", "", null, Priority.NORMAL, TaskStatus.TODO, null, null, false, false, null, emptyList()))
-        coEvery { reminders.create(any()) } answers {
-            val r = firstArg<NewReminder>()
-            Result.success(Reminder("r1", null, r.title, r.remindAt, r.repeatRule, null, true, null))
-        }
-        return viewModel()
-    }
-
-    @Test
-    fun `the plus button opens an event today at the next full hour, one hour long, with a 30 minute alert`() {
-        val vm = vmWithCreateStubs()
-
-        vm.openCreate()
-
-        val draft = vm.uiState.value.create!!.draft
-        assertEquals(CreateKind.EVENT, draft.kind)
-        assertEquals(LocalDate.of(2026, 11, 7), draft.date)
-        assertEquals(LocalTime.of(11, 0), draft.start)
-        assertEquals(LocalTime.of(12, 0), draft.end)
-        assertEquals(30, draft.alertMinutes)
-    }
-
-    @Test
-    fun `tapping a slot opens the sheet on that day and half hour`() {
-        val vm = vmWithCreateStubs()
-
-        vm.openCreate(date = LocalDate.of(2026, 11, 10), time = LocalTime.of(14, 30))
-
-        val draft = vm.uiState.value.create!!.draft
-        assertEquals(LocalDate.of(2026, 11, 10), draft.date)
-        assertEquals(LocalTime.of(14, 30), draft.start)
-        assertEquals(LocalTime.of(15, 30), draft.end)
-    }
-
-    @Test
-    fun `saving an event sends its times and alert, closes the sheet, selects its day and reloads`() {
-        val vm = vmWithCreateStubs()
-        val event = slot<NewEvent>()
-        coEvery { calendar.createEvent(capture(event)) } returns Result.success("e1")
-        vm.openCreate(date = LocalDate.of(2026, 11, 10), time = LocalTime.of(14, 30))
-        vm.setTitle("  Dentist ")
-        vm.setAlert(10)
-
-        vm.save()
-
-        assertEquals(NewEvent("Dentist", ist("2026-11-10T14:30"), ist("2026-11-10T15:30"), false, null, 10), event.captured)
-        assertNull(vm.uiState.value.create)
-        assertEquals("Tue, 10 November", vm.uiState.value.selectedLabel)
-        coVerify(atLeast = 2) { calendar.agenda(any(), any()) }
-    }
-
-    @Test
-    fun `an all day event covers the whole day`() {
-        val vm = vmWithCreateStubs()
-        val event = slot<NewEvent>()
-        coEvery { calendar.createEvent(capture(event)) } returns Result.success("e1")
-        vm.openCreate(date = LocalDate.of(2026, 11, 10))
-        vm.setTitle("Holiday")
-        vm.setAllDay(true)
-
-        vm.save()
-
-        assertEquals(ist("2026-11-10T00:00"), event.captured.start)
-        assertEquals(ist("2026-11-11T00:00"), event.captured.end)
-        assertTrue(event.captured.allDay)
-    }
-
-    @Test
-    fun `saving a task makes it due at the chosen time, or 9 in the morning when it has none`() {
-        val vm = vmWithCreateStubs()
-        val tasksMade = mutableListOf<NewTask>()
-        coEvery { tasks.create(capture(tasksMade)) } returns Result.success(Task("t1", "x", "", null, Priority.NORMAL, TaskStatus.TODO, null, null, false, false, null, emptyList()))
-
-        vm.openCreate(CreateKind.TASK, LocalDate.of(2026, 11, 10), LocalTime.of(16, 0))
-        vm.setTitle("Pay rent")
-        vm.setRepeat("Every Month")
-        vm.save()
-        vm.openCreate(CreateKind.TASK, LocalDate.of(2026, 11, 11))
-        vm.setTitle("Water plants")
-        vm.setAllDay(true)
-        vm.save()
-
-        assertEquals(listOf("Pay rent", "Water plants"), tasksMade.map { it.title })
-        assertEquals(ist("2026-11-10T16:00"), tasksMade[0].dueAt)
-        assertEquals("Every Month", tasksMade[0].repeatRule)
-        assertEquals(ist("2026-11-11T09:00"), tasksMade[1].dueAt)
-        assertNull(tasksMade[1].repeatRule)
-    }
-
-    @Test
-    fun `saving a reminder sets its time and repeat`() {
-        val vm = vmWithCreateStubs()
-        val made = slot<NewReminder>()
-        coEvery { reminders.create(capture(made)) } returns Result.success(Reminder("r", null, "x", Instant.EPOCH, null, null, true, null))
-        vm.openCreate(CreateKind.REMINDER, LocalDate.of(2026, 11, 10), LocalTime.of(8, 0))
-        vm.setTitle("Stretch")
-        vm.setRepeat("Every Day")
-
-        vm.save()
-
-        assertEquals(NewReminder(title = "Stretch", remindAt = ist("2026-11-10T08:00"), repeatRule = "Every Day"), made.captured)
-    }
-
-    @Test
-    fun `a blank title or an end before the start is explained and nothing is saved`() {
-        val vm = vmWithCreateStubs()
-        vm.openCreate()
-
-        vm.save()
-        assertEquals("Give it a title", vm.uiState.value.create!!.error)
-
-        vm.setTitle("Lunch")
-        vm.setEnd(LocalTime.of(10, 0)) // start is 11:00
-        vm.save()
-        assertEquals("The end must be after the start", vm.uiState.value.create!!.error)
-        coVerify(exactly = 0) { calendar.createEvent(any()) }
-    }
-
-    @Test
-    fun `moving the start keeps the length, and switching kind keeps what was typed`() {
-        val vm = vmWithCreateStubs()
-        vm.openCreate(date = LocalDate.of(2026, 11, 10), time = LocalTime.of(9, 0))
-        vm.setEnd(LocalTime.of(10, 30))
-        vm.setTitle("Plan")
-
-        vm.setStart(LocalTime.of(13, 0))
-        vm.setKind(CreateKind.TASK)
-
-        val draft = vm.uiState.value.create!!.draft
-        assertEquals(LocalTime.of(14, 30), draft.end)
-        assertEquals("Plan", draft.title)
-        assertEquals(CreateKind.TASK, draft.kind)
-    }
-
-    @Test
-    fun `a failed save keeps the sheet and what was typed, with the reason`() {
-        val vm = vmWithCreateStubs()
-        coEvery { calendar.createEvent(any()) } returns Result.failure(RuntimeException("offline"))
-        vm.openCreate()
-        vm.setTitle("Lunch")
-
-        vm.save()
-
-        val sheet = vm.uiState.value.create!!
-        assertEquals("offline", sheet.error)
-        assertEquals("Lunch", sheet.draft.title)
-        assertEquals(CreateStatus.EDITING, sheet.status)
-    }
-
-    @Test
-    fun `closing the sheet throws the draft away`() {
-        val vm = vmWithCreateStubs()
-        vm.openCreate()
-        vm.setTitle("Never mind")
-
-        vm.closeCreate()
-
-        assertNull(vm.uiState.value.create)
     }
 
     // ---- looking at and deleting an entry

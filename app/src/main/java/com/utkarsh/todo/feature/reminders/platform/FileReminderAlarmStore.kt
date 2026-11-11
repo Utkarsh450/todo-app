@@ -1,5 +1,6 @@
 package com.utkarsh.todo.feature.reminders.platform
 
+import com.utkarsh.todo.feature.reminders.domain.AlertStyle
 import com.utkarsh.todo.feature.reminders.domain.Reminder
 import com.utkarsh.todo.feature.reminders.domain.ReminderAlarmStore
 import java.io.File
@@ -16,6 +17,7 @@ private data class StoredReminder(
     val remindAtMillis: Long,
     val repeatRule: String? = null,
     val snoozedUntilMillis: Long? = null,
+    val style: String = "ALARM",
 )
 
 /** Keeps the scheduled reminders in one small JSON file. A missing or damaged file simply reads as empty. */
@@ -47,10 +49,11 @@ class FileReminderAlarmStore(private val file: File) : ReminderAlarmStore {
         }
     }
 
-    private fun Reminder.toStored() = StoredReminder(id, taskId, title, remindAt.toEpochMilli(), repeatRule, snoozedUntil?.toEpochMilli())
+    private fun Reminder.toStored() = StoredReminder(id, taskId, title, remindAt.toEpochMilli(), repeatRule, snoozedUntil?.toEpochMilli(), style.name)
 
     private fun StoredReminder.toDomain() = Reminder(
         id = id, taskId = taskId, title = title, remindAt = Instant.ofEpochMilli(remindAtMillis), repeatRule = repeatRule,
         locationTrigger = null, enabled = true, snoozedUntil = snoozedUntilMillis?.let(Instant::ofEpochMilli),
+        style = if (style == "NOTIFICATION") AlertStyle.NOTIFICATION else AlertStyle.ALARM,
     )
 }

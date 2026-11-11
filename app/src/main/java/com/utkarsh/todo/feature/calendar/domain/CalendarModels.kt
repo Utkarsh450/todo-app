@@ -1,5 +1,6 @@
 package com.utkarsh.todo.feature.calendar.domain
 
+import com.utkarsh.todo.feature.reminders.domain.AlertStyle
 import java.time.Instant
 import kotlinx.coroutines.flow.Flow
 
@@ -23,8 +24,9 @@ data class NewEvent(
     val end: Instant,
     val allDay: Boolean = false,
     val projectId: String? = null,
-    /** Minutes before the start that a reminder should ring (an alarm like Google Calendar's), or null for none. */
-    val alertMinutes: Int? = DEFAULT_ALERT_MINUTES,
+    /** Minutes before the start that an alert should ring (like Google Calendar's); empty for none. */
+    val alerts: List<Int> = listOf(DEFAULT_ALERT_MINUTES),
+    val alertStyle: AlertStyle = AlertStyle.ALARM,
 )
 
 const val DEFAULT_ALERT_MINUTES = 30
@@ -32,7 +34,7 @@ const val DEFAULT_ALERT_MINUTES = 30
 interface CalendarRepository {
     /** Events and dated tasks within [from, to). */
     suspend fun agenda(from: Instant, to: Instant): Result<List<AgendaItem>>
-    /** Creates the event (and its alert, if [NewEvent.alertMinutes] is set and still ahead) and returns the event's id. */
+    /** Creates the event (and its alerts, those of [NewEvent.alerts] that are still ahead) and returns the event's id. */
     suspend fun createEvent(event: NewEvent): Result<String>
     suspend fun deleteEvent(id: String): Result<Unit>
 

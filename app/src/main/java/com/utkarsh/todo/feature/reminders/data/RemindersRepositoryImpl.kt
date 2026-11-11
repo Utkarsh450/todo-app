@@ -2,6 +2,7 @@ package com.utkarsh.todo.feature.reminders.data
 
 import com.utkarsh.todo.core.common.resultOf
 import com.utkarsh.todo.feature.reminders.domain.AlarmPlan
+import com.utkarsh.todo.feature.reminders.domain.AlertStyle
 import com.utkarsh.todo.feature.reminders.domain.NewReminder
 import com.utkarsh.todo.feature.reminders.domain.Reminder
 import com.utkarsh.todo.feature.reminders.domain.ReminderGroups
@@ -34,7 +35,7 @@ class RemindersRepositoryImpl @Inject constructor(
     }
 
     override suspend fun create(reminder: NewReminder) = resultOf {
-        api.create(CreateReminderRequest(reminder.title, reminder.remindAt, reminder.taskId, reminder.repeatRule, reminder.locationTrigger, reminder.eventId)).toDomain()
+        api.create(CreateReminderRequest(reminder.title, reminder.remindAt, reminder.taskId, reminder.repeatRule, reminder.locationTrigger, reminder.eventId, reminder.style.name)).toDomain()
     }.synced()
 
     override suspend fun setEnabled(id: String, enabled: Boolean) = resultOf {
@@ -88,4 +89,5 @@ class RemindersRepositoryImpl @Inject constructor(
 internal fun ReminderDto.toDomain() = Reminder(
     id = id, taskId = taskId, title = title, remindAt = remindAt, repeatRule = repeatRule,
     locationTrigger = locationTrigger, enabled = enabled, snoozedUntil = snoozedUntil, eventId = eventId,
+    style = if (style == "NOTIFICATION") AlertStyle.NOTIFICATION else AlertStyle.ALARM,
 )

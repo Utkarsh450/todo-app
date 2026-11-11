@@ -39,7 +39,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.utkarsh.todo.core.designsystem.component.AddFab
 import com.utkarsh.todo.core.designsystem.component.MonoLabel
 import com.utkarsh.todo.core.designsystem.component.PaperCard
 import com.utkarsh.todo.core.designsystem.component.ProjectTag
@@ -48,7 +47,6 @@ import com.utkarsh.todo.core.designsystem.theme.paperSurface
 import com.utkarsh.todo.core.designsystem.theme.parseHexColor
 import com.utkarsh.todo.core.offline.OnReconnect
 import com.utkarsh.todo.feature.calendar.domain.AgendaKind
-import com.utkarsh.todo.feature.calendar.domain.CreateKind
 import java.time.LocalDate
 import java.time.LocalTime
 
@@ -61,16 +59,15 @@ class CalendarActions(
     val onOpenDay: (LocalDate) -> Unit = {},
     val onModeChange: (CalendarMode) -> Unit = {},
     val onRetry: () -> Unit = {},
-    /** The "+" menu and slot taps; [LocalDate] / [LocalTime] are null when it came from the menu. */
-    val onCreate: (CreateKind, LocalDate?, LocalTime?) -> Unit = { _, _, _ -> },
+    /** A tap on an empty half hour of the day, 3-day or week grid: opens Create at that moment. */
+    val onCreate: (LocalDate, LocalTime) -> Unit = { _, _ -> },
     val onOpenItem: (id: String, kind: AgendaKind) -> Unit = { _, _ -> },
-    val create: CreateSheetActions = CreateSheetActions(),
     val onCloseDetail: () -> Unit = {},
     val onDeleteDetail: () -> Unit = {},
 )
 
 @Composable
-fun CalendarRoute(onOpenTask: (String) -> Unit, modifier: Modifier = Modifier, viewModel: CalendarViewModel = hiltViewModel()) {
+fun CalendarRoute(onOpenTask: (String) -> Unit, onCreate: (LocalDate, LocalTime) -> Unit, modifier: Modifier = Modifier, viewModel: CalendarViewModel = hiltViewModel()) {
     OnReconnect { viewModel.refresh() }
     androidx.compose.runtime.LaunchedEffect(Unit) { viewModel.reload() } // reminders may have changed on their own tab
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -84,23 +81,14 @@ fun CalendarRoute(onOpenTask: (String) -> Unit, modifier: Modifier = Modifier, v
             onOpenDay = viewModel::openDay,
             onModeChange = viewModel::setMode,
             onRetry = viewModel::refresh,
-            onCreate = { kind, date, time -> viewModel.openCreate(kind, date ?: state.selectedDate(), time) },
+            onCreate = onCreate,
             onOpenItem = { id, kind -> if (kind == AgendaKind.TASK) onOpenTask(id) else viewModel.openDetail(id) },
-            create = CreateSheetActions(
-                onKind = viewModel::setKind, onTitle = viewModel::setTitle, onDate = viewModel::setDate, onStart = viewModel::setStart,
-                onEnd = viewModel::setEnd, onAllDay = viewModel::setAllDay, onAlert = viewModel::setAlert, onRepeat = viewModel::setRepeat,
-                onSave = viewModel::save, onClose = viewModel::closeCreate,
-            ),
             onCloseDetail = viewModel::closeDetail,
             onDeleteDetail = viewModel::deleteDetail,
         ),
         modifier = modifier,
     )
 }
-
-/** The day the "+" menu starts from: the selected one. */
-private fun CalendarUiState.selectedDate(): LocalDate =
-    columns.firstOrNull { it.isSelected }?.date ?: cells.firstOrNull { it.isSelected }?.date ?: LocalDate.now()
 
 @Composable
 fun CalendarScreen(state: CalendarUiState, actions: CalendarActions, modifier: Modifier = Modifier) {
@@ -121,9 +109,7 @@ fun CalendarScreen(state: CalendarUiState, actions: CalendarActions, modifier: M
                 else -> TimeGrid(state, actions)
             }
         }
-        CreateMenu(actions.onCreate, Modifier.align(Alignment.BottomEnd).padding(16.dp))
     }
-    state.create?.let { CreateSheet(it, actions.create) }
     state.detail?.let { DetailSheet(it, actions.onCloseDetail, actions.onDeleteDetail) }
 }
 
@@ -159,27 +145,6 @@ private fun CalendarHeader(state: CalendarUiState, actions: CalendarActions) {
 @Composable
 private fun NavButton(glyph: String, tag: String, onClick: () -> Unit) {
     Text(glyph, style = Paper.type.display, color = Paper.colors.ink, modifier = Modifier.clickable(onClick = onClick).padding(horizontal = 12.dp).testTag(tag))
-}
-
-/** The "+" button; tapping it fans out Event / Task / Reminder, like Google Calendar's. */
-@Composable
-private fun CreateMenu(onCreate: (CreateKind, LocalDate?, LocalTime?) -> Unit, modifier: Modifier) {
-    val colors = Paper.colors
-    var open by rememberSaveable { mutableStateOf(false) }
-    Column(modifier, horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        if (open) {
-            CreateKind.entries.reversed().forEach { kind ->
-                val shape = RoundedCornerShape(50)
-                Text(
-                    kind.label, style = Paper.type.button, color = colors.ink,
-                    modifier = Modifier.clip(shape).background(colors.card).border(1.dp, colors.rule, shape)
-                        .clickable { open = false; onCreate(kind, null, null) }.padding(horizontal = 18.dp, vertical = 11.dp)
-                        .testTag("fab-${kind.name.lowercase()}"),
-                )
-            }
-        }
-        AddFab(onClick = { open = !open }, modifier = Modifier.testTag("calendar-fab"))
-    }
 }
 
 // ---- Month
@@ -286,7 +251,7 @@ private fun AgendaRow(row: AgendaRowUi, actions: CalendarActions, modifier: Modi
         Column(Modifier.weight(1f)) {
             Text(row.title, style = Paper.type.title.copy(fontSize = 18.sp), color = colors.ink, textDecoration = if (row.done) TextDecoration.LineThrough else null)
             Row(Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                if (row.kind != AgendaKind.EVENT) MonoLabel(if (row.kind == AgendaKind.TASK) "Task" else "Reminder")
+                if (row.kind != AgendaKind.EVENT) MonoLabel(if (row.kind == AgendaKind.TASK) "Task" else "Alert")
                 row.projectName?.let { ProjectTag(it, parseHexColor(row.projectColorHex.orEmpty())) }
             }
         }

@@ -23,6 +23,7 @@ data class ReminderDto(
     val enabled: Boolean = true,
     @Serializable(with = InstantSerializer::class) val snoozedUntil: Instant? = null,
     val eventId: String? = null,
+    val style: String = "ALARM",
 )
 
 @Serializable
@@ -41,6 +42,7 @@ data class CreateReminderRequest(
     val repeatRule: String?,
     val locationTrigger: String?,
     val eventId: String? = null,
+    val style: String = "ALARM",
 )
 
 @Serializable data class SnoozeMinutesRequest(val minutes: Int)

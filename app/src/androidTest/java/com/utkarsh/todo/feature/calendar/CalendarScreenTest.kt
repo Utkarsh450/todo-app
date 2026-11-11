@@ -13,17 +13,12 @@ import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.unit.dp
 import com.utkarsh.todo.core.designsystem.theme.PaperTheme
 import com.utkarsh.todo.feature.calendar.domain.AgendaKind
-import com.utkarsh.todo.feature.calendar.domain.CreateDraft
-import com.utkarsh.todo.feature.calendar.domain.CreateKind
 import com.utkarsh.todo.feature.calendar.ui.AgendaRowUi
 import com.utkarsh.todo.feature.calendar.ui.CalendarActions
 import com.utkarsh.todo.feature.calendar.ui.CalendarMode
 import com.utkarsh.todo.feature.calendar.ui.CalendarScreen
 import com.utkarsh.todo.feature.calendar.ui.CalendarUiState
 import com.utkarsh.todo.feature.calendar.ui.ChipUi
-import com.utkarsh.todo.feature.calendar.ui.CreateSheetActions
-import com.utkarsh.todo.feature.calendar.ui.CreateSheetUi
-import com.utkarsh.todo.feature.calendar.ui.CreateStatus
 import com.utkarsh.todo.feature.calendar.ui.DayCellUi
 import com.utkarsh.todo.feature.calendar.ui.DayColumnUi
 import com.utkarsh.todo.feature.calendar.ui.DetailUi
@@ -66,10 +61,10 @@ class CalendarScreenTest {
     private fun state(mode: CalendarMode = CalendarMode.MONTH, agenda: List<AgendaRowUi> = listOf(row, taskRow)) = CalendarUiState(
         isLoading = false, mode = mode, monthLabel = "November", yearLabel = "2026",
         cells = if (mode == CalendarMode.MONTH) cells else emptyList(),
-        columns = when (mode) { CalendarMode.WEEK -> columns(7); CalendarMode.DAY -> columns(1); else -> emptyList() },
+        columns = when (mode) { CalendarMode.WEEK -> columns(7); CalendarMode.THREE_DAY -> columns(3); CalendarMode.DAY -> columns(1); else -> emptyList() },
         selectedLabel = "Sat, 7 November", plannedLabel = if (agenda.isEmpty()) "" else "${agenda.size} planned", agenda = agenda,
         schedule = if (mode == CalendarMode.SCHEDULE) listOf(ScheduleDayUi(selected, "Sat 7 Nov", true, listOf(row, taskRow)), ScheduleDayUi(selected.plusDays(7), "Sat 14 Nov", false, listOf(row.copy(id = "b", title = "Next week")))) else emptyList(),
-        nowMinute = if (mode == CalendarMode.WEEK || mode == CalendarMode.DAY) 600 else null,
+        nowMinute = if (mode == CalendarMode.WEEK || mode == CalendarMode.DAY || mode == CalendarMode.THREE_DAY) 600 else null,
         scrollHour = 0,
     )
 
@@ -87,12 +82,8 @@ class CalendarScreenTest {
                         onOpenDay = { events += "day:$it" },
                         onModeChange = { events += "mode:$it" },
                         onRetry = { events += "retry" },
-                        onCreate = { kind, date, time -> events += "create:$kind:${date ?: "-"}:${time ?: "-"}" },
+                        onCreate = { date, time -> events += "create:$date:$time" },
                         onOpenItem = { id, kind -> events += "open:$id:$kind" },
-                        create = CreateSheetActions(
-                            onKind = { events += "kind:$it" }, onTitle = { events += "title:$it" }, onAllDay = { events += "allday:$it" },
-                            onAlert = { events += "alert:$it" }, onRepeat = { events += "repeat:$it" }, onSave = { events += "save" }, onClose = { events += "close" },
-                        ),
                         onCloseDetail = { events += "close-detail" },
                         onDeleteDetail = { events += "delete" },
                     ),
@@ -192,7 +183,7 @@ class CalendarScreenTest {
         // first column (Sun 1 Nov), 05:40 -> the 05:30 slot
         compose.onNodeWithTag("slots").performTouchInput { click(Offset(width * (0.5f / 7f), hourPx * 5 + hourPx * 0.67f)) }
 
-        assertEquals(listOf("create:EVENT:2026-11-03:03:00", "create:EVENT:2026-11-01:05:30"), events)
+        assertEquals(listOf("create:2026-11-03:03:00", "create:2026-11-01:05:30"), events)
     }
 
     @Test
@@ -224,81 +215,43 @@ class CalendarScreenTest {
         compose.onNodeWithTag("schedule-empty").assertIsDisplayed()
     }
 
-    // ---- the plus menu
+    // ---- 3 days, and creating only through the + button
 
     @Test
-    fun the_plus_button_fans_out_event_task_and_reminder() {
+    fun the_3_day_view_shows_three_columns_and_a_grid() {
+        show(state(CalendarMode.THREE_DAY))
+
+        compose.onNodeWithTag("time-grid-three_day").assertIsDisplayed()
+        (1..3).forEach { compose.onNodeWithTag("column-2026-11-0$it").assertIsDisplayed() }
+        compose.onNodeWithTag("column-2026-11-04").assertDoesNotExist()
+        compose.onNodeWithText("2026 · 3 DAYS").assertIsDisplayed()
+    }
+
+    @Test
+    fun the_mode_menu_offers_3_days_and_reports_it() {
         show(state())
-        compose.onNodeWithTag("fab-task").assertDoesNotExist()
-
-        compose.onNodeWithTag("calendar-fab").performClick()
-        listOf("fab-event", "fab-task", "fab-reminder").forEach { compose.onNodeWithTag(it).assertIsDisplayed() }
-        compose.onNodeWithTag("fab-reminder").performClick()
-
-        assertEquals(listOf("create:REMINDER:-:-"), events)
-        compose.onNodeWithTag("fab-task").assertDoesNotExist() // closes after choosing
-    }
-
-    // ---- the create sheet
-
-    private fun sheet(kind: CreateKind = CreateKind.EVENT, title: String = "", error: String? = null, status: CreateStatus = CreateStatus.EDITING, allDay: Boolean = false) =
-        state().copy(create = CreateSheetUi(CreateDraft(kind, title, selected, LocalTime.of(11, 0), allDay = allDay), status, error))
-
-    @Test
-    fun the_event_sheet_shows_when_and_the_alert_choices_with_30_minutes_chosen() {
-        show(sheet(title = "Gym"))
-
-        compose.onNodeWithTag("create-sheet").assertIsDisplayed()
-        compose.onNodeWithTag("create-date").assertIsDisplayed()
-        compose.onNodeWithText("Sat, 7 Nov 2026").assertIsDisplayed()
-        compose.onNodeWithTag("create-start").assertTextContains("11:00 AM")
-        compose.onNodeWithTag("create-end").assertTextContains("12:00 PM")
-        compose.onNodeWithText("ALERT BEFORE").assertIsDisplayed()
-        listOf("None", "At time", "10 min", "30 min", "1 hour").forEach { compose.onNodeWithText(it).assertExists() }
-        compose.onNodeWithText("Save event").assertIsDisplayed()
+        compose.onNodeWithTag("mode-menu").performClick()
+        compose.onNodeWithTag("mode-THREE_DAY").assertIsDisplayed()
+        compose.onNodeWithText("3 days").assertIsDisplayed()
+        compose.onNodeWithTag("mode-THREE_DAY").performClick()
+        assertEquals(listOf("mode:THREE_DAY"), events)
     }
 
     @Test
-    fun the_sheet_reports_what_is_chosen() {
-        show(sheet())
+    fun tapping_an_empty_slot_in_the_3_day_view_creates_at_that_day_and_half_hour() {
+        show(state(CalendarMode.THREE_DAY))
+        val hourPx = with(compose.density) { 56.dp.toPx() }
 
-        compose.onNodeWithText("Task").performClick()
-        compose.onNodeWithTag("create-title").performTextReplacement("Gym")
-        compose.onNodeWithTag("alert-60").performClick()
-        compose.onNodeWithTag("alert-none").performClick()
-        compose.onNodeWithTag("create-save").performClick()
+        // second of three columns (Mon 2 Nov), 10:10 -> the 10:00 slot
+        compose.onNodeWithTag("slots").performTouchInput { click(Offset(width * (1.5f / 3f), hourPx * 10 + 6f)) }
 
-        // Focusing the field in a test can report a dismiss request for the sheet window; it is not part of what is chosen.
-        assertEquals(listOf("kind:TASK", "title:Gym", "alert:60", "alert:null", "save"), events - "close")
+        assertEquals(listOf("create:2026-11-02:10:00"), events)
     }
 
     @Test
-    fun a_task_or_reminder_offers_repeat_instead_of_an_alert() {
-        show(sheet(CreateKind.REMINDER))
-
-        compose.onNodeWithText("REPEAT").assertIsDisplayed()
-        compose.onNodeWithText("ALERT BEFORE").assertDoesNotExist()
-        compose.onNodeWithText("ALL DAY").assertDoesNotExist() // a reminder always has a time
-        compose.onNodeWithTag("create-end").assertDoesNotExist()
-        compose.onNodeWithTag("repeat-Every Week").performClick()
-        compose.onNodeWithText("Save reminder").assertIsDisplayed()
-
-        assertEquals(listOf("repeat:Every Week"), events)
-    }
-
-    @Test
-    fun all_day_hides_the_times() {
-        show(sheet(allDay = true))
-        compose.onNodeWithTag("create-start").assertDoesNotExist()
-        compose.onNodeWithTag("create-end").assertDoesNotExist()
-    }
-
-    @Test
-    fun a_problem_is_shown_above_the_save_button() {
-        show(sheet(error = "Give it a title"))
-        compose.onNodeWithTag("create-error").assertIsDisplayed()
-        compose.onNodeWithText("Give it a title").assertIsDisplayed()
-
+    fun there_is_no_plus_button_here_the_one_in_the_bar_is_the_only_way_to_create() {
+        show(state())
+        compose.onNodeWithTag("calendar-fab").assertDoesNotExist()
     }
 
     // ---- the detail sheet
@@ -320,7 +273,7 @@ class CalendarScreenTest {
     @Test
     fun a_failed_delete_shows_why() {
         show(state().copy(detail = DetailUi("r", AgendaKind.REMINDER, "Drink water", "Sat 7 Nov · 11:00 AM", error = "offline")))
-        compose.onNodeWithText("REMINDER").assertIsDisplayed()
+        compose.onNodeWithText("ALERT").assertIsDisplayed()
         compose.onNodeWithTag("detail-error").assertIsDisplayed()
     }
 }

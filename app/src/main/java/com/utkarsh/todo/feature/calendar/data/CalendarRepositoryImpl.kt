@@ -35,19 +35,19 @@ class CalendarRepositoryImpl @Inject constructor(
 
     /** The event is saved by now, so a failing alert must not make creating it look like it failed. */
     private suspend fun addAlert(eventId: String, event: NewEvent) {
-        val at = alertTime(event, clock) ?: return
-        reminders.create(NewReminder(title = event.title, remindAt = at, eventId = eventId))
+        alertTimes(event, clock).forEach { at -> reminders.create(NewReminder(title = event.title, remindAt = at, eventId = eventId, style = event.alertStyle)) }
     }
 }
 
 /**
- * When the alert of [event] should ring: [NewEvent.alertMinutes] before the start, or 9:00 that morning for an
- * all-day event. Null when there is no alert or that moment has already passed.
+ * When the alerts of [event] should ring: each of [NewEvent.alerts] before the start, or just once at 9:00 that
+ * morning for an all-day event. Moments that have already passed are left out.
  */
-internal fun alertTime(event: NewEvent, clock: Clock): Instant? {
-    val minutes = event.alertMinutes ?: return null
-    val at = if (event.allDay) event.start.atZone(clock.zone).toLocalDate().atTime(9, 0).atZone(clock.zone).toInstant() else event.start.minusSeconds(minutes * 60L)
-    return at.takeIf { it.isAfter(clock.instant()) }
+internal fun alertTimes(event: NewEvent, clock: Clock): List<Instant> {
+    if (event.alerts.isEmpty()) return emptyList()
+    val times = if (event.allDay) listOf(event.start.atZone(clock.zone).toLocalDate().atTime(9, 0).atZone(clock.zone).toInstant())
+    else event.alerts.distinct().sorted().map { event.start.minusSeconds(it * 60L) }
+    return times.filter { it.isAfter(clock.instant()) }
 }
 
 internal fun AgendaItemDto.toDomain() = AgendaItem(

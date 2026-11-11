@@ -11,6 +11,7 @@ import androidx.lifecycle.lifecycleScope
 import com.utkarsh.todo.MainActivity
 import com.utkarsh.todo.core.common.formatTime
 import com.utkarsh.todo.core.designsystem.theme.PaperTheme
+import com.utkarsh.todo.feature.reminders.domain.AlertStyle
 import com.utkarsh.todo.feature.reminders.ui.ReminderAlertScreen
 import com.utkarsh.todo.feature.reminders.ui.ReminderAlertUi
 import dagger.hilt.android.AndroidEntryPoint
@@ -30,9 +31,11 @@ import kotlinx.coroutines.launch
 class ReminderAlarmActivity : ComponentActivity() {
     @Inject lateinit var notifications: ReminderNotifications
     @Inject lateinit var snoozer: ReminderSnoozer
+    @Inject lateinit var done: ReminderDone
     @Inject lateinit var clock: Clock
 
     private var id = ""
+    private var taskIdForDone: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -47,6 +50,8 @@ class ReminderAlarmActivity : ComponentActivity() {
         val dueAt = Instant.ofEpochMilli(intent.getLongExtra(ReminderReceiver.EXTRA_REMIND_AT, clock.millis()))
         val repeat = intent.getStringExtra(ReminderReceiver.EXTRA_REPEAT)
         val taskId = intent.getStringExtra(ReminderReceiver.EXTRA_TASK_ID)
+        taskIdForDone = taskId
+        val style = ReminderReceiver.styleOf(intent.getStringExtra(ReminderReceiver.EXTRA_STYLE))
         val ui = alertUi(title, dueAt, repeat, taskId != null)
 
         setContent {
@@ -57,11 +62,11 @@ class ReminderAlarmActivity : ComponentActivity() {
                     onSnooze = { minutes ->
                         notifications.cancel(id)
                         lifecycleScope.launch {
-                            snoozer.snooze(id, title, dueAt, repeat, taskId, minutes)
+                            snoozer.snooze(id, title, dueAt, repeat, taskId, minutes, style)
                             finishAndRemoveTask()
                         }
                     },
-                    onDismiss = ::dismiss,
+                    onDismiss = ::complete,
                     onOpen = {
                         notifications.cancel(id)
                         startActivity(Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP))
@@ -72,9 +77,18 @@ class ReminderAlarmActivity : ComponentActivity() {
         }
     }
 
+    /** Back leaves the alert as it is (only the sound stops); Done also ticks off the task the alert belongs to. */
     private fun dismiss() {
         notifications.cancel(id)
         finishAndRemoveTask()
+    }
+
+    private fun complete() {
+        notifications.cancel(id)
+        lifecycleScope.launch {
+            done.complete(taskIdForDone)
+            finishAndRemoveTask()
+        }
     }
 
     private fun alertUi(title: String, dueAt: Instant, repeat: String?, hasTask: Boolean): ReminderAlertUi {
@@ -97,7 +111,7 @@ class ReminderAlarmActivity : ComponentActivity() {
 
     companion object {
         /** An intent that opens the alert for the given reminder. */
-        fun intent(context: android.content.Context, id: String, title: String, dueAtMillis: Long, repeatRule: String?, taskId: String?): Intent =
+        fun intent(context: android.content.Context, id: String, title: String, dueAtMillis: Long, repeatRule: String?, taskId: String?, style: AlertStyle = AlertStyle.ALARM): Intent =
             Intent(context, ReminderAlarmActivity::class.java)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_USER_ACTION or Intent.FLAG_ACTIVITY_CLEAR_TOP)
                 .putExtra(ReminderReceiver.EXTRA_ID, id)
@@ -105,5 +119,6 @@ class ReminderAlarmActivity : ComponentActivity() {
                 .putExtra(ReminderReceiver.EXTRA_REMIND_AT, dueAtMillis)
                 .putExtra(ReminderReceiver.EXTRA_REPEAT, repeatRule)
                 .putExtra(ReminderReceiver.EXTRA_TASK_ID, taskId)
+                .putExtra(ReminderReceiver.EXTRA_STYLE, style.name)
     }
 }

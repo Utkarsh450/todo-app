@@ -4,5 +4,7 @@
     <string name="reminders_channel_description">Alerts for tasks and reminders that are due</string>
     <string name="reminder_due_now">Due now</string>
     <string name="reminder_snooze_action">Snooze 10 min</string>
-    <string name="reminder_dismiss_action">Dismiss</string>
+    <string name="reminder_dismiss_action">Done</string>
+    <string name="notifications_channel_name">Alerts</string>
+    <string name="notifications_channel_description">Ordinary notifications for tasks and events that are due</string>
 </resources>

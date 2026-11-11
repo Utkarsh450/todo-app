@@ -1,5 +1,6 @@
 package com.utkarsh.todo.feature.reminders.platform
 
+import com.utkarsh.todo.feature.reminders.domain.AlertStyle
 import com.utkarsh.todo.feature.reminders.domain.Reminder
 import com.utkarsh.todo.feature.reminders.domain.ReminderScheduler
 import com.utkarsh.todo.feature.reminders.domain.RemindersRepository
@@ -18,9 +19,9 @@ class ReminderSnoozer @Inject constructor(
     private val scheduler: ReminderScheduler,
     private val clock: Clock,
 ) {
-    suspend fun snooze(id: String, title: String, dueAt: Instant, repeatRule: String?, taskId: String?, minutes: Int) {
+    suspend fun snooze(id: String, title: String, dueAt: Instant, repeatRule: String?, taskId: String?, minutes: Int, style: AlertStyle = AlertStyle.ALARM) {
         if (repository.snooze(id, minutes).isSuccess) return
         val until = clock.instant().plusSeconds(minutes * 60L)
-        scheduler.schedule(Reminder(id, taskId, title, dueAt, repeatRule, null, true, until))
+        scheduler.schedule(Reminder(id, taskId, title, dueAt, repeatRule, null, true, until, style = style))
     }
 }

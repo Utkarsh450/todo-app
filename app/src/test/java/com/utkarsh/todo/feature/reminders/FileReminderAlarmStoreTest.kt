@@ -1,5 +1,6 @@
 package com.utkarsh.todo.feature.reminders
 
+import com.utkarsh.todo.feature.reminders.domain.AlertStyle
 import com.utkarsh.todo.feature.reminders.domain.Reminder
 import com.utkarsh.todo.feature.reminders.platform.FileReminderAlarmStore
 import java.io.File
@@ -44,6 +45,19 @@ class FileReminderAlarmStoreTest {
         assertEquals("Every Day", back.getValue("a").repeatRule)
         assertEquals(Instant.parse("2026-11-08T10:00:00Z"), back.getValue("a").snoozedUntil)
         assertEquals("task-a", back.getValue("a").taskId)
+    }
+
+    @Test
+    fun `the alert style is remembered, and a store written before styles existed reads as alarms`() {
+        val store = FileReminderAlarmStore(file)
+        store.put(reminder("soft").copy(style = AlertStyle.NOTIFICATION))
+        store.put(reminder("loud").copy(style = AlertStyle.ALARM))
+        val back = FileReminderAlarmStore(file).all().associateBy { it.id }
+        assertEquals(AlertStyle.NOTIFICATION, back.getValue("soft").style)
+        assertEquals(AlertStyle.ALARM, back.getValue("loud").style)
+
+        file.writeText("""[{"id":"old","title":"Old","remindAtMillis":1000}]""")
+        assertEquals(AlertStyle.ALARM, FileReminderAlarmStore(file).all().single().style)
     }
 
     @Test

@@ -95,7 +95,7 @@ fun ReminderAlertScreen(
         }
         val shape = RoundedCornerShape(14.dp)
         Text(
-            "Dismiss", style = Paper.type.button, color = colors.card, textAlign = TextAlign.Center,
+            "Done", style = Paper.type.button, color = colors.card, textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth().padding(top = 14.dp).clip(shape).background(colors.ink).clickable(onClick = onDismiss).padding(vertical = 18.dp).testTag("alert-dismiss"),
         )
         Text(

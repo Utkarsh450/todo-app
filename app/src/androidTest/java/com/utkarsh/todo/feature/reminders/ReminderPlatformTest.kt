@@ -11,6 +11,7 @@ import androidx.test.rule.GrantPermissionRule
 import com.utkarsh.todo.feature.reminders.domain.Reminder
 import com.utkarsh.todo.feature.reminders.platform.AlarmReminderScheduler
 import com.utkarsh.todo.feature.reminders.platform.ReminderActionReceiver
+import com.utkarsh.todo.feature.reminders.domain.AlertStyle
 import com.utkarsh.todo.feature.reminders.platform.ReminderNotifications
 import com.utkarsh.todo.feature.reminders.platform.ReminderReceiver
 import java.time.Instant
@@ -127,7 +128,7 @@ class ReminderPlatformTest {
 
         val n = posted(ringId)!!.notification
         assertNotNull("opens the alert full screen", n.fullScreenIntent)
-        assertEquals(listOf("Snooze 10 min", "Dismiss"), n.actions.map { it.title.toString() })
+        assertEquals(listOf("Snooze 10 min", "Done"), n.actions.map { it.title.toString() })
         assertEquals(Notification.FLAG_INSISTENT, n.flags and Notification.FLAG_INSISTENT)
         assertEquals(ReminderNotifications.CHANNEL_ID, n.channelId)
 
@@ -139,13 +140,27 @@ class ReminderPlatformTest {
     }
 
     @Test
-    fun the_dismiss_button_stops_the_ring() {
+    fun a_notification_style_alert_is_an_ordinary_notification_with_no_alarm_and_no_full_screen() {
+        val softId = "$id-soft"
+        ReminderNotifications(context).show(softId, "Water plants", Instant.now().toEpochMilli(), style = AlertStyle.NOTIFICATION)
+        awaitTitle(softId)
+
+        val n = posted(softId)!!.notification
+        assertNull("does not take over the screen", n.fullScreenIntent)
+        assertEquals(0, n.flags and Notification.FLAG_INSISTENT)
+        assertEquals(ReminderNotifications.NOTIFICATION_CHANNEL_ID, n.channelId)
+        assertEquals(listOf("Snooze 10 min", "Done"), n.actions.map { it.title.toString() })
+        assertEquals(NotificationManager.IMPORTANCE_HIGH, notifications.getNotificationChannel(ReminderNotifications.NOTIFICATION_CHANNEL_ID).importance)
+    }
+
+    @Test
+    fun the_done_button_stops_the_ring() {
         val ringId = "$id-dismiss"
         ReminderNotifications(context).show(ringId, "Dentist")
         awaitTitle(ringId)
 
         context.sendBroadcast(
-            Intent(context, ReminderActionReceiver::class.java).setAction(ReminderActionReceiver.ACTION_DISMISS).putExtra(ReminderReceiver.EXTRA_ID, ringId),
+            Intent(context, ReminderActionReceiver::class.java).setAction(ReminderActionReceiver.ACTION_DONE).putExtra(ReminderReceiver.EXTRA_ID, ringId),
         )
 
         assertTrue(awaitGone(ringId))

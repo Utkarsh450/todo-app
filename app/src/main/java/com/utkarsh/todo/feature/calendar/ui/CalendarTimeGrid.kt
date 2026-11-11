@@ -126,7 +126,7 @@ private fun Grid(state: CalendarUiState, actions: CalendarActions) {
                         detectTapGestures { tap ->
                             val index = (tap.x / size.width * columns.size).toInt().coerceIn(0, columns.size - 1)
                             val minutes = slotMinutes(tap.y, hourPx)
-                            actions.onCreate(com.utkarsh.todo.feature.calendar.domain.CreateKind.EVENT, columns[index].date, LocalTime.of(minutes / 60, minutes % 60))
+                            actions.onCreate(columns[index].date, LocalTime.of(minutes / 60, minutes % 60))
                         }
                     },
                 )

@@ -6,22 +6,16 @@ import com.utkarsh.todo.core.common.formatTime
 import com.utkarsh.todo.feature.calendar.domain.AgendaItem
 import com.utkarsh.todo.feature.calendar.domain.AgendaKind
 import com.utkarsh.todo.feature.calendar.domain.CalendarRepository
-import com.utkarsh.todo.feature.calendar.domain.CreateDraft
-import com.utkarsh.todo.feature.calendar.domain.CreateKind
 import com.utkarsh.todo.feature.calendar.domain.MonthGrid
-import com.utkarsh.todo.feature.calendar.domain.NewEvent
 import com.utkarsh.todo.feature.calendar.domain.TimelineLayout
 import com.utkarsh.todo.feature.projects.domain.Project
 import com.utkarsh.todo.feature.projects.domain.ProjectsRepository
-import com.utkarsh.todo.feature.reminders.domain.NewReminder
 import com.utkarsh.todo.feature.reminders.domain.RemindersRepository
-import com.utkarsh.todo.feature.tasks.domain.NewTask
 import com.utkarsh.todo.feature.tasks.domain.TasksRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.Clock
 import java.time.Duration
 import java.time.LocalDate
-import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
@@ -36,7 +30,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 /** The ways to look at the calendar, like Google Calendar's menu. */
-enum class CalendarMode(val label: String) { SCHEDULE("Schedule"), DAY("Day"), WEEK("Week"), MONTH("Month") }
+enum class CalendarMode(val label: String) { SCHEDULE("Schedule"), DAY("Day"), THREE_DAY("3 days"), WEEK("Week"), MONTH("Month") }
 
 /** A one-line bar in a month cell. */
 data class ChipUi(val id: String, val title: String, val colorHex: String?, val kind: AgendaKind, val done: Boolean)
@@ -88,13 +82,7 @@ data class DayColumnUi(
 
 data class ScheduleDayUi(val date: LocalDate, val label: String, val isToday: Boolean, val rows: List<AgendaRowUi>)
 
-enum class CreateStatus { EDITING, SAVING }
-
-data class CreateSheetUi(val draft: CreateDraft, val status: CreateStatus = CreateStatus.EDITING, val error: String? = null) {
-    val saving: Boolean get() = status == CreateStatus.SAVING
-}
-
-/** An event or reminder opened from the calendar, with what can be done to it. */
+/** An event or alert opened from the calendar, with what can be done to it. */
 data class DetailUi(val id: String, val kind: AgendaKind, val title: String, val whenLabel: String, val deleting: Boolean = false, val error: String? = null)
 
 data class CalendarUiState(
@@ -113,7 +101,6 @@ data class CalendarUiState(
     val nowMinute: Int? = null,
     /** The hour the timeline should scroll to when it opens (just before the first entry, or the morning). */
     val scrollHour: Int = DEFAULT_SCROLL_HOUR,
-    val create: CreateSheetUi? = null,
     val detail: DetailUi? = null,
 )
 
@@ -137,7 +124,6 @@ class CalendarViewModel @Inject constructor(
     private var projectsById: Map<String, Project> = emptyMap()
     private var loadedFrom: LocalDate? = null
     private var loadedTo: LocalDate? = null
-    private var create: CreateSheetUi? = null
     private var detail: DetailUi? = null
 
     private val _state = MutableStateFlow(CalendarUiState())
@@ -160,6 +146,7 @@ class CalendarViewModel @Inject constructor(
             CalendarMode.MONTH -> selected.plusMonths(direction)
             CalendarMode.WEEK, CalendarMode.SCHEDULE -> selected.plusWeeks(direction)
             CalendarMode.DAY -> selected.plusDays(direction)
+            CalendarMode.THREE_DAY -> selected.plusDays(3 * direction)
         },
     )
 
@@ -186,68 +173,6 @@ class CalendarViewModel @Inject constructor(
     private fun goTo(date: LocalDate) {
         selected = date
         if (covered()) publish() else load()
-    }
-
-    // ---- creating
-
-    /** Opens the create sheet on [date]; [time] is the tapped half hour from the week or day grid, if any. */
-    fun openCreate(kind: CreateKind = CreateKind.EVENT, date: LocalDate = selected, time: LocalTime? = null) {
-        create = CreateSheetUi(CreateDraft.at(date, time, LocalDateTime.now(clock), kind))
-        publish()
-    }
-
-    fun closeCreate() {
-        create = null
-        publish()
-    }
-
-    fun edit(change: (CreateDraft) -> CreateDraft) {
-        val sheet = create ?: return
-        if (sheet.saving) return
-        create = sheet.copy(draft = change(sheet.draft), error = null)
-        publish()
-    }
-
-    fun setKind(kind: CreateKind) = edit { it.copy(kind = kind) }
-    fun setTitle(text: String) = edit { it.copy(title = text) }
-    fun setDate(date: LocalDate) = edit { it.copy(date = date) }
-    fun setStart(time: LocalTime) = edit { it.withStart(time) }
-    fun setEnd(time: LocalTime) = edit { it.copy(end = time) }
-    fun setAllDay(allDay: Boolean) = edit { it.copy(allDay = allDay) }
-    fun setAlert(minutes: Int?) = edit { it.copy(alertMinutes = minutes) }
-    fun setRepeat(rule: String?) = edit { it.copy(repeat = rule) }
-
-    fun save() {
-        val sheet = create ?: return
-        if (sheet.saving) return
-        val draft = sheet.draft
-        draft.problem()?.let { message ->
-            create = sheet.copy(error = message)
-            publish()
-            return
-        }
-        create = sheet.copy(status = CreateStatus.SAVING, error = null)
-        publish()
-        viewModelScope.launch {
-            val zone = clock.zone
-            val title = draft.title.trim()
-            val result: Result<Unit> = when (draft.kind) {
-                CreateKind.EVENT ->
-                    calendar.createEvent(NewEvent(title, draft.startInstant(zone), draft.endInstant(zone), draft.allDay, alertMinutes = draft.alertMinutes)).map { }
-                CreateKind.TASK -> tasks.create(NewTask(title = title, dueAt = draft.taskDue(zone), repeatRule = draft.repeat)).map { }
-                CreateKind.REMINDER -> reminders.create(NewReminder(title = title, remindAt = draft.startInstant(zone), repeatRule = draft.repeat)).map { }
-            }
-            result
-                .onSuccess {
-                    create = null
-                    selected = draft.date
-                    load(showSkeleton = false)
-                }
-                .onFailure { e ->
-                    create = CreateSheetUi(draft, CreateStatus.EDITING, e.message ?: "Couldn't save that")
-                    publish()
-                }
-        }
     }
 
     // ---- looking at and removing an entry
@@ -329,6 +254,7 @@ class CalendarViewModel @Inject constructor(
         val columnDates = when (mode) {
             CalendarMode.WEEK -> MonthGrid.week(selected)
             CalendarMode.DAY -> listOf(selected)
+            CalendarMode.THREE_DAY -> (0L..2L).map { selected.plusDays(it) }
             else -> emptyList()
         }
         val columns = columnDates.map(::column)
@@ -346,7 +272,6 @@ class CalendarViewModel @Inject constructor(
             schedule = if (mode == CalendarMode.SCHEDULE) schedule() else emptyList(),
             nowMinute = if (columnDates.contains(today)) LocalTime.now(clock).let { it.hour * 60 + it.minute } else null,
             scrollHour = (firstHour?.minus(1) ?: DEFAULT_SCROLL_HOUR).coerceIn(0, 23),
-            create = create,
             detail = detail,
         )
     }
