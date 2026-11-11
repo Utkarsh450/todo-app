@@ -93,7 +93,7 @@ class SkeletonScreensTest {
     @Test
     fun insights_show_a_skeleton_while_loading() {
         compose.setContent {
-            PaperTheme { InsightsScreen(InsightsUiState(isLoading = true), {}, {}, {}) }
+            PaperTheme { InsightsScreen(InsightsUiState(isLoading = true), {}, {}) }
         }
         compose.onNodeWithTag("insights-skeleton").assertIsDisplayed()
         compose.onNodeWithContentDescription("Loading insights").assertIsDisplayed()

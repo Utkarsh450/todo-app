@@ -49,30 +49,3 @@ fun PaperCheckbox(
         }
     }
 }
-
-/** Small square box used by the habit week grid (18dp, 4dp radius). */
-@Composable
-fun HabitBox(
-    filled: Boolean,
-    highlighted: Boolean,
-    onToggle: () -> Unit,
-    modifier: Modifier = Modifier,
-    label: String = "Toggle day",
-) {
-    val colors = Paper.colors
-    val shape = RoundedCornerShape(PaperRadius.checkbox)
-    val fill = when {
-        !filled -> androidx.compose.ui.graphics.Color.Transparent
-        highlighted -> colors.accent
-        else -> colors.ink
-    }
-    Box(
-        modifier = modifier
-            .size(18.dp)
-            .clip(shape)
-            .background(fill)
-            .border(1.5.dp, if (filled) androidx.compose.ui.graphics.Color.Transparent else colors.dashed, shape)
-            .toggleable(value = filled, role = Role.Checkbox, onValueChange = { onToggle() })
-            .semantics { contentDescription = label },
-    )
-}

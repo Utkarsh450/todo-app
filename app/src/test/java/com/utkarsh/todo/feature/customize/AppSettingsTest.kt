@@ -15,30 +15,30 @@ class AppSettingsTest {
     @Test
     fun defaults_follow_the_design_scratchpad_off_cozy_plain() {
         val s = AppSettings()
-        assertEquals(listOf(TodayBlock.PINNED, TodayBlock.TASKS, TodayBlock.HABITS, TodayBlock.SCRATCHPAD), s.blockOrder)
+        assertEquals(listOf(TodayBlock.PINNED, TodayBlock.TASKS, TodayBlock.SCRATCHPAD), s.blockOrder)
         assertEquals(setOf(TodayBlock.SCRATCHPAD), s.hiddenBlocks)
         assertEquals(PaperBackground.PLAIN, s.background)
         assertEquals(RowDensity.COZY, s.density)
-        assertEquals(listOf(TodayBlock.PINNED, TodayBlock.TASKS, TodayBlock.HABITS), s.visibleBlocks)
+        assertEquals(listOf(TodayBlock.PINNED, TodayBlock.TASKS), s.visibleBlocks)
     }
 
     @Test
     fun visible_blocks_keep_the_chosen_order_and_skip_hidden_ones() {
         val s = AppSettings(
-            blockOrder = listOf(TodayBlock.HABITS, TodayBlock.SCRATCHPAD, TodayBlock.TASKS, TodayBlock.PINNED),
+            blockOrder = listOf(TodayBlock.SCRATCHPAD, TodayBlock.TASKS, TodayBlock.PINNED),
             hiddenBlocks = setOf(TodayBlock.TASKS),
         )
-        assertEquals(listOf(TodayBlock.HABITS, TodayBlock.SCRATCHPAD, TodayBlock.PINNED), s.visibleBlocks)
+        assertEquals(listOf(TodayBlock.SCRATCHPAD, TodayBlock.PINNED), s.visibleBlocks)
     }
 
     @Test
     fun switching_a_block_off_and_on_again_restores_its_place() {
         val s = AppSettings().withVisible(TodayBlock.TASKS, false)
         assertFalse(s.isVisible(TodayBlock.TASKS))
-        assertEquals(listOf(TodayBlock.PINNED, TodayBlock.HABITS), s.visibleBlocks)
+        assertEquals(listOf(TodayBlock.PINNED), s.visibleBlocks)
         val back = s.withVisible(TodayBlock.TASKS, true)
         assertTrue(back.isVisible(TodayBlock.TASKS))
-        assertEquals(listOf(TodayBlock.PINNED, TodayBlock.TASKS, TodayBlock.HABITS), back.visibleBlocks)
+        assertEquals(listOf(TodayBlock.PINNED, TodayBlock.TASKS), back.visibleBlocks)
     }
 
     @Test
@@ -50,9 +50,9 @@ class AppSettingsTest {
     @Test
     fun moving_swaps_with_the_neighbour() {
         val up = AppSettings().moved(TodayBlock.TASKS, -1)
-        assertEquals(listOf(TodayBlock.TASKS, TodayBlock.PINNED, TodayBlock.HABITS, TodayBlock.SCRATCHPAD), up.blockOrder)
+        assertEquals(listOf(TodayBlock.TASKS, TodayBlock.PINNED, TodayBlock.SCRATCHPAD), up.blockOrder)
         val down = AppSettings().moved(TodayBlock.PINNED, +1)
-        assertEquals(listOf(TodayBlock.TASKS, TodayBlock.PINNED, TodayBlock.HABITS, TodayBlock.SCRATCHPAD), down.blockOrder)
+        assertEquals(listOf(TodayBlock.TASKS, TodayBlock.PINNED, TodayBlock.SCRATCHPAD), down.blockOrder)
     }
 
     @Test
@@ -77,7 +77,7 @@ class AppSettingsTest {
     @Test
     fun hidden_blocks_move_like_any_other() {
         val s = AppSettings().moved(TodayBlock.SCRATCHPAD, -1)
-        assertEquals(listOf(TodayBlock.PINNED, TodayBlock.TASKS, TodayBlock.SCRATCHPAD, TodayBlock.HABITS), s.blockOrder)
+        assertEquals(listOf(TodayBlock.PINNED, TodayBlock.SCRATCHPAD, TodayBlock.TASKS), s.blockOrder)
         assertEquals(setOf(TodayBlock.SCRATCHPAD), s.hiddenBlocks)
     }
 
@@ -85,7 +85,7 @@ class AppSettingsTest {
     fun an_order_that_misses_or_repeats_a_block_is_rejected() {
         assertThrows(IllegalArgumentException::class.java) { AppSettings(blockOrder = listOf(TodayBlock.PINNED)) }
         assertThrows(IllegalArgumentException::class.java) {
-            AppSettings(blockOrder = listOf(TodayBlock.PINNED, TodayBlock.PINNED, TodayBlock.TASKS, TodayBlock.HABITS))
+            AppSettings(blockOrder = listOf(TodayBlock.PINNED, TodayBlock.PINNED, TodayBlock.TASKS))
         }
     }
 }

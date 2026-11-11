@@ -12,17 +12,14 @@ class DesignTokensTest {
     private val colors = PaperColors()
 
     @Test
-    fun `heat ramps have five levels that start from the soft paper tone`() {
+    fun `the heat ramp has five levels that start from the soft paper tone`() {
         assertEquals(5, colors.taskHeat.size)
-        assertEquals(5, colors.habitHeat.size)
         assertEquals(PaperPalette.Soft, colors.taskHeat.first())
-        assertEquals(PaperPalette.Soft, colors.habitHeat.first())
     }
 
     @Test
-    fun `heat ramps never repeat a colour so every level is distinguishable`() {
+    fun `the heat ramp never repeats a colour so every level is distinguishable`() {
         assertEquals(colors.taskHeat.size, colors.taskHeat.toSet().size)
-        assertEquals(colors.habitHeat.size, colors.habitHeat.toSet().size)
     }
 
     @Test

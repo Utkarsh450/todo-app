@@ -55,7 +55,6 @@ import com.utkarsh.todo.core.designsystem.theme.paperSurface
 import com.utkarsh.todo.core.designsystem.theme.parseHexColor
 import com.utkarsh.todo.feature.customize.domain.TodayBlock
 import com.utkarsh.todo.feature.customize.ui.CustomizeViewModel
-import com.utkarsh.todo.feature.habits.ui.HabitsBlock
 import com.utkarsh.todo.feature.notes.ui.NoteBlock
 import com.utkarsh.todo.feature.today.domain.TaskItem
 import com.utkarsh.todo.feature.today.domain.TodayView
@@ -89,7 +88,6 @@ fun TodayRoute(
         onDismissUndo = viewModel::dismissUndo,
         onRetry = viewModel::refresh,
         modifier = modifier,
-        habitsContent = { HabitsBlock() },
         noteContent = { NoteBlock() },
         blocks = settings.settings.visibleBlocks,
         onCustomize = onCustomize,
@@ -113,7 +111,6 @@ fun TodayScreen(
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
     /** Optional extra blocks, supplied by the route so this screen stays free of Hilt for previews/tests. */
-    habitsContent: (@Composable () -> Unit)? = null,
     noteContent: (@Composable () -> Unit)? = null,
     /** Which blocks to show, in order (see Customize). Defaults to all of them. */
     blocks: List<TodayBlock> = TodayBlock.entries,
@@ -167,7 +164,7 @@ fun TodayScreen(
             when {
                 state.isLoading && state.items.isEmpty() -> TodaySkeleton()
                 state.errorMessage != null && state.items.isEmpty() -> ErrorState(state.errorMessage, onRetry)
-                state.view == TodayView.BLOCKS -> BlocksView(state, blocks, onToggle, onOpen, onMoveToTomorrow, onArchive, habitsContent, noteContent)
+                state.view == TodayView.BLOCKS -> BlocksView(state, blocks, onToggle, onOpen, onMoveToTomorrow, onArchive, noteContent)
                 else -> PlanView(state.items)
             }
         }
@@ -222,7 +219,6 @@ private fun BlocksView(
     onOpen: (String) -> Unit,
     onMoveToTomorrow: (String) -> Unit,
     onArchive: (String) -> Unit,
-    habitsContent: (@Composable () -> Unit)?,
     noteContent: (@Composable () -> Unit)?,
 ) {
     LazyColumn(Modifier.fillMaxSize().padding(horizontal = 14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -232,7 +228,6 @@ private fun BlocksView(
                 TodayBlock.TASKS -> item(key = "block-tasks") {
                     TasksBlock(state.items, state.left, onToggle, onOpen, onMoveToTomorrow, onArchive)
                 }
-                TodayBlock.HABITS -> habitsContent?.let { content -> item(key = "block-habits") { BlockCard(title = "Habits", count = "", content = content) } }
                 TodayBlock.SCRATCHPAD -> noteContent?.let { content -> item(key = "block-note") { BlockCard(title = "Scratchpad", count = "", content = content) } }
             }
         }

@@ -8,7 +8,6 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.utkarsh.todo.core.designsystem.theme.PaperTheme
-import com.utkarsh.todo.feature.insights.domain.HeatmapMode
 import com.utkarsh.todo.feature.insights.ui.HEATMAP_WEEKS
 import com.utkarsh.todo.feature.insights.ui.HeatCellUi
 import com.utkarsh.todo.feature.insights.ui.InsightsScreen
@@ -34,15 +33,15 @@ class InsightsScreenTest {
         }
     }
 
-    private fun state(mode: HeatmapMode = HeatmapMode.TASKS) = InsightsUiState(
-        isLoading = false, mode = mode, weeks = weeks, monthLabels = weeks.map { if (it.first().date.dayOfMonth <= 7) "Nov" else "" },
+    private fun state() = InsightsUiState(
+        isLoading = false, weeks = weeks, monthLabels = weeks.map { if (it.first().date.dayOfMonth <= 7) "Nov" else "" },
         selectedLabel = "Sat 7 Nov", selectedValue = "3 tasks done", total = 120, streak = 5, best = 9,
         rhythm = "SMTWTFS".mapIndexed { i, c -> RhythmBarUi(c.toString(), (i + 1) / 7f, isPeak = i == 6) },
     )
 
     private fun show(state: InsightsUiState) {
         events.clear()
-        compose.setContent { PaperTheme { InsightsScreen(state, { events += "mode:$it" }, { events += "select:$it" }, { events += "retry" }) } }
+        compose.setContent { PaperTheme { InsightsScreen(state, { events += "select:$it" }, { events += "retry" }) } }
     }
 
     @Test
@@ -72,16 +71,10 @@ class InsightsScreenTest {
     }
 
     @Test
-    fun mode_switch_reports_habits_and_changes_the_unit_label() {
+    fun there_is_no_habits_switch_and_the_total_is_labelled_with_the_weeks() {
         show(state())
-        compose.onNodeWithText("Habits").performClick()
-        assertEquals(listOf("mode:HABITS"), events)
-    }
-
-    @Test
-    fun habit_mode_labels_the_total_as_habits() {
-        show(state(HeatmapMode.HABITS))
-        compose.onNodeWithText("HABITS").assertIsDisplayed()
+        compose.onNodeWithText("Habits").assertDoesNotExist()
+        compose.onNodeWithText("18 WEEKS").assertIsDisplayed()
     }
 
     @Test

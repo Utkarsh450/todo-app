@@ -58,9 +58,9 @@ class CustomizeViewModelTest {
         val vm = CustomizeViewModel(repo)
         vm.uiState.test {
             skipItems(1)
-            vm.move(TodayBlock.HABITS, -1)
+            vm.move(TodayBlock.TASKS, -1)
             assertEquals(
-                listOf(TodayBlock.PINNED, TodayBlock.HABITS, TodayBlock.TASKS, TodayBlock.SCRATCHPAD),
+                listOf(TodayBlock.TASKS, TodayBlock.PINNED, TodayBlock.SCRATCHPAD),
                 awaitItem().settings.blockOrder,
             )
         }

@@ -36,20 +36,18 @@ import com.utkarsh.todo.core.designsystem.component.PaperSegmentedControl
 import com.utkarsh.todo.core.designsystem.component.StatCard
 import com.utkarsh.todo.core.designsystem.theme.Paper
 import com.utkarsh.todo.core.designsystem.theme.paperSurface
-import com.utkarsh.todo.feature.insights.domain.HeatmapMode
 import java.time.LocalDate
 
 @Composable
 fun InsightsRoute(modifier: Modifier = Modifier, viewModel: InsightsViewModel = hiltViewModel()) {
     OnReconnect { viewModel.refresh() }
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    InsightsScreen(state, viewModel::setMode, viewModel::select, viewModel::refresh, modifier)
+    InsightsScreen(state, viewModel::select, viewModel::refresh, modifier)
 }
 
 @Composable
 fun InsightsScreen(
     state: InsightsUiState,
-    onModeChange: (HeatmapMode) -> Unit,
     onSelect: (LocalDate) -> Unit,
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
@@ -58,7 +56,6 @@ fun InsightsScreen(
     Column(modifier.fillMaxSize().paperSurface().statusBarsPadding()) {
         Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             MonoLabel("Last $HEATMAP_WEEKS weeks", Modifier.weight(1f))
-            PaperSegmentedControl(HeatmapMode.entries, state.mode, onModeChange, labelOf = { if (it == HeatmapMode.TASKS) "Tasks" else "Habits" })
         }
         Text("Insights", style = Paper.type.displayLarge, color = colors.ink, modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 10.dp, bottom = 16.dp).testTag("insights-title"))
         when {
@@ -70,9 +67,9 @@ fun InsightsScreen(
             }
             else -> Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    StatCard("${state.total}", state.unit, Modifier.weight(1f).testTag("stat-total"))
-                    StatCard("${state.streak}", "Day streak", Modifier.weight(1f).testTag("stat-streak"), accent = true)
-                    StatCard("${state.best}", "Best day", Modifier.weight(1f).testTag("stat-best"))
+                    StatCard("${state.streak}", "Day streak", Modifier.weight(1f).testTag("stat-streak"))
+                    StatCard("${state.total}", "$HEATMAP_WEEKS weeks", Modifier.weight(1f).testTag("stat-total"))
+                    StatCard("${state.best}", "Best day", Modifier.weight(1f).testTag("stat-best"), accent = true)
                 }
                 PaperCard(Modifier.fillMaxWidth()) { Heatmap(state, onSelect) }
                 PaperCard(Modifier.fillMaxWidth()) { Rhythm(state) }
@@ -85,7 +82,7 @@ fun InsightsScreen(
 @Composable
 private fun Heatmap(state: InsightsUiState, onSelect: (LocalDate) -> Unit) {
     val colors = Paper.colors
-    val ramp = if (state.mode == HeatmapMode.TASKS) colors.taskHeat else colors.habitHeat
+    val ramp = colors.taskHeat
     Column(Modifier.padding(14.dp).testTag("heatmap")) {
         Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
             state.monthLabels.forEach { label ->

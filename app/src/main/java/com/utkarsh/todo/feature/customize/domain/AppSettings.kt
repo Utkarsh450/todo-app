@@ -4,7 +4,6 @@ package com.utkarsh.todo.feature.customize.domain
 enum class TodayBlock(val label: String, val hint: String) {
     PINNED("Pinned", "Your one big task"),
     TASKS("Today's list", "Everything due today"),
-    HABITS("Habits", "This week's streaks"),
     SCRATCHPAD("Scratchpad", "A daily free-form note"),
 }
 

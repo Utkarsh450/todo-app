@@ -32,12 +32,9 @@ data class PaperColors(
     val accent: Color = PaperPalette.Vermilion,
     val accentLight: Color = PaperPalette.VermilionLight,
     val archive: Color = PaperPalette.Archive,
-    /** Heat-map ramps: tasks use the accent ramp, habits use the ink ramp. */
+    /** Heat-map ramp: the accent colour in four steps over the soft paper tone. */
     val taskHeat: List<Color> = listOf(
         PaperPalette.Soft, Color(0xFFF4C5B1), Color(0xFFED997B), Color(0xFFDA694A), Color(0xFFA83825),
-    ),
-    val habitHeat: List<Color> = listOf(
-        PaperPalette.Soft, Color(0xFFCFC6B3), Color(0xFF9C9382), Color(0xFF5E574D), PaperPalette.Ink,
     ),
 )
 

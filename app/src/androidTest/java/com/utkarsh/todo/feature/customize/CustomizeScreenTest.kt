@@ -58,10 +58,9 @@ class CustomizeScreenTest {
 
     @Test
     fun rows_follow_the_saved_order() {
-        show(AppSettings(blockOrder = listOf(TodayBlock.HABITS, TodayBlock.PINNED, TodayBlock.SCRATCHPAD, TodayBlock.TASKS)))
-        assertTrue(top("block-row-HABITS") < top("block-row-PINNED"))
+        show(AppSettings(blockOrder = listOf(TodayBlock.TASKS, TodayBlock.PINNED, TodayBlock.SCRATCHPAD)))
+        assertTrue(top("block-row-TASKS") < top("block-row-PINNED"))
         assertTrue(top("block-row-PINNED") < top("block-row-SCRATCHPAD"))
-        assertTrue(top("block-row-SCRATCHPAD") < top("block-row-TASKS"))
     }
 
     @Test
@@ -69,7 +68,6 @@ class CustomizeScreenTest {
         show()
         compose.onNodeWithTag("block-switch-PINNED").assertIsOn()
         compose.onNodeWithTag("block-switch-TASKS").assertIsOn()
-        compose.onNodeWithTag("block-switch-HABITS").assertIsOn()
         compose.onNodeWithTag("block-switch-SCRATCHPAD").assertIsOff()
     }
 

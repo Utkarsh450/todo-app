@@ -11,7 +11,7 @@ class SettingsCodecTest {
 
     @Test
     fun an_order_round_trips() {
-        val order = listOf(TodayBlock.HABITS, TodayBlock.PINNED, TodayBlock.SCRATCHPAD, TodayBlock.TASKS)
+        val order = listOf(TodayBlock.SCRATCHPAD, TodayBlock.PINNED, TodayBlock.TASKS)
         assertEquals(order, SettingsCodec.decodeOrder(SettingsCodec.encodeOrder(order)))
     }
 
@@ -25,17 +25,26 @@ class SettingsCodecTest {
     @Test
     fun a_partial_order_keeps_what_it_has_and_appends_the_rest() {
         assertEquals(
-            listOf(TodayBlock.HABITS, TodayBlock.PINNED, TodayBlock.TASKS, TodayBlock.SCRATCHPAD),
-            SettingsCodec.decodeOrder("HABITS,PINNED"),
+            listOf(TodayBlock.SCRATCHPAD, TodayBlock.PINNED, TodayBlock.TASKS),
+            SettingsCodec.decodeOrder("SCRATCHPAD,PINNED"),
         )
     }
 
     @Test
     fun unknown_names_repeats_and_spaces_are_cleaned_up() {
         assertEquals(
-            listOf(TodayBlock.TASKS, TodayBlock.PINNED, TodayBlock.HABITS, TodayBlock.SCRATCHPAD),
+            listOf(TodayBlock.TASKS, TodayBlock.PINNED, TodayBlock.SCRATCHPAD),
             SettingsCodec.decodeOrder(" TASKS ,GONE,TASKS,PINNED"),
         )
+    }
+
+    @Test
+    fun a_saved_order_that_still_mentions_the_removed_habits_block_keeps_the_rest() {
+        assertEquals(
+            listOf(TodayBlock.TASKS, TodayBlock.PINNED, TodayBlock.SCRATCHPAD),
+            SettingsCodec.decodeOrder("HABITS,TASKS,PINNED,SCRATCHPAD"),
+        )
+        assertEquals(setOf(TodayBlock.PINNED), SettingsCodec.decodeHidden(setOf("HABITS", "PINNED")))
     }
 
     @Test
@@ -46,7 +55,7 @@ class SettingsCodecTest {
 
     @Test
     fun hidden_blocks_round_trip_and_ignore_unknown_names() {
-        val hidden = setOf(TodayBlock.HABITS, TodayBlock.PINNED)
+        val hidden = setOf(TodayBlock.SCRATCHPAD, TodayBlock.PINNED)
         assertEquals(hidden, SettingsCodec.decodeHidden(SettingsCodec.encodeHidden(hidden)))
         assertEquals(setOf(TodayBlock.TASKS), SettingsCodec.decodeHidden(setOf("TASKS", "REMOVED_IN_V2")))
     }

@@ -2,7 +2,6 @@ package com.utkarsh.todo.feature.insights
 
 import com.utkarsh.todo.feature.insights.domain.Heatmap
 import com.utkarsh.todo.feature.insights.domain.HeatmapDay
-import com.utkarsh.todo.feature.insights.domain.HeatmapMode
 import com.utkarsh.todo.feature.insights.domain.HeatmapSummary
 import com.utkarsh.todo.feature.insights.domain.InsightsRepository
 import com.utkarsh.todo.feature.insights.domain.heatLevel
@@ -42,29 +41,27 @@ class InsightsViewModelTest {
     @After
     fun tearDown() = Dispatchers.resetMain()
 
-    private fun heatmap(mode: HeatmapMode = HeatmapMode.TASKS, counts: Map<LocalDate, Int> = emptyMap(), rhythm: List<Double> = List(7) { 0.0 }) = Heatmap(
-        mode,
+    private fun heatmap(counts: Map<LocalDate, Int> = emptyMap(), rhythm: List<Double> = List(7) { 0.0 }) = Heatmap(
         generateSequence(firstDay) { it.plusDays(1) }.takeWhile { !it.isAfter(today) }.map { HeatmapDay(it, counts[it] ?: 0) }.toList(),
         HeatmapSummary(total = counts.values.sum(), streak = 2, best = counts.values.maxOrNull() ?: 0, rhythm = rhythm),
     )
 
     private fun viewModel(data: Heatmap = heatmap()): InsightsViewModel {
-        coEvery { repository.heatmap(any(), any(), any(), any()) } returns Result.success(data)
+        coEvery { repository.heatmap(any(), any(), any()) } returns Result.success(data)
         return InsightsViewModel(repository, clock)
     }
 
     @Test
-    fun `heat level bands for tasks and per-habit steps for habits`() {
-        assertEquals(listOf(0, 1, 1, 2, 2, 3, 3, 4, 4), listOf(0, 1, 2, 3, 4, 5, 6, 7, 20).map { heatLevel(HeatmapMode.TASKS, it) })
-        assertEquals(listOf(0, 2, 3, 4, 4), listOf(0, 1, 2, 3, 9).map { heatLevel(HeatmapMode.HABITS, it) })
-        assertEquals(0, heatLevel(HeatmapMode.TASKS, -3))
+    fun `heat level bands for the number of tasks done`() {
+        assertEquals(listOf(0, 1, 1, 2, 2, 3, 3, 4, 4), listOf(0, 1, 2, 3, 4, 5, 6, 7, 20).map { heatLevel(it) })
+        assertEquals(0, heatLevel(-3))
     }
 
     @Test
     fun `requests eighteen weeks ending today with the device offset`() {
         viewModel()
 
-        coVerify { repository.heatmap(HeatmapMode.TASKS, firstDay, today, 330) } // IST is UTC+5:30
+        coVerify { repository.heatmap(firstDay, today, 330) } // IST is UTC+5:30
     }
 
     @Test
@@ -133,34 +130,13 @@ class InsightsViewModelTest {
     }
 
     @Test
-    fun `switching to habits reloads in that mode and changes the unit`() {
-        val vm = viewModel()
-        coEvery { repository.heatmap(HeatmapMode.HABITS, any(), any(), any()) } returns Result.success(heatmap(HeatmapMode.HABITS, mapOf(today to 2)))
-
-        vm.setMode(HeatmapMode.HABITS)
-
-        val state = vm.uiState.value
-        assertEquals("Habits", state.unit)
-        assertEquals("2 habits kept", state.selectedValue)
-        assertEquals(3, state.weeks.flatten().single { it.date == today }.level)
-        coVerify { repository.heatmap(HeatmapMode.HABITS, firstDay, today, 330) }
-    }
-
-    @Test
-    fun `choosing the current mode again does not refetch`() {
-        val vm = viewModel()
-        vm.setMode(HeatmapMode.TASKS)
-        coVerify(exactly = 1) { repository.heatmap(any(), any(), any(), any()) }
-    }
-
-    @Test
     fun `load failure is reported and refresh recovers`() {
-        coEvery { repository.heatmap(any(), any(), any(), any()) } returns Result.failure(RuntimeException("offline"))
+        coEvery { repository.heatmap(any(), any(), any()) } returns Result.failure(RuntimeException("offline"))
         val vm = InsightsViewModel(repository, clock)
         assertEquals("offline", vm.uiState.value.error)
         assertTrue(vm.uiState.value.weeks.isEmpty())
 
-        coEvery { repository.heatmap(any(), any(), any(), any()) } returns Result.success(heatmap())
+        coEvery { repository.heatmap(any(), any(), any()) } returns Result.success(heatmap())
         vm.refresh()
 
         assertNull(vm.uiState.value.error)

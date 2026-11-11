@@ -85,12 +85,12 @@ class CustomizeFlowTest {
         val repo = repository()
         show(repo)
 
-        compose.onNodeWithTag("move-up-HABITS").performClick()
+        compose.onNodeWithTag("move-up-TASKS").performClick()
 
-        waitUntilSaved(repo) { it.blockOrder == listOf(TodayBlock.PINNED, TodayBlock.HABITS, TodayBlock.TASKS, TodayBlock.SCRATCHPAD) }
+        waitUntilSaved(repo) { it.blockOrder == listOf(TodayBlock.TASKS, TodayBlock.PINNED, TodayBlock.SCRATCHPAD) }
         compose.waitUntil(5_000) {
-            compose.onNodeWithTag("block-row-HABITS").fetchSemanticsNode().boundsInRoot.top <
-                compose.onNodeWithTag("block-row-TASKS").fetchSemanticsNode().boundsInRoot.top
+            compose.onNodeWithTag("block-row-TASKS").fetchSemanticsNode().boundsInRoot.top <
+                compose.onNodeWithTag("block-row-PINNED").fetchSemanticsNode().boundsInRoot.top
         }
     }
 
@@ -118,7 +118,7 @@ class CustomizeFlowTest {
     fun reset_puts_everything_back_to_the_design_defaults() {
         val repo = repository()
         show(repo)
-        compose.onNodeWithTag("block-switch-HABITS").performClick()
+        compose.onNodeWithTag("block-switch-SCRATCHPAD").performClick()
         compose.onNodeWithTag("move-down-PINNED").performClick()
         waitUntilSaved(repo) { it != AppSettings() }
 

@@ -44,7 +44,6 @@ class TodayBlocksTest {
                 TodayScreen(
                     state = state, onViewChange = {}, onToggle = {}, onOpen = {}, onMoveToTomorrow = {}, onArchive = {},
                     onUndo = {}, onDismissUndo = {}, onRetry = {},
-                    habitsContent = { Box(Modifier.fillMaxWidth().height(40.dp).testTag("habits-slot")) },
                     noteContent = { Box(Modifier.fillMaxWidth().height(40.dp).testTag("note-slot")) },
                     blocks = blocks ?: TodayBlock.entries,
                     onCustomize = if (withCustomize) ({ opened++ }) else null,
@@ -64,29 +63,27 @@ class TodayBlocksTest {
         show(null)
         compose.onNodeWithText("PINNED").assertIsDisplayed()
         compose.onNodeWithText("TODAY'S LIST").assertIsDisplayed()
-        compose.onNodeWithTag("habits-slot").assertIsDisplayed()
         compose.onNodeWithTag("note-slot").assertIsDisplayed()
     }
 
     @Test
     fun a_block_left_out_is_not_drawn() {
-        show(listOf(TodayBlock.TASKS, TodayBlock.HABITS)) // no pinned, no scratchpad
+        show(listOf(TodayBlock.TASKS)) // no pinned, no scratchpad
         compose.onNodeWithText("PINNED").assertDoesNotExist()
         compose.onNodeWithTag("note-slot").assertDoesNotExist()
         compose.onNodeWithText("TODAY'S LIST").assertIsDisplayed()
-        compose.onNodeWithTag("habits-slot").assertIsDisplayed()
     }
 
     @Test
     fun blocks_appear_in_the_given_order() {
-        show(listOf(TodayBlock.HABITS, TodayBlock.TASKS))
-        assertTrue(top("habits-slot") < compose.onNodeWithText("TODAY'S LIST").fetchSemanticsNode().boundsInRoot.top)
+        show(listOf(TodayBlock.SCRATCHPAD, TodayBlock.TASKS))
+        assertTrue(top("note-slot") < compose.onNodeWithText("TODAY'S LIST").fetchSemanticsNode().boundsInRoot.top)
     }
 
     @Test
-    fun the_tasks_can_sit_below_the_habits_or_above_them() {
-        show(listOf(TodayBlock.TASKS, TodayBlock.HABITS))
-        assertTrue(compose.onNodeWithText("TODAY'S LIST").fetchSemanticsNode().boundsInRoot.top < top("habits-slot"))
+    fun the_tasks_can_sit_below_the_scratchpad_or_above_it() {
+        show(listOf(TodayBlock.TASKS, TodayBlock.SCRATCHPAD))
+        assertTrue(compose.onNodeWithText("TODAY'S LIST").fetchSemanticsNode().boundsInRoot.top < top("note-slot"))
     }
 
     @Test

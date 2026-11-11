@@ -50,10 +50,10 @@ class DataStoreSettingsRepositoryTest {
     @Test
     fun an_update_is_saved_and_emitted() = runBlocking {
         val repo = DataStoreSettingsRepository(openStore(file()))
-        repo.update { it.withVisible(TodayBlock.SCRATCHPAD, true).moved(TodayBlock.HABITS, -1).copy(background = PaperBackground.DOTS, density = RowDensity.COMPACT) }
+        repo.update { it.withVisible(TodayBlock.SCRATCHPAD, true).moved(TodayBlock.SCRATCHPAD, -1).copy(background = PaperBackground.DOTS, density = RowDensity.COMPACT) }
         val saved = repo.settings.first()
         assertEquals(TodayBlock.entries.toSet(), saved.visibleBlocks.toSet())
-        assertEquals(listOf(TodayBlock.PINNED, TodayBlock.HABITS, TodayBlock.TASKS, TodayBlock.SCRATCHPAD), saved.blockOrder)
+        assertEquals(listOf(TodayBlock.PINNED, TodayBlock.SCRATCHPAD, TodayBlock.TASKS), saved.blockOrder)
         assertEquals(PaperBackground.DOTS, saved.background)
         assertEquals(RowDensity.COMPACT, saved.density)
     }
@@ -87,14 +87,14 @@ class DataStoreSettingsRepositoryTest {
         val s = DataStoreSettingsRepository(store).settings.first()
         assertEquals(PaperBackground.PLAIN, s.background)
         assertEquals(RowDensity.COZY, s.density)
-        assertEquals(listOf(TodayBlock.HABITS, TodayBlock.PINNED, TodayBlock.TASKS, TodayBlock.SCRATCHPAD), s.blockOrder)
+        assertEquals(listOf(TodayBlock.PINNED, TodayBlock.TASKS, TodayBlock.SCRATCHPAD), s.blockOrder)
     }
 
     @Test
     fun simultaneous_updates_are_all_applied_without_losing_any() = runBlocking {
         val repo = DataStoreSettingsRepository(openStore(file()))
         // Each update toggles one distinct block; if any read-modify-write raced, a toggle would be lost.
-        val toggles = listOf(TodayBlock.PINNED, TodayBlock.TASKS, TodayBlock.HABITS)
+        val toggles = listOf(TodayBlock.PINNED, TodayBlock.TASKS, TodayBlock.SCRATCHPAD)
         toggles.map { block -> async(Dispatchers.IO) { repo.update { it.withVisible(block, false) } } }.awaitAll()
         assertEquals(TodayBlock.entries.toSet(), repo.settings.first().hiddenBlocks)
     }
