@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+export const alertStyleSchema = z.enum(['NOTIFICATION', 'ALARM']);
+
 export const reminderSchema = z.object({
   id: z.uuid(),
   taskId: z.uuid().nullable(),
@@ -8,6 +10,7 @@ export const reminderSchema = z.object({
   remindAt: z.date(),
   repeatRule: z.string().nullable(),
   locationTrigger: z.string().nullable(),
+  style: alertStyleSchema,
   enabled: z.boolean(),
   snoozedUntil: z.date().nullable(),
   createdAt: z.date(),
@@ -20,6 +23,7 @@ export const createReminderBody = z.object({
   eventId: z.uuid().nullable().optional(),
   repeatRule: z.string().trim().max(60).nullable().optional(),
   locationTrigger: z.string().trim().max(120).nullable().optional(),
+  style: alertStyleSchema.optional(),
   enabled: z.boolean().optional(),
 });
 

@@ -65,6 +65,12 @@ model Subtask {
   @@index([taskId])
 }
 
+/// How an alert shows up: an ordinary notification (Done / Snooze) or an alarm that takes over the screen.
+enum AlertStyle {
+  NOTIFICATION
+  ALARM
+}
+
 model Reminder {
   id              String    @id @default(uuid()) @db.Uuid
   taskId          String?   @db.Uuid
@@ -75,6 +81,8 @@ model Reminder {
   remindAt        DateTime
   repeatRule      String?
   locationTrigger String?
+  /// NOTIFICATION: an ordinary notification with Done and Snooze. ALARM: rings and takes over the screen.
+  style           AlertStyle @default(ALARM)
   enabled         Boolean   @default(true)
   snoozedUntil    DateTime?
   createdAt       DateTime  @default(now())

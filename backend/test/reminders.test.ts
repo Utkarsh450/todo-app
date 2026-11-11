@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { effectiveTime, groupReminders } from '../src/modules/reminders/reminder-groups.js';
 import { RemindersService } from '../src/modules/reminders/reminders.service.js';
-import { snoozeBody } from '../src/modules/reminders/reminders.schema.js';
+import { createReminderBody, snoozeBody } from '../src/modules/reminders/reminders.schema.js';
 import { createTestApp, resetDatabase, type TestContext } from './helpers.js';
 
 const at = (iso: string) => new Date(iso);
@@ -39,6 +39,15 @@ describe('groupReminders (unit)', () => {
   });
 });
 
+describe('alert style (unit)', () => {
+  it('is NOTIFICATION or ALARM, nothing else', () => {
+    expect(createReminderBody.safeParse({ title: 'x', remindAt: '2026-11-08T09:00:00Z', style: 'ALARM' }).success).toBe(true);
+    expect(createReminderBody.safeParse({ title: 'x', remindAt: '2026-11-08T09:00:00Z', style: 'NOTIFICATION' }).success).toBe(true);
+    expect(createReminderBody.safeParse({ title: 'x', remindAt: '2026-11-08T09:00:00Z', style: 'LOUD' }).success).toBe(false);
+    expect(createReminderBody.safeParse({ title: 'x', remindAt: '2026-11-08T09:00:00Z' }).success).toBe(true);
+  });
+});
+
 describe('snoozeBody (unit)', () => {
   it('accepts minutes or an explicit time and rejects neither', () => {
     expect(snoozeBody.safeParse({ minutes: 60 }).success).toBe(true);
@@ -53,6 +62,17 @@ describe('reminders API (integration)', () => {
   beforeAll(async () => { ctx = await createTestApp(); });
   beforeEach(async () => { await resetDatabase(ctx.db); });
   afterAll(async () => { await ctx.app.close(); });
+
+  it('an alert keeps the style it was made with, defaults to ALARM, and the style can be changed', async () => {
+    const plain = await create({ title: 'Old style', remindAt: '2026-11-07T14:00:00Z' });
+    expect(plain.style).toBe('ALARM');
+    const soft = await create({ title: 'Gentle', remindAt: '2026-11-07T15:00:00Z', style: 'NOTIFICATION' });
+    expect(soft.style).toBe('NOTIFICATION');
+    const changed = await ctx.app.inject({ method: 'PATCH', url: `/api/reminders/${soft.id}`, payload: { style: 'ALARM' } });
+    expect(changed.json().style).toBe('ALARM');
+    const bad = await ctx.app.inject({ method: 'POST', url: '/api/reminders', payload: { title: 'x', remindAt: '2026-11-07T14:00:00Z', style: 'LOUD' } });
+    expect(bad.statusCode).toBe(400);
+  });
 
   const create = async (payload: object) => (await ctx.app.inject({ method: 'POST', url: '/api/reminders', payload })).json();
 
