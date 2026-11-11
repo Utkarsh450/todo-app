@@ -3,6 +3,7 @@ package com.utkarsh.todo.feature.reminders.platform
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.provider.Settings
 import com.utkarsh.todo.feature.reminders.domain.AlertStyle
 import com.utkarsh.todo.feature.reminders.domain.Reminder
 import com.utkarsh.todo.feature.reminders.domain.ReminderScheduler
@@ -37,6 +38,11 @@ class ReminderReceiver : BroadcastReceiver() {
         // off: alarms fire a little late, and anchoring on "now" would slide the reminder later every single cycle.
         val scheduledAt = intent.getLongExtra(EXTRA_REMIND_AT, 0L).takeIf { it > 0 }?.let(Instant::ofEpochMilli) ?: clock.instant()
         notifications.show(id, title, scheduledAt.toEpochMilli(), taskId, rule, style)
+        // While the phone is in use Android turns a full-screen intent into a small banner. An app that may "display over
+        // other apps" can open the alert itself, which is what makes it cover the screen like a calendar's alert.
+        if (style == AlertStyle.ALARM && Settings.canDrawOverlays(context)) {
+            runCatching { context.startActivity(ReminderAlarmActivity.intent(context, id, title, scheduledAt.toEpochMilli(), rule, taskId, style)) }
+        }
 
         if (rule == null) return
         val now = ZonedDateTime.now(clock)

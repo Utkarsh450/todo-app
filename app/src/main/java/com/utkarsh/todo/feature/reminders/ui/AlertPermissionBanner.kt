@@ -69,6 +69,7 @@ fun AlertPermissionBanner(missing: MissingPermission?, modifier: Modifier = Modi
     val colors = Paper.colors
     val text = when (missing) {
         MissingPermission.NOTIFICATIONS -> "Allow notifications so alerts can reach you."
+        MissingPermission.OVERLAY -> "Allow \"display over other apps\" so alerts open full screen even while you are using the phone."
         MissingPermission.FULL_SCREEN -> "Allow full-screen alerts so reminders pop up on your screen, like Google Calendar."
         MissingPermission.EXACT_ALARMS -> "Allow exact alarms so alerts ring right on time."
     }

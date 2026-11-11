@@ -14,11 +14,12 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /** What an alert needs from the phone before it can show up on the screen the way Google Calendar's does. */
-enum class MissingPermission { NOTIFICATIONS, FULL_SCREEN, EXACT_ALARMS }
+enum class MissingPermission { NOTIFICATIONS, OVERLAY, FULL_SCREEN, EXACT_ALARMS }
 
 /**
- * Checks the three permissions alerts depend on: notifications (Android 13+), full-screen alerts (Android 14+, the
- * person can switch them off per app) and exact alarms (Android 12+). The first one that is missing is asked for.
+ * Checks the permissions alerts depend on: notifications (Android 13+), "display over other apps" (what lets an
+ * alarm open its full screen while the phone is in use; without it Android only shows a heads-up banner), full-screen
+ * alerts for the lock screen (Android 14+, the person can switch them off per app) and exact alarms (Android 12+). The first one that is missing is asked for.
  */
 @Singleton
 class AlertPermissions @Inject constructor(
@@ -28,6 +29,7 @@ class AlertPermissions @Inject constructor(
     fun missing(): MissingPermission? = when {
         Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED -> MissingPermission.NOTIFICATIONS
+        !Settings.canDrawOverlays(context) -> MissingPermission.OVERLAY
         !notifications.canShowFullScreen() -> MissingPermission.FULL_SCREEN
         Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !context.getSystemService(AlarmManager::class.java).canScheduleExactAlarms() -> MissingPermission.EXACT_ALARMS
         else -> null
@@ -37,6 +39,7 @@ class AlertPermissions @Inject constructor(
     fun settingsIntent(permission: MissingPermission): Intent {
         val app = Uri.parse("package:${context.packageName}")
         return when (permission) {
+            MissingPermission.OVERLAY -> Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, app)
             MissingPermission.FULL_SCREEN ->
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT, app) else appSettings(app)
             MissingPermission.EXACT_ALARMS ->

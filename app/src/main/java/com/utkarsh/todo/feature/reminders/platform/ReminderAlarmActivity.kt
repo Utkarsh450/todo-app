@@ -67,6 +67,7 @@ class ReminderAlarmActivity : ComponentActivity() {
                         }
                     },
                     onDismiss = ::complete,
+                    snoozedText = { minutes -> "Back at " + clock.instant().plusSeconds(minutes * 60L).formatTime(clock.zone) },
                     onOpen = {
                         notifications.cancel(id)
                         startActivity(Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP))

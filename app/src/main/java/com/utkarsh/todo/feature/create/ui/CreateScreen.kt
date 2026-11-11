@@ -134,7 +134,8 @@ fun CreateScreen(state: CreateUiState, actions: CreateActions, modifier: Modifie
                 modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable(onClick = actions.onClose).padding(horizontal = 8.dp, vertical = 4.dp).testTag("create-close"),
             )
             Box(Modifier.weight(1f))
-            PaperSegmentedControl(CreateType.entries, form.type, actions.onType, labelOf = { it.label }, modifier = Modifier.testTag("create-type"))
+            if (state.editingEventId == null) PaperSegmentedControl(CreateType.entries, form.type, actions.onType, labelOf = { it.label }, modifier = Modifier.testTag("create-type"))
+            else MonoLabel("Edit event", color = colors.accent, modifier = Modifier.testTag("create-edit-label"))
         }
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp)) {
             BasicTextField(
@@ -184,13 +185,13 @@ fun CreateScreen(state: CreateUiState, actions: CreateActions, modifier: Modifie
                     Chip("All day", form.allDay, "duration-allday") { actions.onAllDay() }
                 }
             }
-            Group("Alerts") {
+            if (state.editingEventId == null) Group("Alerts") {
                 (AlertPresets + form.alerts.filter { it !in AlertPresets }.sorted()).forEach { m ->
                     Chip(alertLabel(m), m in form.alerts, "alert-$m") { actions.onToggleAlert(m) }
                 }
                 Link("Custom…", "alert-custom") { picking = "alert" }
             }
-            if (form.alerts.isNotEmpty()) {
+            if (state.editingEventId == null && form.alerts.isNotEmpty()) {
                 Group("Alert style") {
                     Chip("Notification", form.alertStyle == AlertStyle.NOTIFICATION, "style-notification") { actions.onAlertStyle(AlertStyle.NOTIFICATION) }
                     Chip("Alarm", form.alertStyle == AlertStyle.ALARM, "style-alarm") { actions.onAlertStyle(AlertStyle.ALARM) }
@@ -225,7 +226,7 @@ fun CreateScreen(state: CreateUiState, actions: CreateActions, modifier: Modifie
                 Modifier.fillMaxWidth().alpha(if (enabled) 1f else 0.4f).clip(RoundedCornerShape(PaperRadius.card)).background(colors.ink)
                     .clickable(enabled = enabled, onClick = actions.onSave).padding(vertical = 14.dp).testTag("create-save"),
                 contentAlignment = Alignment.Center,
-            ) { Text(if (state.saving) "Saving…" else "Save ${form.type.label.lowercase()}", style = Paper.type.button, color = colors.card) }
+            ) { Text(if (state.saving) "Saving…" else if (state.editingEventId != null) "Save changes" else "Save ${form.type.label.lowercase()}", style = Paper.type.button, color = colors.card) }
         }
     }
 

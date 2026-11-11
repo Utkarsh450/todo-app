@@ -35,12 +35,12 @@ class CreateScreenTest {
     private fun task() = CreateForm.start(CreateType.TASK, today, null, LocalDateTime.of(2026, 11, 12, 10, 20))
     private fun event() = CreateForm.start(CreateType.EVENT, today, null, LocalDateTime.of(2026, 11, 12, 10, 20))
 
-    private fun show(form: CreateForm = task(), error: String? = null, saving: Boolean = false) {
+    private fun show(form: CreateForm = task(), error: String? = null, saving: Boolean = false, editing: Boolean = false) {
         events.clear()
         compose.setContent {
             PaperTheme {
                 CreateScreen(
-                    state = CreateUiState(form, projects, saving, error),
+                    state = CreateUiState(form, projects, saving, error, editingEventId = if (editing) "e1" else null),
                     actions = CreateActions(
                         onClose = { events += "close" },
                         onType = { events += "type:$it" },
@@ -266,5 +266,15 @@ class CreateScreenTest {
     fun the_preview_says_alarm_when_the_alert_is_an_alarm() {
         show(task().copy(title = "Wake up", time = LocalTime.of(6, 0), alerts = setOf(0), alertStyle = AlertStyle.ALARM))
         compose.onNodeWithText("Today · 6:00 AM · 🔔 At time · alarm").performScrollTo().assertExists()
+    }
+
+    @Test
+    fun editing_an_event_says_so_hides_the_type_switch_and_the_alerts_and_saves_changes() {
+        show(event().copy(title = "Design sync"), editing = true)
+        compose.onNodeWithTag("create-edit-label").assertIsDisplayed()
+        compose.onNodeWithTag("create-type").assertDoesNotExist()
+        compose.onNodeWithTag("alert-30").assertDoesNotExist()
+        compose.onNodeWithText("Save changes").assertIsDisplayed()
+        compose.onNodeWithTag("event-location").performScrollTo().assertIsDisplayed()
     }
 }

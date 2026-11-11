@@ -36,12 +36,31 @@ data class NewEvent(
 
 const val DEFAULT_ALERT_MINUTES = 30
 
+/** An event as it is saved, for editing it. */
+data class EventDetail(
+    val id: String,
+    val title: String,
+    val start: Instant,
+    val end: Instant,
+    val allDay: Boolean,
+    val projectId: String?,
+    val location: String?,
+    val videoLink: String?,
+    val guests: List<String>,
+    val busy: Boolean,
+)
+
 interface CalendarRepository {
     /** Events and dated tasks within [from, to). */
     suspend fun agenda(from: Instant, to: Instant): Result<List<AgendaItem>>
     /** Creates the event (and its alerts, those of [NewEvent.alerts] that are still ahead) and returns the event's id. */
     suspend fun createEvent(event: NewEvent): Result<String>
     suspend fun deleteEvent(id: String): Result<Unit>
+
+    suspend fun event(id: String): Result<EventDetail>
+
+    /** Saves new details for an event. Its alerts move with it (the server shifts them) and the phone's alarms are set again. */
+    suspend fun updateEvent(id: String, event: NewEvent): Result<Unit>
 
     /** Emits after an event was created, so an open calendar can reload. */
     val changes: Flow<Unit>

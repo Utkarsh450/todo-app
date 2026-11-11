@@ -3,9 +3,8 @@ package com.utkarsh.todo.feature.create.ui
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.navigation.toRoute
-import com.utkarsh.todo.core.navigation.Destination
 import com.utkarsh.todo.feature.calendar.domain.CalendarRepository
+import com.utkarsh.todo.feature.calendar.domain.EventDetail
 import com.utkarsh.todo.feature.calendar.domain.NewEvent
 import com.utkarsh.todo.feature.create.domain.CreateForm
 import com.utkarsh.todo.feature.create.domain.CreateType
@@ -39,6 +38,9 @@ data class CreateUiState(
     val projects: List<Project> = emptyList(),
     val saving: Boolean = false,
     val error: String? = null,
+    /** Set when an existing event is being edited (the type switch and the alerts are then left out). */
+    val editingEventId: String? = null,
+    val loading: Boolean = false,
 )
 
 /**
@@ -58,7 +60,9 @@ class CreateViewModel @Inject constructor(
     private val zone: ZoneId = clock.zone
     private val now: LocalDateTime get() = LocalDateTime.now(clock)
 
-    private val _state = MutableStateFlow(CreateUiState(form = initialForm(savedState)))
+    // The route's arguments (see Destination.Create) arrive in the SavedStateHandle under their own names.
+    private val editId: String? = savedState.get<String>("eventId")?.takeIf { it.isNotBlank() }
+    private val _state = MutableStateFlow(CreateUiState(form = initialForm(savedState), editingEventId = editId, loading = editId != null))
     val uiState: StateFlow<CreateUiState> = _state.asStateFlow()
 
     private val _saved = Channel<Unit>(Channel.BUFFERED)
@@ -67,13 +71,28 @@ class CreateViewModel @Inject constructor(
 
     init {
         viewModelScope.launch { projects.projects().onSuccess { list -> _state.update { it.copy(projects = list) } } }
+        editId?.let { id ->
+            viewModelScope.launch {
+                calendar.event(id)
+                    .onSuccess { d -> _state.update { it.copy(form = formOf(d), loading = false) } }
+                    .onFailure { e -> _state.update { it.copy(loading = false, error = e.message ?: "Couldn't open that event") } }
+            }
+        }
+    }
+
+    private fun formOf(d: EventDetail): CreateForm {
+        val start = d.start.atZone(zone)
+        return CreateForm(
+            type = CreateType.EVENT, title = d.title, date = start.toLocalDate(), time = if (d.allDay) null else start.toLocalTime(),
+            durationMinutes = java.time.Duration.between(d.start, d.end).toMinutes().toInt().coerceAtLeast(15), allDay = d.allDay,
+            alerts = emptySet(), projectId = d.projectId, location = d.location.orEmpty(), videoLink = d.videoLink.orEmpty(), guests = d.guests, busy = d.busy,
+        )
     }
 
     private fun initialForm(savedState: SavedStateHandle): CreateForm {
-        val route = runCatching { savedState.toRoute<Destination.Create>() }.getOrNull()
-        val type = if (route?.type == CreateType.EVENT.name) CreateType.EVENT else CreateType.TASK
-        val start = route?.startEpochSeconds?.takeIf { it > 0 }?.let { Instant.ofEpochSecond(it).atZone(zone).toLocalDateTime() }
-        val day = start?.toLocalDate() ?: LocalDate.now(clock)
+        val type = if (savedState.get<String>("type") == CreateType.EVENT.name) CreateType.EVENT else CreateType.TASK
+        val start = savedState.get<Long>("startEpochSeconds")?.takeIf { it > 0 }?.let { Instant.ofEpochSecond(it).atZone(zone).toLocalDateTime() }
+        val day = start?.toLocalDate() ?: savedState.get<Long>("epochDay")?.takeIf { it >= 0 }?.let(LocalDate::ofEpochDay) ?: LocalDate.now(clock)
         return CreateForm.start(type, day, start?.toLocalTime(), now)
     }
 
@@ -131,6 +150,14 @@ class CreateViewModel @Inject constructor(
         _state.update { it.copy(saving = true, error = null) }
         viewModelScope.launch {
             val title = form.title.trim()
+            if (editId != null) {
+                val changed = NewEvent(title, form.startInstant(zone), form.endInstant(zone), form.allDay, form.projectId, emptyList(), form.alertStyle,
+                    form.location.trim().ifEmpty { null }, form.videoLink.trim().ifEmpty { null }, form.guests, form.busy)
+                calendar.updateEvent(editId, changed)
+                    .onSuccess { _saved.send(Unit) }
+                    .onFailure { e -> _state.update { it.copy(saving = false, error = e.message ?: "Couldn't save the event") } }
+                return@launch
+            }
             val result: Result<Unit> = when (form.type) {
                 CreateType.TASK -> tasks.create(NewTask(title = title, notes = form.notes.trim(), projectId = form.projectId, priority = form.priority, dueAt = form.startInstant(zone), repeatRule = form.repeat))
                     .onSuccess { task -> form.alertInstants(zone, clock.instant()).forEach { at -> reminders.create(NewReminder(title = title, remindAt = at, taskId = task.id, repeatRule = form.repeat, style = form.alertStyle)) } }

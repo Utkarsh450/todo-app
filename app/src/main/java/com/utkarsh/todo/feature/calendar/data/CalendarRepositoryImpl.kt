@@ -4,6 +4,7 @@ import com.utkarsh.todo.core.common.resultOf
 import com.utkarsh.todo.feature.calendar.domain.AgendaItem
 import com.utkarsh.todo.feature.calendar.domain.AgendaKind
 import com.utkarsh.todo.feature.calendar.domain.CalendarRepository
+import com.utkarsh.todo.feature.calendar.domain.EventDetail
 import com.utkarsh.todo.feature.calendar.domain.NewEvent
 import com.utkarsh.todo.feature.reminders.domain.NewReminder
 import com.utkarsh.todo.feature.reminders.domain.RemindersRepository
@@ -30,6 +31,15 @@ class CalendarRepositoryImpl @Inject constructor(
     override suspend fun createEvent(event: NewEvent) = resultOf {
         api.createEvent(CreateEventRequest(event.title, event.start, event.end, event.allDay, event.projectId, event.location, event.videoLink, event.guests, event.busy)).id
     }.onSuccess { id -> addAlert(id, event) }.also { result -> result.onSuccess { _changes.tryEmit(Unit) } }
+
+    override suspend fun event(id: String) = resultOf {
+        api.event(id).let { EventDetail(it.id, it.title, it.startAt, it.endAt, it.allDay, it.projectId, it.location, it.videoLink, it.guests, it.busy) }
+    }
+
+    override suspend fun updateEvent(id: String, event: NewEvent) = resultOf {
+        api.updateEvent(id, CreateEventRequest(event.title, event.start, event.end, event.allDay, event.projectId, event.location, event.videoLink, event.guests, event.busy))
+        Unit
+    }.also { result -> result.onSuccess { runCatching { reminders.syncAlarms() }; _changes.tryEmit(Unit) } }
 
     override suspend fun deleteEvent(id: String) = resultOf { api.deleteEvent(id) }.also { result -> result.onSuccess { _changes.tryEmit(Unit) } }
 

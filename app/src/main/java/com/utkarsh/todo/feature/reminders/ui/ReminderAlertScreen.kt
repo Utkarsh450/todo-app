@@ -25,6 +25,14 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontStyle
+import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -33,12 +41,13 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.utkarsh.todo.core.designsystem.component.MonoLabel
 import com.utkarsh.todo.core.designsystem.theme.Paper
 import com.utkarsh.todo.core.designsystem.theme.paperSurface
 
-/** The snooze choices on the alert, in minutes. The first is what the notification's own Snooze button uses. */
-val AlertSnoozeChoices = listOf(5, 10, 30, 60)
+/** The snooze choices on the alert, in minutes. The first is the big "Snooze 10 min" button, the rest are small links. */
+val AlertSnoozeChoices = listOf(10, 5, 30, 60)
 
 /** What the full-screen alert shows. [time] is the due time (`9:30 AM`), [date] a short day (`SUN 8 NOV`). */
 data class ReminderAlertUi(
@@ -52,9 +61,23 @@ data class ReminderAlertUi(
 
 fun snoozeLabel(minutes: Int): String = if (minutes % 60 == 0) "${minutes / 60} hr" else "$minutes min"
 
+private val AlertBackground = Color(0xFF191714)
+private val AlertText = Color(0xFFEFE9DD)
+private val AlertMuted = Color(0xFFB5AC9B)
+private val AlertCard = Color(0xFFFFFDF8)
+private const val UNDO_MS = 3_000L
+
+/** What was just tapped, shown for a moment with Undo before it really happens. */
+private sealed interface Pending {
+    data class Snoozed(val minutes: Int) : Pending
+    data object Done : Pending
+}
+
 /**
- * The screen that takes over the display when a reminder rings, like a calendar's alert: the time in a ringing
- * circle, what it is about, quick snooze choices and one big button to stop it. Stateless; the activity wires it.
+ * Design screen 24: the dark full-screen takeover when an alarm-style alert fires, like a calendar's. The time sits
+ * in two slowly widening rings, then what it is about, Done, Snooze 10 min and Open task. Tapping Done or Snooze
+ * shows "Nice. One less." or "Back at ..." with Undo for three seconds, and only then does the action happen.
+ * Stateless apart from that pause; the activity wires the real actions.
  */
 @Composable
 fun ReminderAlertScreen(
@@ -63,45 +86,82 @@ fun ReminderAlertScreen(
     onDismiss: () -> Unit,
     onOpen: () -> Unit,
     modifier: Modifier = Modifier,
+    /** The words after "Snoozed": by default "Back in 10 min"; the activity says "Back at 11:10 AM". */
+    snoozedText: (Int) -> String = { "Back in ${snoozeLabel(it)}" },
 ) {
     val colors = Paper.colors
-    Column(modifier.fillMaxSize().paperSurface().statusBarsPadding().navigationBarsPadding().padding(horizontal = 24.dp).testTag("reminder-alert")) {
-        Row(Modifier.fillMaxWidth().padding(top = 20.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(8.dp).clip(CircleShape).background(colors.accent))
-            MonoLabel("Reminder", Modifier.padding(start = 8.dp), color = colors.accent)
-            Spacer(Modifier.weight(1f))
-            MonoLabel(ui.date, Modifier.testTag("alert-date"))
-        }
+    var pending by rememberSaveable(stateSaver = androidx.compose.runtime.saveable.Saver<Pending?, String>(
+        save = { p -> when (p) { is Pending.Snoozed -> "s${p.minutes}"; Pending.Done -> "d"; null -> "" } },
+        restore = { v -> when { v.startsWith("s") -> Pending.Snoozed(v.drop(1).toInt()); v == "d" -> Pending.Done; else -> null } },
+    )) { mutableStateOf<Pending?>(null) }
+    LaunchedEffect(pending) {
+        val current = pending ?: return@LaunchedEffect
+        delay(UNDO_MS)
+        when (current) { is Pending.Snoozed -> onSnooze(current.minutes); Pending.Done -> onDismiss() }
+    }
 
-        Column(Modifier.weight(1f).fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-            RingingClock(ui.time)
-            Text(
-                ui.title, style = Paper.type.display, color = colors.ink, textAlign = TextAlign.Center, maxLines = 4,
-                modifier = Modifier.padding(top = 36.dp).testTag("alert-title"),
-            )
-            MonoLabel(ui.status, Modifier.padding(top = 10.dp).testTag("alert-status"))
-        }
+    Box(modifier.fillMaxSize().background(AlertBackground).testTag("reminder-alert")) {
+        Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(horizontal = 24.dp)) {
+            Row(Modifier.fillMaxWidth().padding(top = 20.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
+                Box(Modifier.size(8.dp).clip(CircleShape).background(colors.accentLight))
+                MonoLabel("Reminder · now", Modifier.padding(start = 8.dp), color = colors.accentLight)
+            }
 
-        MonoLabel("Snooze", Modifier.padding(bottom = 10.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            AlertSnoozeChoices.forEach { minutes ->
-                val shape = RoundedCornerShape(12.dp)
+            Column(Modifier.weight(1f).fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                RingingClock(ui.time)
+                MonoLabel(ui.date, Modifier.padding(top = 18.dp).testTag("alert-date"), color = AlertMuted)
                 Text(
-                    snoozeLabel(minutes), style = Paper.type.button, color = colors.ink, textAlign = TextAlign.Center,
-                    modifier = Modifier.weight(1f).clip(shape).background(colors.card).border(1.dp, colors.rule, shape)
-                        .clickable { onSnooze(minutes) }.padding(vertical = 14.dp).testTag("alert-snooze-$minutes"),
+                    ui.title, style = Paper.type.display, color = AlertText, textAlign = TextAlign.Center, maxLines = 4,
+                    modifier = Modifier.padding(top = 18.dp).testTag("alert-title"),
+                )
+                Text(ui.status.replaceFirstChar { it.uppercase() }, style = Paper.type.note, color = AlertMuted, fontStyle = FontStyle.Italic, modifier = Modifier.padding(top = 8.dp).testTag("alert-status"))
+            }
+
+            when (val p = pending) {
+                null -> Unit
+                else -> UndoBar(
+                    label = if (p is Pending.Snoozed) "Snoozed" else "Done",
+                    text = if (p is Pending.Snoozed) snoozedText(p.minutes) else "Nice. One less.",
+                    onUndo = { pending = null },
                 )
             }
+            val shape = RoundedCornerShape(14.dp)
+            Text(
+                "Done", style = Paper.type.button, color = AlertBackground, textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().padding(top = 14.dp).clip(shape).background(AlertCard).clickable(enabled = pending == null) { pending = Pending.Done }.padding(vertical = 18.dp).testTag("alert-dismiss"),
+            )
+            Text(
+                "Snooze 10 min", style = Paper.type.button, color = AlertText, textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().padding(top = 10.dp).clip(shape).border(1.dp, AlertText.copy(alpha = 0.3f), shape)
+                    .clickable(enabled = pending == null) { pending = Pending.Snoozed(10) }.padding(vertical = 16.dp).testTag("alert-snooze-10"),
+            )
+            Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                AlertSnoozeChoices.drop(1).forEach { minutes ->
+                    Text(
+                        snoozeLabel(minutes), style = Paper.type.label, color = AlertMuted,
+                        modifier = Modifier.clickable(enabled = pending == null) { pending = Pending.Snoozed(minutes) }.padding(horizontal = 14.dp, vertical = 10.dp).testTag("alert-snooze-$minutes"),
+                    )
+                }
+            }
+            Text(
+                if (ui.canOpenTask) "Open task" else "Open Paper Todo", style = Paper.type.button, color = AlertMuted, textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().clickable(onClick = onOpen).padding(vertical = 14.dp).testTag("alert-open"),
+            )
         }
-        val shape = RoundedCornerShape(14.dp)
-        Text(
-            "Done", style = Paper.type.button, color = colors.card, textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth().padding(top = 14.dp).clip(shape).background(colors.ink).clickable(onClick = onDismiss).padding(vertical = 18.dp).testTag("alert-dismiss"),
-        )
-        Text(
-            if (ui.canOpenTask) "Open task" else "Open Paper Todo", style = Paper.type.button, color = colors.muted, textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth().clickable(onClick = onOpen).padding(vertical = 18.dp).testTag("alert-open"),
-        )
+    }
+}
+
+@Composable
+private fun UndoBar(label: String, text: String, onUndo: () -> Unit) {
+    val colors = Paper.colors
+    val shape = RoundedCornerShape(12.dp)
+    Row(
+        Modifier.fillMaxWidth().padding(bottom = 4.dp).clip(shape).background(AlertText.copy(alpha = 0.1f)).padding(horizontal = 16.dp, vertical = 12.dp).testTag("alert-undo-bar"),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        MonoLabel(label, color = colors.accentLight)
+        Text(text, style = Paper.type.body, color = AlertText, modifier = Modifier.weight(1f).padding(start = 12.dp))
+        Text("Undo", style = Paper.type.button, color = colors.accentLight, modifier = Modifier.clickable(onClick = onUndo).padding(8.dp).testTag("alert-undo"))
     }
 }
 
@@ -119,9 +179,8 @@ private fun RingingClock(time: String) {
                 val t = (pulse.value + offset) % 1f
                 drawCircle(colors.accent.copy(alpha = (1f - t) * 0.5f), radius = maxRadius * (0.62f + 0.38f * t), center = center, style = Stroke(width = 2.dp.toPx()))
             }
-            drawCircle(colors.card, radius = maxRadius * 0.62f, center = center)
-            drawCircle(colors.accent, radius = maxRadius * 0.62f, center = center, style = Stroke(width = 2.dp.toPx()))
+            drawCircle(AlertText.copy(alpha = 0.18f), radius = maxRadius * 0.62f, center = center, style = Stroke(width = 1.5.dp.toPx()))
         }
-        Text(time, style = Paper.type.headline, color = colors.ink, textAlign = TextAlign.Center, modifier = Modifier.testTag("alert-time"))
+        Text(time, style = Paper.type.display.copy(fontSize = 44.sp), color = AlertText, textAlign = TextAlign.Center, modifier = Modifier.testTag("alert-time"))
     }
 }

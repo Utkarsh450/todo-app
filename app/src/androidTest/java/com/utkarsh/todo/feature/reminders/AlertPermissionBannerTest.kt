@@ -42,6 +42,12 @@ class AlertPermissionBannerTest {
     }
 
     @Test
+    fun display_over_other_apps_is_asked_for_in_plain_words() {
+        show(MissingPermission.OVERLAY)
+        compose.onNodeWithText("Allow \"display over other apps\" so alerts open full screen even while you are using the phone.").assertIsDisplayed()
+    }
+
+    @Test
     fun exact_alarms_have_their_own_words() {
         show(MissingPermission.EXACT_ALARMS)
         compose.onNodeWithText("Allow exact alarms so alerts ring right on time.").assertIsDisplayed()

@@ -2,6 +2,7 @@ package com.utkarsh.todo.feature.create
 
 import androidx.lifecycle.SavedStateHandle
 import com.utkarsh.todo.feature.calendar.domain.CalendarRepository
+import com.utkarsh.todo.feature.calendar.domain.EventDetail
 import com.utkarsh.todo.feature.calendar.domain.NewEvent
 import com.utkarsh.todo.feature.create.domain.CreateType
 import com.utkarsh.todo.feature.create.ui.CreateViewModel
@@ -62,7 +63,7 @@ class CreateViewModelTest {
 
     private fun task(n: NewTask) = Task("t1", n.title, "", n.projectId, n.priority, TaskStatus.TODO, n.dueAt, null, false, false, n.repeatRule, emptyList())
 
-    private fun viewModel() = CreateViewModel(tasks, calendar, reminders, projects, clock, SavedStateHandle())
+    private fun viewModel(args: Map<String, Any?> = emptyMap()) = CreateViewModel(tasks, calendar, reminders, projects, clock, SavedStateHandle(args))
 
     @Test
     fun `starts as a task for today with no time and loads the projects`() {
@@ -264,5 +265,55 @@ class CreateViewModelTest {
         assertNull(event.captured.location)
         assertNull(event.captured.videoLink)
         assertEquals(true, event.captured.busy)
+    }
+
+    @Test
+    fun `a tap on a date opens Create on that day, a tap on a slot on that moment`() {
+        val day = viewModel(mapOf("type" to "EVENT", "epochDay" to LocalDate.of(2026, 11, 20).toEpochDay())).uiState.value.form
+        assertEquals(CreateType.EVENT, day.type)
+        assertEquals(LocalDate.of(2026, 11, 20), day.date)
+        assertEquals(LocalTime.of(9, 0), day.time) // another day: 9:00
+
+        val slot = viewModel(mapOf("type" to "EVENT", "startEpochSeconds" to Instant.parse("2026-11-20T08:30:00Z").epochSecond)).uiState.value.form
+        assertEquals(LocalTime.of(14, 0), slot.time) // 14:00 IST
+    }
+
+    private val saved = EventDetail("e1", "Design sync", Instant.parse("2026-11-13T06:30:00Z"), Instant.parse("2026-11-13T08:00:00Z"), false, "p1", "Room 4", "https://meet.example/abc", listOf("sam@example.com"), false)
+
+    @Test
+    fun `editing an event loads it into the form, and saving updates that event instead of making a new one`() = runTest {
+        coEvery { calendar.event("e1") } returns Result.success(saved)
+        coEvery { calendar.updateEvent(any(), any()) } returns Result.success(Unit)
+        val vm = viewModel(mapOf("type" to "EVENT", "eventId" to "e1"))
+
+        val state = vm.uiState.value
+        assertEquals("e1", state.editingEventId)
+        assertEquals(false, state.loading)
+        assertEquals("Design sync", state.form.title)
+        assertEquals(LocalDate.of(2026, 11, 13), state.form.date)
+        assertEquals(LocalTime.of(12, 0), state.form.time)
+        assertEquals(90, state.form.durationMinutes)
+        assertEquals("Room 4", state.form.location)
+        assertEquals(listOf("sam@example.com"), state.form.guests)
+        assertEquals(false, state.form.busy)
+
+        vm.setTitle("Design review")
+        vm.setTime(LocalTime.of(15, 0))
+        vm.save()
+
+        val sent = slot<NewEvent>()
+        coVerify { calendar.updateEvent(eq("e1"), capture(sent)) }
+        assertEquals("Design review", sent.captured.title)
+        assertEquals(Instant.parse("2026-11-13T09:30:00Z"), sent.captured.start)
+        assertEquals(emptyList<Int>(), sent.captured.alerts) // the server moves the existing alerts
+        coVerify(exactly = 0) { calendar.createEvent(any()) }
+    }
+
+    @Test
+    fun `an event that cannot be opened says why`() = runTest {
+        coEvery { calendar.event("e1") } returns Result.failure(RuntimeException("offline"))
+        val vm = viewModel(mapOf("type" to "EVENT", "eventId" to "e1"))
+        assertEquals("offline", vm.uiState.value.error)
+        assertEquals(false, vm.uiState.value.loading)
     }
 }

@@ -50,25 +50,61 @@ class ReminderAlertTest {
         compose.onNodeWithText("Dentist appointment").assertIsDisplayed()
         compose.onNodeWithText("3:00 PM").assertIsDisplayed()
         compose.onNodeWithText("TUE 10 NOV").assertIsDisplayed()
-        compose.onNodeWithText("DUE NOW").assertIsDisplayed()
-        compose.onNodeWithText("REMINDER").assertIsDisplayed()
+        compose.onNodeWithText("Due now").assertIsDisplayed()
+        compose.onNodeWithText("REMINDER · NOW").assertIsDisplayed()
     }
 
     @Test
-    fun offers_four_snooze_choices_and_a_big_dismiss_button() {
+    fun offers_done_snooze_10_min_and_a_few_other_snoozes() {
         show()
-        listOf("5 min", "10 min", "30 min", "1 hr").forEach { compose.onNodeWithText(it).assertIsDisplayed() }
+        compose.onNodeWithTag("alert-dismiss").assertIsDisplayed()
+        compose.onNodeWithText("Done").assertIsDisplayed()
+        compose.onNodeWithText("Snooze 10 min").assertIsDisplayed()
+        listOf("5 min", "30 min", "1 hr").forEach { compose.onNodeWithText(it).assertIsDisplayed() }
+    }
+
+    @Test
+    fun done_says_nice_with_undo_and_only_happens_after_a_moment() {
+        compose.mainClock.autoAdvance = false
+        show()
+        compose.onNodeWithTag("alert-dismiss").performClick()
+        compose.onNodeWithText("Nice. One less.").assertIsDisplayed()
+        compose.onNodeWithTag("alert-undo").assertIsDisplayed()
+        assertEquals(emptyList<String>(), events) // not yet
+
+        compose.mainClock.advanceTimeBy(3_500)
+        compose.waitForIdle()
+        assertEquals(listOf("dismiss"), events)
+    }
+
+    @Test
+    fun snooze_says_when_it_is_back_and_undo_cancels_it() {
+        compose.mainClock.autoAdvance = false
+        show()
+        compose.onNodeWithTag("alert-snooze-10").performClick()
+        compose.onNodeWithText("Back in 10 min").assertIsDisplayed()
+        compose.onNodeWithTag("alert-undo").performClick()
+        compose.mainClock.advanceTimeBy(5_000)
+        compose.waitForIdle()
+        assertEquals(emptyList<String>(), events) // nothing happened, the alert is still there
         compose.onNodeWithTag("alert-dismiss").assertIsDisplayed()
     }
 
     @Test
-    fun each_button_does_one_thing() {
+    fun each_snooze_button_reports_its_minutes_after_the_pause() {
+        compose.mainClock.autoAdvance = false
         show()
         compose.onNodeWithTag("alert-snooze-30").performClick()
-        compose.onNodeWithTag("alert-snooze-5").performClick()
-        compose.onNodeWithTag("alert-dismiss").performClick()
+        compose.mainClock.advanceTimeBy(3_500)
+        compose.waitForIdle()
+        assertEquals(listOf("snooze:30"), events)
+    }
+
+    @Test
+    fun open_opens_straight_away() {
+        show()
         compose.onNodeWithTag("alert-open").performClick()
-        assertEquals(listOf("snooze:30", "snooze:5", "dismiss", "open"), events)
+        assertEquals(listOf("open"), events)
     }
 
     @Test

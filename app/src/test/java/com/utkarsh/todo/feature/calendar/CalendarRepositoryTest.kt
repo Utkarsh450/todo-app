@@ -56,6 +56,8 @@ class CalendarRepositoryTest {
     @After
     fun tearDown() = server.close()
 
+    private fun json(body: String) = MockResponse.Builder().code(200).addHeader("Content-Type", "application/json").body(body).build()
+
     private fun created() = MockResponse.Builder().code(201).addHeader("Content-Type", "application/json").body("""{"id":"e1","title":"Lunch with Sam"}""").build()
 
     @Test
@@ -141,6 +143,28 @@ class CalendarRepositoryTest {
         assertTrue(body.contains(""""videoLink":"https://meet.example/abc""""))
         assertTrue(body.contains(""""guests":["sam@example.com"]"""))
         assertTrue(body.contains(""""busy":false"""))
+    }
+
+    @Test
+    fun `an event can be read back and updated, and the phone's alarms are set again`() = runTest {
+        server.enqueue(json("""{"id":"e1","title":"Sync","startAt":"2026-11-13T07:30:00.000Z","endAt":"2026-11-13T08:30:00.000Z","allDay":false,"projectId":null,"location":"Room 4","videoLink":null,"busy":true,"guests":["sam@example.com"],"createdAt":"2026-11-01T00:00:00.000Z"}"""))
+        server.enqueue(json("""{"id":"e1","title":"Moved"}"""))
+        coEvery { reminders.syncAlarms() } returns Result.success(Unit)
+
+        val detail = repository.event("e1").getOrThrow()
+        assertEquals("Room 4", detail.location)
+        assertEquals(listOf("sam@example.com"), detail.guests)
+        assertEquals(Instant.parse("2026-11-13T07:30:00Z"), detail.start)
+
+        repository.updateEvent("e1", event.copy(title = "Moved", location = "Room 5", alerts = emptyList())).getOrThrow()
+
+        server.takeRequest()
+        val patch = server.takeRequest()
+        assertEquals("PATCH", patch.method)
+        assertEquals("/api/events/e1", patch.url.encodedPath)
+        assertTrue(patch.body!!.utf8().contains(""""title":"Moved""""))
+        coVerify(exactly = 1) { reminders.syncAlarms() }
+        coVerify(exactly = 0) { reminders.create(any()) }
     }
 
     @Test

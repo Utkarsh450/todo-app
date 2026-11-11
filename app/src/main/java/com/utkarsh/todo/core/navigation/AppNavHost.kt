@@ -81,8 +81,12 @@ fun AppNavHost(modifier: Modifier = Modifier) {
                 CalendarRoute(
                     onOpenTask = { nav.navigate(Destination.TaskDetail(it)) },
                     onCreate = { date, time ->
-                        nav.navigate(Destination.Create("EVENT", date.atTime(time).atZone(java.time.ZoneId.systemDefault()).toEpochSecond()))
+                        nav.navigate(
+                            if (time == null) Destination.Create("EVENT", epochDay = date.toEpochDay())
+                            else Destination.Create("EVENT", date.atTime(time).atZone(java.time.ZoneId.systemDefault()).toEpochSecond()),
+                        )
                     },
+                    onEditEvent = { nav.navigate(Destination.Create("EVENT", eventId = it)) },
                 )
             }
             composable<Destination.DueSoon> { DueSoonRoute() }

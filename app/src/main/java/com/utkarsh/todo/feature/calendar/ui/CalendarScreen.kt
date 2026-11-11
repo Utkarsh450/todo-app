@@ -59,15 +59,16 @@ class CalendarActions(
     val onOpenDay: (LocalDate) -> Unit = {},
     val onModeChange: (CalendarMode) -> Unit = {},
     val onRetry: () -> Unit = {},
-    /** A tap on an empty half hour of the day, 3-day or week grid: opens Create at that moment. */
-    val onCreate: (LocalDate, LocalTime) -> Unit = { _, _ -> },
+    /** A tap on an empty half hour (with its time) or the + on a date (no time): opens Create there. */
+    val onCreate: (LocalDate, LocalTime?) -> Unit = { _, _ -> },
+    val onEditDetail: () -> Unit = {},
     val onOpenItem: (id: String, kind: AgendaKind) -> Unit = { _, _ -> },
     val onCloseDetail: () -> Unit = {},
     val onDeleteDetail: () -> Unit = {},
 )
 
 @Composable
-fun CalendarRoute(onOpenTask: (String) -> Unit, onCreate: (LocalDate, LocalTime) -> Unit, modifier: Modifier = Modifier, viewModel: CalendarViewModel = hiltViewModel()) {
+fun CalendarRoute(onOpenTask: (String) -> Unit, onCreate: (LocalDate, LocalTime?) -> Unit, onEditEvent: (String) -> Unit, modifier: Modifier = Modifier, viewModel: CalendarViewModel = hiltViewModel()) {
     OnReconnect { viewModel.refresh() }
     androidx.compose.runtime.LaunchedEffect(Unit) { viewModel.reload() } // reminders may have changed on their own tab
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -83,12 +84,17 @@ fun CalendarRoute(onOpenTask: (String) -> Unit, onCreate: (LocalDate, LocalTime)
             onRetry = viewModel::refresh,
             onCreate = onCreate,
             onOpenItem = { id, kind -> if (kind == AgendaKind.TASK) onOpenTask(id) else viewModel.openDetail(id) },
+            onEditDetail = { state.detail?.takeIf { it.kind == AgendaKind.EVENT }?.let { d -> viewModel.closeDetail(); onEditEvent(d.id) } },
             onCloseDetail = viewModel::closeDetail,
             onDeleteDetail = viewModel::deleteDetail,
         ),
         modifier = modifier,
     )
 }
+
+/** The day the "+ Add" link starts from: the selected one. */
+private fun CalendarUiState.selectedDate(): LocalDate =
+    cells.firstOrNull { it.isSelected }?.date ?: columns.firstOrNull { it.isSelected }?.date ?: LocalDate.now()
 
 @Composable
 fun CalendarScreen(state: CalendarUiState, actions: CalendarActions, modifier: Modifier = Modifier) {
@@ -110,7 +116,7 @@ fun CalendarScreen(state: CalendarUiState, actions: CalendarActions, modifier: M
             }
         }
     }
-    state.detail?.let { DetailSheet(it, actions.onCloseDetail, actions.onDeleteDetail) }
+    state.detail?.let { DetailSheet(it, actions.onCloseDetail, actions.onDeleteDetail, actions.onEditDetail) }
 }
 
 @Composable
@@ -191,7 +197,7 @@ private val MONTH_ROW_HEIGHT = 92.dp
 private fun DayCell(cell: DayCellUi, actions: CalendarActions, modifier: Modifier) {
     val colors = Paper.colors
     Column(
-        modifier.fillMaxSize().clickable { actions.onSelect(cell.date) }.padding(horizontal = 1.dp, vertical = 3.dp).testTag("day-${cell.date}"),
+        modifier.fillMaxSize().clickable { if (cell.isSelected) actions.onCreate(cell.date, null) else actions.onSelect(cell.date) }.padding(horizontal = 1.dp, vertical = 3.dp).testTag("day-${cell.date}"),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         val numberColor = when {
@@ -227,7 +233,8 @@ private fun AgendaCard(state: CalendarUiState, actions: CalendarActions, modifie
     PaperCard(modifier.fillMaxWidth().testTag("agenda")) {
         Row(Modifier.fillMaxWidth().padding(start = 14.dp, end = 14.dp, top = 12.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(state.selectedLabel, style = Paper.type.title, color = colors.ink, modifier = Modifier.weight(1f))
-            if (state.plannedLabel.isNotEmpty()) MonoLabel(state.plannedLabel)
+            if (state.plannedLabel.isNotEmpty()) MonoLabel(state.plannedLabel, Modifier.padding(end = 10.dp))
+            MonoLabel("+ Add", color = colors.accent, modifier = Modifier.clickable { actions.onCreate(state.selectedDate(), null) }.padding(horizontal = 6.dp, vertical = 8.dp).testTag("agenda-add"))
         }
         if (state.agenda.isEmpty()) {
             Text("Nothing planned. Tap + to add something.", style = Paper.type.note, color = colors.muted, modifier = Modifier.padding(14.dp))

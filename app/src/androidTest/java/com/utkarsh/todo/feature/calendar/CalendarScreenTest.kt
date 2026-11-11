@@ -82,7 +82,8 @@ class CalendarScreenTest {
                         onOpenDay = { events += "day:$it" },
                         onModeChange = { events += "mode:$it" },
                         onRetry = { events += "retry" },
-                        onCreate = { date, time -> events += "create:$date:$time" },
+                        onCreate = { date, time -> events += "create:$date:${time ?: "-"}" },
+                        onEditDetail = { events += "edit" },
                         onOpenItem = { id, kind -> events += "open:$id:$kind" },
                         onCloseDetail = { events += "close-detail" },
                         onDeleteDetail = { events += "delete" },
@@ -252,6 +253,38 @@ class CalendarScreenTest {
     fun there_is_no_plus_button_here_the_one_in_the_bar_is_the_only_way_to_create() {
         show(state())
         compose.onNodeWithTag("calendar-fab").assertDoesNotExist()
+    }
+
+    // ---- creating and editing from a date
+
+    @Test
+    fun the_agenda_has_a_plus_add_that_creates_on_the_selected_day() {
+        show(state())
+        compose.onNodeWithTag("agenda-add").assertIsDisplayed()
+        compose.onNodeWithTag("agenda-add").performClick()
+        assertEquals(listOf("create:2026-11-07:-"), events)
+    }
+
+    @Test
+    fun tapping_the_selected_date_again_creates_there_but_another_date_just_selects_it() {
+        show(state())
+        compose.onNodeWithTag("day-2026-11-12").performClick()
+        compose.onNodeWithTag("day-2026-11-07").performClick() // already selected
+        assertEquals(listOf("select:2026-11-12", "create:2026-11-07:-"), events)
+    }
+
+    @Test
+    fun an_event_can_be_edited_from_its_detail_but_an_alert_only_deleted() {
+        show(state().copy(detail = DetailUi("a", AgendaKind.EVENT, "Design review", "Sat 7 Nov · 2:00 PM")))
+        compose.onNodeWithTag("detail-edit").performClick()
+        assertEquals(listOf("edit"), events)
+    }
+
+    @Test
+    fun an_alert_has_no_edit_button() {
+        show(state().copy(detail = DetailUi("r", AgendaKind.REMINDER, "Drink water", "Sat 7 Nov · 11:00 AM")))
+        compose.onNodeWithTag("detail-edit").assertDoesNotExist()
+        compose.onNodeWithTag("detail-delete").assertIsDisplayed()
     }
 
     // ---- the detail sheet

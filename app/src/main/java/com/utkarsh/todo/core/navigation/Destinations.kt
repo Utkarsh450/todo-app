@@ -13,8 +13,8 @@ sealed interface Destination {
     @Serializable data object BrainDump : Destination
     @Serializable data object Projects : Destination
     @Serializable data object Search : Destination
-    /** Screen 15. [startEpochSeconds] > 0 prefills the day and time (a tap on the calendar). */
-    @Serializable data class Create(val type: String = "TASK", val startEpochSeconds: Long = 0L) : Destination
+    /** Screen 15. [startEpochSeconds] > 0 prefills the day and time (a tap on a time slot), [epochDay] >= 0 just the day (a tap on a date), [eventId] edits that event. */
+    @Serializable data class Create(val type: String = "TASK", val startEpochSeconds: Long = 0L, val epochDay: Long = -1L, val eventId: String = "") : Destination
     @Serializable data class TaskDetail(val taskId: String) : Destination
     @Serializable data class Focus(val taskId: String) : Destination
 }

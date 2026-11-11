@@ -16,9 +16,28 @@ export class CalendarService {
     return this.db.calendarEvent.create({ data: input });
   }
 
+  async getEvent(id: string) {
+    const event = await this.db.calendarEvent.findUnique({ where: { id } });
+    if (!event) throw notFound('Event');
+    return event;
+  }
+
+  /** Moving an event moves its alerts by the same amount, so "30 min before" stays 30 min before. */
   async updateEvent(id: string, input: UpdateEventInput) {
     try {
-      return await this.db.calendarEvent.update({ where: { id }, data: input });
+      const before = input.startAt ? await this.db.calendarEvent.findUnique({ where: { id }, select: { startAt: true } }) : null;
+      const updated = await this.db.calendarEvent.update({ where: { id }, data: input });
+      if (before && input.startAt) {
+        const delta = input.startAt.getTime() - before.startAt.getTime();
+        if (delta !== 0) {
+          const alerts = await this.db.reminder.findMany({ where: { eventId: id } });
+          await Promise.all(alerts.map((a) => this.db.reminder.update({
+            where: { id: a.id },
+            data: { remindAt: new Date(a.remindAt.getTime() + delta), snoozedUntil: null },
+          })));
+        }
+      }
+      return updated;
     } catch (e) {
       if (isMissing(e)) throw notFound('Event');
       throw e;

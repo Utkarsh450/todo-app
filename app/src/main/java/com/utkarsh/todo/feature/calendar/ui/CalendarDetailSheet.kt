@@ -1,5 +1,6 @@
 package com.utkarsh.todo.feature.calendar.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -27,7 +28,7 @@ import com.utkarsh.todo.feature.calendar.domain.AgendaKind
 /** What an event or alert opened from the calendar looks like, with the one thing you can do to it. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DetailSheet(detail: DetailUi, onClose: () -> Unit, onDelete: () -> Unit) {
+fun DetailSheet(detail: DetailUi, onClose: () -> Unit, onDelete: () -> Unit, onEdit: () -> Unit = {}) {
     val colors = Paper.colors
     ModalBottomSheet(
         onDismissRequest = onClose,
@@ -40,8 +41,15 @@ fun DetailSheet(detail: DetailUi, onClose: () -> Unit, onDelete: () -> Unit) {
             Text(detail.title, style = Paper.type.display, color = colors.ink, modifier = Modifier.padding(top = 6.dp).testTag("detail-title"))
             Text(detail.whenLabel, style = Paper.type.monoMeta, color = colors.muted, modifier = Modifier.padding(top = 6.dp).testTag("detail-when"))
             detail.error?.let { Text(it, style = Paper.type.bodySmall, color = colors.accent, modifier = Modifier.padding(top = 12.dp).testTag("detail-error")) }
+            if (detail.kind == AgendaKind.EVENT) {
+                Box(
+                    Modifier.padding(top = 18.dp).fillMaxWidth().clip(RoundedCornerShape(PaperRadius.card)).background(colors.ink)
+                        .clickable(onClick = onEdit).padding(vertical = 14.dp).testTag("detail-edit"),
+                    contentAlignment = Alignment.Center,
+                ) { Text("Edit", style = Paper.type.button, color = colors.card) }
+            }
             Box(
-                Modifier.padding(top = 18.dp).fillMaxWidth().alpha(if (detail.deleting) 0.4f else 1f).clip(RoundedCornerShape(PaperRadius.card)).border(1.dp, colors.accent, RoundedCornerShape(PaperRadius.card))
+                Modifier.padding(top = if (detail.kind == AgendaKind.EVENT) 10.dp else 18.dp).fillMaxWidth().alpha(if (detail.deleting) 0.4f else 1f).clip(RoundedCornerShape(PaperRadius.card)).border(1.dp, colors.accent, RoundedCornerShape(PaperRadius.card))
                     .clickable(enabled = !detail.deleting, onClick = onDelete).padding(vertical = 14.dp).testTag("detail-delete"),
                 contentAlignment = Alignment.Center,
             ) { Text(if (detail.deleting) "Deleting…" else "Delete", style = Paper.type.button, color = colors.accent) }

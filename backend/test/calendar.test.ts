@@ -44,6 +44,22 @@ describe('calendar API (integration)', () => {
   beforeEach(async () => { await resetDatabase(ctx.db); });
   afterAll(async () => { await ctx.app.close(); });
 
+  it('reads one event, and moving it moves its alerts by the same amount', async () => {
+    const event = (await ctx.app.inject({ method: 'POST', url: '/api/events', payload: { title: 'Sync', startAt: '2026-11-07T10:00:00Z', endAt: '2026-11-07T11:00:00Z' } })).json();
+    const alert = (await ctx.app.inject({ method: 'POST', url: '/api/reminders', payload: { title: 'Sync', remindAt: '2026-11-07T09:30:00Z', eventId: event.id } })).json();
+
+    expect((await ctx.app.inject({ method: 'GET', url: `/api/events/${event.id}` })).json()).toMatchObject({ id: event.id, title: 'Sync' });
+    expect((await ctx.app.inject({ method: 'GET', url: '/api/events/00000000-0000-4000-8000-000000000000' })).statusCode).toBe(404);
+
+    await ctx.app.inject({ method: 'PATCH', url: `/api/events/${event.id}`, payload: { startAt: '2026-11-08T14:00:00Z', endAt: '2026-11-08T15:00:00Z' } });
+    const moved = (await ctx.app.inject({ method: 'GET', url: '/api/reminders' })).json().find((r: { id: string }) => r.id === alert.id);
+    expect(moved.remindAt).toBe('2026-11-08T13:30:00.000Z');
+
+    await ctx.app.inject({ method: 'PATCH', url: `/api/events/${event.id}`, payload: { title: 'Renamed' } }); // not moved: alerts stay
+    const same = (await ctx.app.inject({ method: 'GET', url: '/api/reminders' })).json().find((r: { id: string }) => r.id === alert.id);
+    expect(same.remindAt).toBe('2026-11-08T13:30:00.000Z');
+  });
+
   it('keeps an event\'s location, video link, guests and busy/free, with sensible defaults', async () => {
     const plain = (await ctx.app.inject({ method: 'POST', url: '/api/events', payload: { title: 'Plain', startAt: '2026-11-07T10:00:00Z', endAt: '2026-11-07T11:00:00Z' } })).json();
     expect(plain).toMatchObject({ location: null, videoLink: null, busy: true, guests: [] });

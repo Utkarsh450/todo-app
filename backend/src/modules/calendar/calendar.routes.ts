@@ -10,6 +10,8 @@ export const calendarRoutes: FastifyPluginAsyncZod = async (app) => {
     service.listEvents(req.query.from, req.query.to),
   );
 
+  app.get('/events/:id', { schema: { params: idParams, response: { 200: eventSchema } } }, (req) => service.getEvent(req.params.id));
+
   app.post('/events', { schema: { body: createEventBody, response: { 201: eventSchema } } }, async (req, reply) =>
     reply.status(201).send(await service.createEvent(req.body)),
   );
