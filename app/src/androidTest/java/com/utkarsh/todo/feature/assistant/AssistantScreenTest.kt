@@ -26,7 +26,7 @@ class AssistantScreenTest {
 
     private val events = mutableListOf<String>()
 
-    private fun show(state: AssistantUiState) {
+    private fun show(state: AssistantUiState, withMic: Boolean = false) {
         events.clear()
         compose.setContent {
             PaperTheme {
@@ -40,6 +40,7 @@ class AssistantScreenTest {
                     onSkip = { events += "skip:$it" },
                     onAcceptAll = { events += "all:$it" },
                     onRetry = { events += "retry:$it" },
+                    onMic = if (withMic) ({ events += "mic" }) else null,
                 )
             }
         }
@@ -68,8 +69,31 @@ class AssistantScreenTest {
         compose.onNodeWithTag("assistant-empty").assertIsDisplayed()
         compose.onNodeWithText("Plan my day").assertIsDisplayed()
         compose.onNodeWithText("What's slipping?").assertIsDisplayed()
-        compose.onNodeWithText("Ask Grok, or say what to add…").assertIsDisplayed()
-        compose.onNodeWithText("Grok can make mistakes. Nothing changes until you accept.").assertIsDisplayed()
+        compose.onNodeWithText("Ask Grok, or tap the mic").assertIsDisplayed()
+    }
+
+    @Test
+    fun the_mic_shows_only_when_the_device_can_listen_and_reports_a_tap() {
+        show(AssistantUiState())
+        compose.onNodeWithTag("assistant-mic").assertDoesNotExist()
+    }
+
+    @Test
+    fun tapping_the_mic_starts_listening() {
+        show(AssistantUiState(), withMic = true)
+        compose.onNodeWithTag("assistant-mic").performClick()
+        assertEquals(listOf("mic"), events)
+    }
+
+    @Test
+    fun suggestions_are_compact_rows_with_round_accept_and_skip_buttons() {
+        show(answered)
+        compose.onNodeWithTag("accept-1").assertIsDisplayed()
+        compose.onNodeWithTag("skip-1").assertIsDisplayed()
+        compose.onNodeWithText("Accept").assertDoesNotExist() // no wide text buttons any more
+        compose.onNodeWithTag("accept-2").performClick()
+        compose.onNodeWithTag("skip-1").performClick()
+        assertEquals(listOf("accept:2", "skip:1"), events)
     }
 
     @Test

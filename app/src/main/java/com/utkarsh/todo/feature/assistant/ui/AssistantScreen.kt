@@ -1,5 +1,10 @@
 package com.utkarsh.todo.feature.assistant.ui
 
+import android.app.Activity
+import android.content.Intent
+import android.speech.RecognizerIntent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -27,14 +32,19 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.ImeAction
@@ -48,6 +58,7 @@ import com.utkarsh.todo.core.designsystem.component.PaperCard
 import com.utkarsh.todo.core.designsystem.component.SkeletonCard
 import com.utkarsh.todo.core.designsystem.component.SkeletonParagraph
 import com.utkarsh.todo.core.designsystem.component.SkeletonSurface
+import com.utkarsh.todo.core.designsystem.icon.PaperIcons
 import com.utkarsh.todo.core.designsystem.theme.Paper
 import com.utkarsh.todo.core.designsystem.theme.PaperRadius
 import com.utkarsh.todo.core.designsystem.theme.paperSurface
@@ -57,6 +68,19 @@ val QuickPrompts = listOf("Plan my day", "What's slipping?", "Review my week", "
 @Composable
 fun AssistantRoute(onBack: () -> Unit, modifier: Modifier = Modifier, viewModel: AssistantViewModel = hiltViewModel()) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    // Voice goes through the system speech dialog (no microphone permission); the button only shows when a recogniser exists.
+    val context = LocalContext.current
+    val voice = remember {
+        Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
+            .putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            .putExtra(RecognizerIntent.EXTRA_PROMPT, "Ask Grok")
+    }
+    val voiceAvailable = remember { voice.resolveActivity(context.packageManager) != null }
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()?.let { spoken -> viewModel.ask(spoken) }
+        }
+    }
     AssistantScreen(
         state = state,
         onBack = onBack,
@@ -67,6 +91,7 @@ fun AssistantRoute(onBack: () -> Unit, modifier: Modifier = Modifier, viewModel:
         onSkip = viewModel::skip,
         onAcceptAll = viewModel::acceptAll,
         onRetry = viewModel::retry,
+        onMic = if (voiceAvailable) ({ launcher.launch(voice) }) else null,
         modifier = modifier,
     )
 }
@@ -83,27 +108,32 @@ fun AssistantScreen(
     onAcceptAll: (Int) -> Unit,
     onRetry: (Int) -> Unit,
     modifier: Modifier = Modifier,
+    /** Shows the microphone in the composer when set (the device has a speech recogniser). */
+    onMic: (() -> Unit)? = null,
 ) {
     val colors = Paper.colors
     val listState = rememberLazyListState()
     LaunchedEffect(state.turns.size, state.turns.lastOrNull()?.loading) {
-        if (state.turns.isNotEmpty()) listState.animateScrollToItem(state.turns.size) // index 0 is the header
+        if (state.turns.isNotEmpty()) listState.animateScrollToItem(state.turns.size) // index 0 is the intro item
     }
 
     Column(modifier.fillMaxSize().paperSurface().statusBarsPadding().imePadding()) {
-        Text(
-            "‹ Back", style = Paper.type.button, color = colors.ink,
-            modifier = Modifier.padding(start = 20.dp, top = 14.dp).clickable(onClick = onBack).padding(end = 12.dp, top = 4.dp, bottom = 4.dp).testTag("assistant-back"),
-        )
+        Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                "‹", style = Paper.type.title, color = colors.ink,
+                modifier = Modifier.semantics { contentDescription = "Back" }.clip(RoundedCornerShape(8.dp)).clickable(onClick = onBack).padding(end = 14.dp, top = 2.dp, bottom = 2.dp).testTag("assistant-back"),
+            )
+            Text("✦ Ask Grok", style = Paper.type.title, color = colors.ink, modifier = Modifier.testTag("assistant-title"))
+            Box(Modifier.weight(1f))
+            MonoLabel("Sees your open tasks")
+        }
+        HorizontalDivider(Modifier.padding(top = 10.dp), color = colors.rule)
         LazyColumn(Modifier.weight(1f), state = listState, contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 20.dp, vertical = 8.dp)) {
             item {
-                MonoLabel("✦ Assistant · Grok", color = colors.accent)
-                Text("Ask Grok", style = Paper.type.displayLarge, color = colors.ink, modifier = Modifier.padding(top = 4.dp).testTag("assistant-title"))
-                MonoLabel("Grok · sees your open tasks", Modifier.padding(top = 6.dp, bottom = 14.dp))
                 if (state.turns.isEmpty()) {
                     Text(
-                        "Ask about your day, or tell me what to add: tasks, calendar events, reminders. I can also move, split, tick off or re-prioritise tasks. You decide what happens.",
-                        style = Paper.type.note, color = colors.muted, modifier = Modifier.testTag("assistant-empty"),
+                        "Ask about your day, or tell me what to add: tasks, calendar events, alerts. I can also move, split, tick off or re-prioritise tasks. You decide what happens.",
+                        style = Paper.type.note, color = colors.muted, modifier = Modifier.padding(top = 10.dp).testTag("assistant-empty"),
                     )
                 }
             }
@@ -130,31 +160,32 @@ fun AssistantScreen(
                     )
                 }
             }
-            InputRow(state.input, state.busy, onInputChange, onSend)
-            Text(
-                "Grok can make mistakes. Nothing changes until you accept.",
-                style = Paper.type.bodySmall, color = colors.muted, textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-            )
+            InputRow(state.input, state.busy, onInputChange, onSend, onMic)
         }
     }
 }
 
 @Composable
-private fun InputRow(text: String, busy: Boolean, onChange: (String) -> Unit, onSend: () -> Unit) {
+private fun InputRow(text: String, busy: Boolean, onChange: (String) -> Unit, onSend: () -> Unit, onMic: (() -> Unit)?) {
     val colors = Paper.colors
     val canSend = text.isNotBlank() && !busy
     Row(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(PaperRadius.card)).background(colors.card).border(1.dp, colors.rule, RoundedCornerShape(PaperRadius.card)).padding(start = 14.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(50)).background(colors.card).border(1.dp, colors.rule, RoundedCornerShape(50)).padding(start = 6.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(Modifier.weight(1f)) {
+        onMic?.let { mic ->
+            Box(
+                Modifier.padding(end = 10.dp).size(38.dp).alpha(if (busy) 0.4f else 1f).clip(CircleShape).background(colors.soft).clickable(enabled = !busy, onClick = mic).testTag("assistant-mic"),
+                contentAlignment = Alignment.Center,
+            ) { Icon(PaperIcons.Mic, contentDescription = "Speak", tint = colors.ink, modifier = Modifier.size(18.dp)) }
+        }
+        Box(Modifier.weight(1f).padding(end = 8.dp)) {
             BasicTextField(
                 value = text, onValueChange = onChange, textStyle = Paper.type.body.copy(color = colors.ink), cursorBrush = SolidColor(colors.ink),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send), keyboardActions = KeyboardActions(onSend = { if (canSend) onSend() }),
                 maxLines = 4, modifier = Modifier.fillMaxWidth().testTag("assistant-input"),
             )
-            if (text.isEmpty()) Text("Ask Grok, or say what to add…", style = Paper.type.body, color = colors.muted)
+            if (text.isEmpty()) Text("Ask Grok, or tap the mic", style = Paper.type.body, color = colors.muted)
         }
         Box(
             Modifier.size(38.dp).alpha(if (canSend) 1f else 0.4f).clip(CircleShape).background(colors.accent).clickable(enabled = canSend, onClick = onSend).testTag("assistant-send"),
@@ -216,37 +247,40 @@ private fun Turn(turn: TurnUi, onAccept: (Int) -> Unit, onSkip: (Int) -> Unit, o
 private fun SuggestionRow(s: SuggestionUi, onAccept: (Int) -> Unit, onSkip: (Int) -> Unit) {
     val colors = Paper.colors
     val dim = s.status == SuggestionStatus.SKIPPED || s.status == SuggestionStatus.ACCEPTED
-    Column(Modifier.fillMaxWidth().padding(14.dp).testTag("suggestion-${s.id}")) {
-        Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp).testTag("suggestion-${s.id}")) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Text(
                 s.kind.label.uppercase(), style = Paper.type.monoLabel, color = colors.ink,
-                modifier = Modifier.padding(top = 2.dp).border(BorderStroke(1.dp, colors.ink), RoundedCornerShape(4.dp)).padding(horizontal = 6.dp, vertical = 2.dp),
+                modifier = Modifier.border(BorderStroke(1.dp, colors.ink), RoundedCornerShape(4.dp)).padding(horizontal = 6.dp, vertical = 2.dp),
             )
             Column(Modifier.weight(1f).alpha(if (dim) 0.5f else 1f)) {
                 Text(s.title, style = Paper.type.body, color = colors.ink, textDecoration = if (s.status == SuggestionStatus.SKIPPED) TextDecoration.LineThrough else null)
-                if (s.reason.isNotBlank()) Text(s.reason, style = Paper.type.bodySmall, color = colors.muted, modifier = Modifier.padding(top = 2.dp))
-                if (s.steps.isNotEmpty()) Text(s.steps.joinToString("  ·  "), style = Paper.type.bodySmall, color = colors.muted, modifier = Modifier.padding(top = 4.dp))
+                if (s.reason.isNotBlank()) Text(s.reason, style = Paper.type.bodySmall, color = colors.muted, maxLines = 2)
+                if (s.steps.isNotEmpty()) Text(s.steps.joinToString("  ·  "), style = Paper.type.bodySmall, color = colors.muted, maxLines = 2)
+            }
+            when (s.status) {
+                SuggestionStatus.ACCEPTED -> MonoLabel("✓ Done", Modifier.testTag("status-${s.id}"), color = colors.muted)
+                SuggestionStatus.SKIPPED -> MonoLabel("Skipped", Modifier.testTag("status-${s.id}"), color = colors.muted)
+                SuggestionStatus.WORKING -> MonoLabel("Applying…", Modifier.testTag("status-${s.id}"), color = colors.muted)
+                SuggestionStatus.PENDING, SuggestionStatus.FAILED -> Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    RoundAction("✕", "Skip", filled = false, tag = "skip-${s.id}") { onSkip(s.id) }
+                    RoundAction("✓", "Accept", filled = true, tag = "accept-${s.id}") { onAccept(s.id) }
+                }
             }
         }
-        when (s.status) {
-            SuggestionStatus.ACCEPTED -> MonoLabel("✓ Done", Modifier.padding(top = 10.dp).testTag("status-${s.id}"), color = colors.muted)
-            SuggestionStatus.SKIPPED -> MonoLabel("Skipped", Modifier.padding(top = 10.dp).testTag("status-${s.id}"), color = colors.muted)
-            SuggestionStatus.WORKING -> MonoLabel("Applying…", Modifier.padding(top = 10.dp).testTag("status-${s.id}"), color = colors.muted)
-            SuggestionStatus.PENDING, SuggestionStatus.FAILED -> {
-                if (s.status == SuggestionStatus.FAILED) {
-                    Text("Couldn't apply that. Tap Accept to try again.", style = Paper.type.bodySmall, color = colors.accent, modifier = Modifier.padding(top = 8.dp).testTag("failed-${s.id}"))
-                }
-                Row(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(
-                        "Accept", style = Paper.type.button, color = colors.card,
-                        modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(colors.ink).clickable { onAccept(s.id) }.padding(horizontal = 16.dp, vertical = 9.dp).testTag("accept-${s.id}"),
-                    )
-                    Text(
-                        "Skip", style = Paper.type.button, color = colors.ink,
-                        modifier = Modifier.clip(RoundedCornerShape(8.dp)).border(1.dp, colors.rule, RoundedCornerShape(8.dp)).clickable { onSkip(s.id) }.padding(horizontal = 16.dp, vertical = 9.dp).testTag("skip-${s.id}"),
-                    )
-                }
-            }
+        if (s.status == SuggestionStatus.FAILED) {
+            Text("Couldn't apply that. Tap ✓ to try again.", style = Paper.type.bodySmall, color = colors.accent, modifier = Modifier.padding(top = 6.dp).testTag("failed-${s.id}"))
         }
     }
+}
+
+/** The small round ✓ / ✕ buttons at the end of a suggestion row. */
+@Composable
+private fun RoundAction(glyph: String, label: String, filled: Boolean, tag: String, onClick: () -> Unit) {
+    val colors = Paper.colors
+    Box(
+        Modifier.size(36.dp).clip(CircleShape).background(if (filled) colors.ink else colors.card).border(1.dp, if (filled) colors.ink else colors.rule, CircleShape)
+            .semantics { contentDescription = label }.clickable(onClick = onClick).testTag(tag),
+        contentAlignment = Alignment.Center,
+    ) { Text(glyph, style = Paper.type.button, color = if (filled) colors.card else colors.ink) }
 }
