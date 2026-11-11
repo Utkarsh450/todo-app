@@ -18,7 +18,7 @@ Visual design is the "Paper System" (see **Design** below). Read this file first
 app/src/main/java/com/utkarsh/todo/
   core/            common (Clock, DayRange, resultOf), designsystem (theme/, component/, icon/), navigation, network
   feature/<name>/  domain/ (models, repository interfaces, pure logic)  data/ (Retrofit api, repo impl, Hilt module)  ui/ (ViewModel + Compose)
-    projects tasks quickadd today taskdetail reminders calendar habits notes insights customize
+    projects tasks create today taskdetail reminders(Due soon + alert platform) calendar notes insights customize assistant braindump breakdown focus search
 backend/src/
   app.ts server.ts  config/env.ts  lib/ (logger=winston, prisma, errors)
   modules/<name>/ (*.schema.ts zod, *.service.ts, *.routes.ts)   health projects tasks reminders calendar habits notes insights
@@ -50,7 +50,7 @@ pnpm build && node --env-file=.env dist/server.js
 pnpm prisma:migrate / prisma:deploy / prisma:seed
 ```
 Result files: `app/build/test-results/testDebugUnitTest/*.xml`, `app/build/outputs/androidTest-results/connected/debug/*.xml`.
-Test counts at last run: see the final run in the git log (backend 183, Android unit, emulator; the 5 end-to-end tests skip without a running backend).
+Test counts at last run: backend 192, Android JVM unit ~390, emulator 224 (the 5 end-to-end tests skip without a running backend).
 
 ## Database
 Local PostgreSQL 16 (Homebrew), browse with pgAdmin. Databases: `paper_todo` (dev) and `paper_todo_test` (tests; the
@@ -66,7 +66,15 @@ Source file was a private claude.ai design ("Todo Components.dc.html"), unpacked
 vermilion `#C4532F`. Fonts: Newsreader (serif), Schibsted Grotesk (sans), IBM Plex Mono (labels) are **bundled** in `res/font`
 (OFL, licence texts in `assets/licenses`; Newsreader/Schibsted are variable fonts, set per weight in `PaperFonts` in `Type.kt`). Launcher icon:
 adaptive vector (paper + ink checkbox + vermilion dot, with a themed monochrome layer) in `res/drawable/ic_launcher_*` and `res/mipmap-anydpi-v26`.
-Screens: Today, Task page, Quick add, Planner (= Calendar "Week"), Calendar, Reminders, Insights, Customize.
+Screens (updated design, see **Design handoff**): Today, Task page, Create (+), Due soon, Calendar, Projects, Insights, Customize, Assistant, Focus, Search.
+
+## Design handoff (Nov 2026 redesign)
+The designs were updated in the claude.ai design project (`HANDOFF.md`, `Todo Components.dc.html`, walkthroughs). Rules from it, all applied:
+bottom bar **Today · Calendar · + · Projects · Insights**; the + opens **Create** (`feature/create`) and is the only way to make things;
+only **Task** and **Event** exist, **no Reminders tab or type** (a reminder is an *alert* on a task/event; what is due soon shows as a banner
+on Today that opens **Due soon**, `feature/reminders/ui/DueSoonScreen`); **no habits** (the app side was removed, the backend habits API still exists);
+Create uses chips with "Pick date…" / "Custom…" pickers; alerts have a style, NOTIFICATION (ordinary notification with Done / Snooze) or ALARM (rings, full screen).
+Not built yet from the design: the Event editor screen (guests, video link, show-as), place triggers ("when I leave the office"), the Android 14 full-screen permission prompt.
 
 ## Status
 Done + tested + pushed: backend (all modules), design system, networking, projects, tasks, quick add (Task only), Today
@@ -131,13 +139,12 @@ Focus (11) is built (`feature/focus/ui`; "Focus · 25:00" on the task page -> `D
 - `AppSettings.blockOrder` must list every `TodayBlock` exactly once (enforced in `init`); hidden blocks keep their slot.
   `hiddenBlocks` absent in DataStore means "never saved" (design default: scratchpad off), an empty set means "show all".
 - DataStore files must be opened once per process: in tests cancel the first store's scope before reopening the same file.
-- Quick add: `QuickAddType.kinds` decides which tokens `QuickAddParser.parse(text, kinds)` recognises. A Note is taken raw (no
+- (Removed) Quick add and its parser (`fri 3pm #Design !high`) were replaced by the Create screen; `git log` has them if the text parser is wanted back. Old note: `QuickAddType.kinds` decided which tokens `QuickAddParser.parse(text, kinds)` recognises. A Note is taken raw (no
   parsing, line breaks kept), an Event only reads day/time + `#project`, so `!high` / `every …` stay in its title. An Event with a
   day but no time is all-day; with a time it is one hour; with no date it starts at the next full hour.
 - `NotesRepository.append` must read the note before writing (the API's PUT replaces the whole text); it writes nothing if the read fails.
 - `changes` flows (`TasksRepository`, `CalendarRepository`, `NotesRepository`) only work because the impls are `@Singleton`.
   `NoteViewModel` reloads on `changes` unless an edit is still waiting to be saved.
-- `QuickAddContent` shows the Task/Note/Event switch only when `onTypeChange` is passed; the Reminders sheet reuses it without one.
 - Integration tests that go through real Retrofit finish on other threads: wait with `withTimeout` instead of asserting at once,
   and wait for the view-model's background project lookup before submitting (see `QuickAddIntegrationTest`).
 - A failed action must not have its error message cleared by the recovery reload (`TodayViewModel.load(clearError=false)`).
@@ -153,5 +160,8 @@ Focus (11) is built (`feature/focus/ui`; "Focus · 25:00" on the task page -> `D
 - Event alerts: `NewEvent.alertMinutes` (default 30) makes `CalendarRepositoryImpl.createEvent` also create a reminder with `eventId` set (backend column, cascade on event
   delete); all-day events ring at 09:00; an alert already in the past is skipped; a failing alert never fails the event. Stand-alone reminders (no task, no event) show on the
   calendar agenda as `reminder`; task reminders and event alerts do not (they would repeat the task or event).
-- Calendar: `CalendarViewModel` owns the create draft (`CreateDraft`) and the detail sheet; `TimeGrid` (week/day) taps map to half-hour slots (`slotMinutes`). In Compose tests a
+- Calendar: `CalendarViewModel` owns the detail sheet; modes Schedule/Day/3 days/Week/Month; a tap on an empty slot of the `TimeGrid` calls `onCreate(date, time)` which navigates to `Destination.Create("EVENT", startEpochSeconds)`; taps map to half-hour slots (`slotMinutes`). In Compose tests a
   child of a `clickable` parent is only found with `useUnmergedTree = true`. After `pnpm prisma:deploy` + `pnpm build`, restart the dev backend so it knows `eventId`.
+- Create: `CreateForm` (pure) -> `CreateViewModel` -> `CreateScreen`. Saving a task makes the task, then one reminder per chosen alert offset that is still ahead (taskId set, `style` from the form); saving an event passes `alerts` + `alertStyle` to `CalendarRepository.createEvent`, which makes the reminders (an all-day event rings once at 09:00). New alerts default to NOTIFICATION; alerts made elsewhere (assistant, old data) are ALARM, which is also the DB default.
+- Alert style: `Reminder.style` (backend enum `AlertStyle`) travels in the alarm intent (`ReminderReceiver.EXTRA_STYLE`), the on-device store and the notification: ALARM = channel `reminder_alerts`, insistent + full-screen; NOTIFICATION = channel `alert_notifications`, plain heads-up. Done ticks off the task (`ReminderDone`); Snooze 10 min.
+- After `pnpm prisma:deploy` of `20261111120000_reminder_style` (also on Neon) rebuild and restart the backend. Prisma refuses `migrate reset` from an agent without the owner's consent: fix a test DB by hand instead.

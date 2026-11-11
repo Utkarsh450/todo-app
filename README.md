@@ -1,14 +1,14 @@
 # Paper Todo
 
-A todo app with reminders, a calendar planner, habits and insights, styled after the "Paper System" design.
+A todo app with tasks, events and alerts, a calendar planner and insights, styled after the "Paper System" design.
 
 - **App:** Kotlin, Jetpack Compose, Hilt, Retrofit + kotlinx.serialization, AlarmManager reminders. Feature-based packages.
 - **Backend:** Node, Fastify 5, TypeScript 7, Prisma 7, PostgreSQL, winston, zod. Managed with pnpm.
 
 ## Features
-Today (pinned card, task list with swipe to move/archive and undo, Plan view, habit tracker, scratchpad) ·
-Task page with subtasks · Quick add (Task, Note or Event) that parses `fri 3pm #Design !high every monday` · Reminders (grouped, snooze, repeat,
-real device alarms, notifications, survive reboot) · Calendar month grid + week timeline · Insights heat-map, streak and
+Today (pinned card, task list with swipe to move/archive and undo, Plan view, Due soon banner, scratchpad) ·
+Task page with subtasks · Create screen (Task or Event; day, time, alerts, repeat, priority, project as chips) · Due soon (alerts grouped, snooze, repeat,
+real device alarms, notifications, survive reboot) · Calendar (schedule, day, 3 days, week, month; tap a slot to create) · Insights heat-map, streak and
 weekly rhythm · Customize (choose, reorder and hide Today blocks, paper texture, row density) · **Break it down**
 (on a task page, Grok suggests subtasks; you untick the ones you don't want, nothing is added until you confirm) ·
 **Assistant** (the ✦ on Today: ask "Plan my day" or "What's slipping?"; Grok sees your open tasks and suggests moving, splitting or
