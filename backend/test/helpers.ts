@@ -23,6 +23,6 @@ export async function createTestApp(ai?: AiClient): Promise<TestContext> {
 /** Empties every table so each test starts from a clean slate. */
 export async function resetDatabase(db: Db): Promise<void> {
   await db.$executeRawUnsafe(
-    'TRUNCATE TABLE "HabitLog", "Habit", "Reminder", "Subtask", "Task", "CalendarEvent", "DailyNote", "Project" RESTART IDENTITY CASCADE',
+    'TRUNCATE TABLE "HabitLog", "Habit", "Reminder", "Subtask", "Task", "CalendarEvent", "DailyNote", "Project", "ChatMessage", "Memory", "ChatSummary" RESTART IDENTITY CASCADE',
   );
 }

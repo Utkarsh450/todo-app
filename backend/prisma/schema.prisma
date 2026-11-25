@@ -130,3 +130,54 @@ model DailyNote {
   text      String   @default("")
   updatedAt DateTime @updatedAt
 }
+
+enum ChatRole {
+  USER
+  ASSISTANT
+}
+
+enum MemoryCategory {
+  ROUTINE
+  PREFERENCE
+  PERSON
+  COMMITMENT
+  OTHER
+}
+
+enum MemorySource {
+  AUTO
+  USER
+}
+
+/// One message of the assistant conversation (there is a single running thread). An assistant message keeps its
+/// suggestions and, per suggestion index, what the owner did with it: `outcomes` is `{ "0": "accepted", ... }`.
+model ChatMessage {
+  id          String   @id @default(uuid()) @db.Uuid
+  role        ChatRole
+  content     String
+  suggestions Json?
+  outcomes    Json?
+  createdAt   DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+/// A short fact about the owner that the assistant keeps across conversations ("wakes at 7").
+model Memory {
+  id        String         @id @default(uuid()) @db.Uuid
+  text      String
+  category  MemoryCategory @default(OTHER)
+  source    MemorySource
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  @@index([updatedAt])
+}
+
+/// The rolling summary of the conversation older than the recent window. Always the single row with id 1.
+model ChatSummary {
+  id          Int       @id @default(1)
+  text        String    @default("")
+  coversUntil DateTime?
+  updatedAt   DateTime  @updatedAt
+}
