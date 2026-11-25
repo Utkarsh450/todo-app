@@ -4,6 +4,10 @@ import com.utkarsh.todo.feature.ai.domain.AiException
 import com.utkarsh.todo.feature.ai.domain.AiRepository
 import com.utkarsh.todo.feature.ai.domain.AssistantReply
 import com.utkarsh.todo.feature.ai.domain.AssistantSuggestion
+import com.utkarsh.todo.feature.ai.domain.HistoryPage
+import com.utkarsh.todo.feature.ai.domain.MemoryFact
+import com.utkarsh.todo.feature.ai.domain.StoredMessage
+import com.utkarsh.todo.core.offline.CacheFirst
 import com.utkarsh.todo.feature.assistant.ui.AssistantViewModel
 import com.utkarsh.todo.feature.assistant.ui.SuggestionKind
 import com.utkarsh.todo.feature.assistant.ui.SuggestionStatus
@@ -60,6 +64,8 @@ class AssistantViewModelTest {
     fun setUp() {
         Dispatchers.setMain(UnconfinedTestDispatcher())
         coEvery { ai.assist(any(), any()) } returns Result.success(AssistantReply("A lighter shape for today.", listOf(move, split, priority)))
+        coEvery { ai.history(any(), any()) } returns Result.success(HistoryPage(emptyList(), null))
+        coEvery { ai.reportOutcome(any(), any(), any()) } returns Result.success(Unit)
         coEvery { tasks.update(any(), any()) } answers { Result.success(task(firstArg())) }
         coEvery { tasks.create(any()) } returns Result.success(task("new"))
         coEvery { tasks.setDone(any(), any()) } answers { Result.success(task(firstArg())) }
@@ -360,5 +366,145 @@ class AssistantViewModelTest {
         assertEquals(SuggestionStatus.ACCEPTED, vm.statuses().single())
         vm.accept(id) // already done: ignored
         coVerify(exactly = 2) { calendar.createEvent(any()) }
+    }
+
+    // ---- history, memory and outcomes
+
+    private fun message(id: String, fromOwner: Boolean, text: String, suggestions: List<AssistantSuggestion> = emptyList(), outcomes: Map<Int, String> = emptyMap()) =
+        StoredMessage(id, fromOwner, text, suggestions, suggestions.indices.toList(), outcomes)
+
+    @Test
+    fun `opening shows the saved conversation oldest to newest, with what happened to its suggestions`() {
+        coEvery { ai.history(any(), any()) } returns Result.success(
+            HistoryPage(
+                listOf(
+                    message("a2", false, "Done.", listOf(move, split, priority), outcomes = mapOf(0 to "accepted", 1 to "skipped")),
+                    message("u2", true, "Plan my day"),
+                    message("a1", false, "Hello."),
+                    message("u1", true, "Hi"),
+                ),
+                nextBefore = null,
+            ),
+        )
+
+        val state = viewModel().uiState.value
+
+        assertFalse(state.loadingHistory)
+        assertEquals(listOf("Hi", "Plan my day"), state.turns.map { it.question })
+        assertEquals(listOf("Hello.", "Done."), state.turns.map { it.reply })
+        assertEquals(listOf(SuggestionStatus.ACCEPTED, SuggestionStatus.SKIPPED, SuggestionStatus.PENDING), state.turns[1].suggestions.map { it.status })
+        assertEquals("a2", state.turns[1].messageId)
+        assertFalse(state.hasOlder)
+    }
+
+    @Test
+    fun `older history loads on request and goes before what is shown`() {
+        coEvery { ai.history(null, any()) } returns Result.success(HistoryPage(listOf(message("a2", false, "R2"), message("u2", true, "Q2")), nextBefore = "u2"))
+        coEvery { ai.history("u2", any()) } returns Result.success(HistoryPage(listOf(message("a1", false, "R1"), message("u1", true, "Q1")), nextBefore = null))
+        val vm = viewModel()
+        assertTrue(vm.uiState.value.hasOlder)
+
+        vm.loadOlder()
+
+        assertEquals(listOf("Q1", "Q2"), vm.uiState.value.turns.map { it.question })
+        assertFalse(vm.uiState.value.hasOlder)
+    }
+
+    @Test
+    fun `a history failure leaves an empty chat, not an error`() {
+        coEvery { ai.history(any(), any()) } returns Result.failure(AiException("Can't reach the server."))
+
+        val state = viewModel().uiState.value
+
+        assertFalse(state.loadingHistory)
+        assertTrue(state.turns.isEmpty())
+        assertNull(state.notice)
+    }
+
+    @Test
+    fun `a question asked while the history is still loading keeps its place when the history arrives`() {
+        val gate = CompletableDeferred<Result<HistoryPage>>()
+        coEvery { ai.history(any(), any()) } coAnswers { if (CacheFirst.isActive()) Result.failure(AiException("no saved copy")) else gate.await() }
+        val vm = viewModel()
+        assertTrue(vm.uiState.value.loadingHistory)
+
+        vm.ask("What now?")
+        gate.complete(Result.success(HistoryPage(listOf(message("a1", false, "Hello."), message("u1", true, "Hi")), nextBefore = null)))
+
+        assertEquals(listOf("Hi", "What now?"), vm.uiState.value.turns.map { it.question })
+        assertFalse(vm.uiState.value.loadingHistory)
+    }
+
+    @Test
+    fun `a reply with noted facts shows Noted lines, and undo forgets the fact`() {
+        coEvery { ai.assist(any(), any()) } returns Result.success(AssistantReply("Noted.", emptyList(), "m1", listOf(MemoryFact("f1", "Wakes at 7", "ROUTINE"))))
+        coEvery { ai.deleteMemory("f1") } returns Result.success(Unit)
+        val vm = viewModel()
+        vm.ask("I wake at 7")
+        val turn = vm.uiState.value.turns.single()
+        assertEquals(listOf("Wakes at 7"), turn.noted.map { it.text })
+        assertFalse(turn.noted.single().undone)
+
+        vm.undoNoted(turn.id, "f1")
+
+        assertTrue(vm.uiState.value.turns.single().noted.single().undone)
+        coVerify(exactly = 1) { ai.deleteMemory("f1") }
+    }
+
+    @Test
+    fun `undoing a fact that is already gone is not an error`() {
+        coEvery { ai.assist(any(), any()) } returns Result.success(AssistantReply("Noted.", emptyList(), "m1", listOf(MemoryFact("f1", "Wakes at 7", "ROUTINE"))))
+        coEvery { ai.deleteMemory("f1") } returns Result.failure(AiException("That is not there any more.", notFound = true))
+        val vm = viewModel()
+        vm.ask("I wake at 7")
+
+        vm.undoNoted(vm.uiState.value.turns.single().id, "f1")
+
+        assertTrue(vm.uiState.value.turns.single().noted.single().undone)
+        assertNull(vm.uiState.value.notice)
+    }
+
+    @Test
+    fun `a failing undo puts the line back and says so`() {
+        coEvery { ai.assist(any(), any()) } returns Result.success(AssistantReply("Noted.", emptyList(), "m1", listOf(MemoryFact("f1", "Wakes at 7", "ROUTINE"))))
+        coEvery { ai.deleteMemory("f1") } returns Result.failure(AiException("Can't reach the server."))
+        val vm = viewModel()
+        vm.ask("I wake at 7")
+
+        vm.undoNoted(vm.uiState.value.turns.single().id, "f1")
+
+        assertFalse(vm.uiState.value.turns.single().noted.single().undone)
+        assertEquals("Couldn't undo that. Try again.", vm.uiState.value.notice)
+        vm.dismissNotice()
+        assertNull(vm.uiState.value.notice)
+    }
+
+    @Test
+    fun `accept and skip report the outcome with the servers own index`() {
+        coEvery { ai.assist(any(), any()) } returns Result.success(AssistantReply("ok", listOf(split, priority), "m1", suggestionIndexes = listOf(1, 2)))
+        val vm = viewModel()
+        vm.ask("x")
+        val (first, second) = vm.uiState.value.turns.single().suggestions.map { it.id }
+
+        vm.skip(first)
+        vm.accept(second)
+
+        coVerify(exactly = 1) { ai.reportOutcome("m1", 1, false) }
+        coVerify(exactly = 1) { ai.reportOutcome("m1", 2, true) }
+    }
+
+    @Test
+    fun `a failed accept reports nothing, and nothing is reported without a message id`() {
+        coEvery { ai.assist(any(), any()) } returns Result.success(AssistantReply("ok", listOf(newEvent), "m1"))
+        coEvery { calendar.createEvent(any()) } returns Result.failure(RuntimeException("offline"))
+        val vm = viewModel()
+        vm.ask("x")
+        vm.accept(vm.uiState.value.turns.single().suggestions.single().id)
+        coVerify(exactly = 0) { ai.reportOutcome(any(), any(), any()) }
+
+        coEvery { ai.assist(any(), any()) } returns Result.success(AssistantReply("ok", listOf(split)))
+        vm.ask("y")
+        vm.skip(vm.uiState.value.turns.last().suggestions.single().id)
+        coVerify(exactly = 0) { ai.reportOutcome(any(), any(), any()) }
     }
 }

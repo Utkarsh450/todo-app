@@ -410,6 +410,16 @@ class AiRepositoryTest {
     }
 
     @Test
+    fun `deleting a memory that is already gone says so with the notFound flag`() = runTest {
+        server.enqueue(json(404, """{"error":"NOT_FOUND","message":"Memory not found"}"""))
+
+        val error = repository.deleteMemory(factId).exceptionOrNull() as AiException
+
+        assertTrue(error.notFound)
+        assertFalse(error.notConfigured)
+    }
+
+    @Test
     fun `a refused memory becomes a failure with the server's own reason`() = runTest {
         server.enqueue(json(422, """{"error":"MEMORY_REFUSED","message":"I do not keep passwords, keys, tokens or card and ID numbers."}"""))
 

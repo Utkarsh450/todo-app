@@ -5,7 +5,7 @@ import java.time.Instant
 import java.time.ZoneId
 
 /** Why an AI request failed, in words that are safe to show. [notConfigured] means the server has no API key yet. */
-class AiException(message: String, val notConfigured: Boolean = false) : Exception(message)
+class AiException(message: String, val notConfigured: Boolean = false, val notFound: Boolean = false) : Exception(message)
 
 /** One change the assistant proposes. Nothing happens until the person accepts it. */
 sealed interface AssistantSuggestion {

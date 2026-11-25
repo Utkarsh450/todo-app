@@ -92,6 +92,9 @@ fun AssistantRoute(onBack: () -> Unit, modifier: Modifier = Modifier, viewModel:
         onAcceptAll = viewModel::acceptAll,
         onRetry = viewModel::retry,
         onMic = if (voiceAvailable) ({ launcher.launch(voice) }) else null,
+        onUndoNoted = viewModel::undoNoted,
+        onLoadOlder = viewModel::loadOlder,
+        onDismissNotice = viewModel::dismissNotice,
         modifier = modifier,
     )
 }
@@ -110,11 +113,16 @@ fun AssistantScreen(
     modifier: Modifier = Modifier,
     /** Shows the microphone in the composer when set (the device has a speech recogniser). */
     onMic: (() -> Unit)? = null,
+    /** Takes back a fact the assistant noted: the turn's id and the fact's id. */
+    onUndoNoted: (Int, String) -> Unit = { _, _ -> },
+    onLoadOlder: () -> Unit = {},
+    onDismissNotice: () -> Unit = {},
 ) {
     val colors = Paper.colors
     val listState = rememberLazyListState()
-    LaunchedEffect(state.turns.size, state.turns.lastOrNull()?.loading) {
-        if (state.turns.isNotEmpty()) listState.animateScrollToItem(state.turns.size) // index 0 is the intro item
+    // Follow the newest turn only (not when older history is added above): index 0 is the intro / history item.
+    LaunchedEffect(state.turns.lastOrNull()?.id, state.turns.lastOrNull()?.loading) {
+        if (state.turns.isNotEmpty()) listState.animateScrollToItem(state.turns.size)
     }
 
     Column(modifier.fillMaxSize().paperSurface().statusBarsPadding().imePadding()) {
@@ -130,16 +138,31 @@ fun AssistantScreen(
         HorizontalDivider(Modifier.padding(top = 10.dp), color = colors.rule)
         LazyColumn(Modifier.weight(1f), state = listState, contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 20.dp, vertical = 8.dp)) {
             item {
-                if (state.turns.isEmpty()) {
-                    Text(
+                when {
+                    state.loadingHistory && state.turns.isEmpty() -> SkeletonSurface("Loading your conversation", Modifier.padding(top = 14.dp), testTag = "assistant-history-loading") {
+                        SkeletonParagraph(widths = listOf(1f, 0.8f, 0.5f))
+                        SkeletonCard(rows = 2, modifier = Modifier.padding(top = 22.dp))
+                    }
+                    state.hasOlder -> Text(
+                        if (state.loadingOlder) "Loading…" else "Earlier messages",
+                        style = Paper.type.button, color = colors.accent,
+                        modifier = Modifier.padding(top = 6.dp).clickable(enabled = !state.loadingOlder, onClick = onLoadOlder).padding(vertical = 10.dp).testTag("assistant-older"),
+                    )
+                    state.turns.isEmpty() -> Text(
                         "Ask about your day, or tell me what to add: tasks, calendar events, alerts. I can also move, split, tick off or re-prioritise tasks. You decide what happens.",
                         style = Paper.type.note, color = colors.muted, modifier = Modifier.padding(top = 10.dp).testTag("assistant-empty"),
                     )
                 }
             }
             items(state.turns, key = { it.id }) { turn ->
-                Turn(turn, onAccept, onSkip, onAcceptAll, onRetry)
+                Turn(turn, onAccept, onSkip, onAcceptAll, onRetry, onUndoNoted)
             }
+        }
+        state.notice?.let { notice ->
+            Text(
+                notice, style = Paper.type.bodySmall, color = colors.accent,
+                modifier = Modifier.fillMaxWidth().clickable(onClick = onDismissNotice).padding(horizontal = 20.dp, vertical = 8.dp).testTag("assistant-notice"),
+            )
         }
         Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 20.dp).padding(bottom = 10.dp)) {
             Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(bottom = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -195,7 +218,7 @@ private fun InputRow(text: String, busy: Boolean, onChange: (String) -> Unit, on
 }
 
 @Composable
-private fun Turn(turn: TurnUi, onAccept: (Int) -> Unit, onSkip: (Int) -> Unit, onAcceptAll: (Int) -> Unit, onRetry: (Int) -> Unit) {
+private fun Turn(turn: TurnUi, onAccept: (Int) -> Unit, onSkip: (Int) -> Unit, onAcceptAll: (Int) -> Unit, onRetry: (Int) -> Unit, onUndoNoted: (Int, String) -> Unit) {
     val colors = Paper.colors
     Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
         Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
@@ -224,6 +247,7 @@ private fun Turn(turn: TurnUi, onAccept: (Int) -> Unit, onSkip: (Int) -> Unit, o
             }
             else -> {
                 Text(turn.reply.orEmpty(), style = Paper.type.title, color = colors.ink, modifier = Modifier.testTag("assistant-reply"))
+                turn.noted.forEach { fact -> NotedLine(turn.id, fact, onUndoNoted) }
                 if (turn.suggestions.isNotEmpty()) {
                     Row(Modifier.fillMaxWidth().padding(top = 18.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                         MonoLabel(if (turn.suggestions.size == 1) "1 suggestion" else "${turn.suggestions.size} suggestions", Modifier.weight(1f))
@@ -239,6 +263,25 @@ private fun Turn(turn: TurnUi, onAccept: (Int) -> Unit, onSkip: (Int) -> Unit, o
                     }
                 }
             }
+        }
+    }
+}
+
+/** "Noted: ..." under a reply: what the assistant decided to remember by itself, with a way to take it back. */
+@Composable
+private fun NotedLine(turnId: Int, fact: NotedUi, onUndo: (Int, String) -> Unit) {
+    val colors = Paper.colors
+    Row(Modifier.fillMaxWidth().padding(top = 10.dp).testTag("noted-${fact.id}"), verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            if (fact.undone) "Forgotten: ${fact.text}" else "Noted: ${fact.text}",
+            style = Paper.type.bodySmall, color = colors.muted, modifier = Modifier.weight(1f),
+            textDecoration = if (fact.undone) TextDecoration.LineThrough else null,
+        )
+        if (!fact.undone) {
+            Text(
+                "Undo", style = Paper.type.button, color = colors.accent,
+                modifier = Modifier.clickable { onUndo(turnId, fact.id) }.padding(start = 12.dp, top = 6.dp, bottom = 6.dp).testTag("noted-undo-${fact.id}"),
+            )
         }
     }
 }

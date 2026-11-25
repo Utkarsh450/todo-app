@@ -11,6 +11,7 @@ import com.utkarsh.todo.core.designsystem.theme.PaperTheme
 import com.utkarsh.todo.feature.ai.domain.AssistantSuggestion
 import com.utkarsh.todo.feature.assistant.ui.AssistantScreen
 import com.utkarsh.todo.feature.assistant.ui.AssistantUiState
+import com.utkarsh.todo.feature.assistant.ui.NotedUi
 import com.utkarsh.todo.feature.assistant.ui.SuggestionKind
 import com.utkarsh.todo.feature.assistant.ui.SuggestionStatus
 import com.utkarsh.todo.feature.assistant.ui.SuggestionUi
@@ -25,6 +26,53 @@ class AssistantScreenTest {
     val compose = createComposeRule()
 
     private val events = mutableListOf<String>()
+
+    @Test
+    fun a_noted_fact_shows_under_the_reply_and_undo_reports_the_tap() {
+        val noted = AssistantUiState(
+            turns = listOf(TurnUi(id = 7, question = "I wake at 7", loading = false, reply = "Got it.", noted = listOf(NotedUi("m1", "Wakes at 7")))),
+        )
+        show(noted)
+
+        compose.onNodeWithText("Noted: Wakes at 7").assertIsDisplayed()
+        compose.onNodeWithTag("noted-undo-m1").performClick()
+
+        assertEquals(listOf("undo-noted:7:m1"), events)
+    }
+
+    @Test
+    fun an_undone_fact_is_marked_forgotten_and_has_no_undo() {
+        show(AssistantUiState(turns = listOf(TurnUi(id = 7, question = "q", loading = false, reply = "r", noted = listOf(NotedUi("m1", "Wakes at 7", undone = true))))))
+
+        compose.onNodeWithText("Forgotten: Wakes at 7").assertIsDisplayed()
+        compose.onNodeWithTag("noted-undo-m1").assertDoesNotExist()
+    }
+
+    @Test
+    fun while_the_conversation_loads_a_skeleton_shows_instead_of_the_empty_hint() {
+        show(AssistantUiState(loadingHistory = true))
+
+        compose.onNodeWithTag("assistant-history-loading").assertIsDisplayed()
+        compose.onNodeWithTag("assistant-empty").assertDoesNotExist()
+    }
+
+    @Test
+    fun earlier_messages_can_be_loaded_when_there_are_more() {
+        show(AssistantUiState(turns = listOf(TurnUi(id = 1, question = "q", loading = false, reply = "r")), hasOlder = true))
+
+        compose.onNodeWithTag("assistant-older").performClick()
+
+        assertEquals(listOf("older"), events)
+    }
+
+    @Test
+    fun a_notice_shows_and_a_tap_dismisses_it() {
+        show(AssistantUiState(notice = "Couldn't undo that. Try again."))
+
+        compose.onNodeWithTag("assistant-notice").performClick()
+
+        assertEquals(listOf("notice-dismissed"), events)
+    }
 
     private fun show(state: AssistantUiState, withMic: Boolean = false) {
         events.clear()
@@ -41,6 +89,9 @@ class AssistantScreenTest {
                     onAcceptAll = { events += "all:$it" },
                     onRetry = { events += "retry:$it" },
                     onMic = if (withMic) ({ events += "mic" }) else null,
+                    onUndoNoted = { turn, memory -> events += "undo-noted:$turn:$memory" },
+                    onLoadOlder = { events += "older" },
+                    onDismissNotice = { events += "notice-dismissed" },
                 )
             }
         }

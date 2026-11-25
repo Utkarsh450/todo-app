@@ -249,7 +249,7 @@ internal fun Throwable.toAiException(): Throwable = when (this) {
             code == "AI_NOT_CONFIGURED" -> AiException(message ?: "AI is not set up on the server.", notConfigured = true)
             code == "VALIDATION_ERROR" -> AiException("The assistant couldn't read that request.")
             message != null && (code?.startsWith("AI_") == true || code == "MEMORY_REFUSED") -> AiException(message)
-            code == "NOT_FOUND" -> AiException("That is not there any more.")
+            code == "NOT_FOUND" -> AiException("That is not there any more.", notFound = true)
             else -> AiException("The server had a problem (${code()}). Try again.")
         }
     }
