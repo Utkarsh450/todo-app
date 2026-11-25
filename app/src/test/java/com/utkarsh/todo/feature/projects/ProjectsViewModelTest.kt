@@ -8,6 +8,7 @@ import com.utkarsh.todo.feature.tasks.domain.Priority
 import com.utkarsh.todo.feature.tasks.domain.Task
 import com.utkarsh.todo.feature.tasks.domain.TaskStatus
 import com.utkarsh.todo.feature.tasks.domain.TasksRepository
+import com.utkarsh.todo.core.offline.CacheFirst
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -15,11 +16,13 @@ import io.mockk.mockk
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneId
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -61,6 +64,55 @@ class ProjectsViewModelTest {
         coEvery { projects.projects() } returns Result.success(projectList)
         coEvery { tasks.all() } returns Result.success(taskList)
         return ProjectsViewModel(projects, tasks, clock)
+    }
+
+    // --- saved copy first -------------------------------------------------------------------------------------------
+
+    /** The server answers the task list only when [gate] is completed; a saved copy (cacheFirst) answers at once. */
+    private fun savedThenServer(saved: Result<List<Task>>, gate: CompletableDeferred<Result<List<Task>>>) {
+        coEvery { projects.projects() } returns Result.success(listOf(design))
+        coEvery { tasks.all() } coAnswers { if (CacheFirst.isActive()) saved else gate.await() }
+    }
+
+    @Test
+    fun `the saved copy shows at once and the server's answer then replaces it`() = runTest {
+        val gate = CompletableDeferred<Result<List<Task>>>()
+        savedThenServer(Result.success(listOf(task("old", "p1"))), gate)
+
+        val vm = ProjectsViewModel(projects, tasks, clock)
+
+        assertFalse(vm.uiState.value.isLoading)
+        assertEquals(listOf("old"), vm.uiState.value.rows.single().tasks.map { it.id })
+
+        gate.complete(Result.success(listOf(task("new", "p1"))))
+        assertEquals(listOf("new"), vm.uiState.value.rows.single().tasks.map { it.id })
+        assertFalse(vm.uiState.value.isLoading)
+    }
+
+    @Test
+    fun `with nothing saved Projects keeps loading until the server answers, without an error`() = runTest {
+        val gate = CompletableDeferred<Result<List<Task>>>()
+        savedThenServer(Result.failure(RuntimeException("HTTP 504")), gate)
+
+        val vm = ProjectsViewModel(projects, tasks, clock)
+
+        assertTrue(vm.uiState.value.isLoading)
+        assertNull(vm.uiState.value.error)
+        gate.complete(Result.success(listOf(task("a", "p1"))))
+        assertFalse(vm.uiState.value.isLoading)
+        assertEquals(1, vm.uiState.value.rows.size)
+    }
+
+    @Test
+    fun `a later reload goes straight to the server and never replays the saved copy`() = runTest {
+        val modes = mutableListOf<Boolean>()
+        coEvery { projects.projects() } returns Result.success(listOf(design))
+        coEvery { tasks.all() } coAnswers { modes += CacheFirst.isActive(); Result.success(listOf(task("a", "p1"))) }
+
+        val vm = ProjectsViewModel(projects, tasks, clock)
+        vm.load(showSkeleton = false)
+
+        assertEquals(listOf(true, false, false), modes) // first load: saved copy, then the server; then only the server
     }
 
     @Test

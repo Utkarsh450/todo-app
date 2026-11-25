@@ -1,5 +1,6 @@
 package com.utkarsh.todo.feature.insights.ui
 
+import com.utkarsh.todo.core.offline.cacheFirst
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.utkarsh.todo.feature.insights.domain.Heatmap
@@ -53,6 +54,7 @@ class InsightsViewModel @Inject constructor(
     private val firstDay: LocalDate = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.SUNDAY)).minusWeeks((HEATMAP_WEEKS - 1).toLong())
     private var selected = today
     private var heatmap: Heatmap? = null
+    private var triedSavedCopy = false
 
     private val _state = MutableStateFlow(InsightsUiState())
     val uiState: StateFlow<InsightsUiState> = _state.asStateFlow()
@@ -75,8 +77,14 @@ class InsightsViewModel @Inject constructor(
     /** [quiet] keeps what is on screen while the numbers are fetched again (no skeleton). */
     private fun load(quiet: Boolean = false) {
         viewModelScope.launch {
-            if (!quiet) _state.update { it.copy(isLoading = true, error = null) }
             val offsetMinutes = clock.zone.rules.getOffset(clock.instant()).totalSeconds / 60
+            // First load only: the last saved numbers are on screen at once, the server's replace them. Later loads never do
+            // this, so older numbers can't come back after the person has finished something.
+            if (!triedSavedCopy) {
+                triedSavedCopy = true
+                cacheFirst { repository.heatmap(firstDay, today, offsetMinutes) }.onSuccess { saved -> heatmap = saved; publish() }
+            }
+            if (!quiet) _state.update { it.copy(isLoading = heatmap == null, error = null) }
             repository.heatmap(firstDay, today, offsetMinutes)
                 .onSuccess { heatmap = it; publish() }
                 .onFailure { e -> if (!quiet || heatmap == null) _state.update { it.copy(isLoading = false, error = e.message ?: "Couldn't load insights") } }

@@ -1,5 +1,6 @@
 package com.utkarsh.todo.feature.calendar.ui
 
+import com.utkarsh.todo.core.offline.cacheFirst
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.utkarsh.todo.core.common.formatTime
@@ -125,6 +126,7 @@ class CalendarViewModel @Inject constructor(
     private var loadedFrom: LocalDate? = null
     private var loadedTo: LocalDate? = null
     private var detail: DetailUi? = null
+    private var triedSavedCopy = false
 
     private val _state = MutableStateFlow(CalendarUiState())
     val uiState: StateFlow<CalendarUiState> = _state.asStateFlow()
@@ -229,8 +231,10 @@ class CalendarViewModel @Inject constructor(
 
     private fun load(showSkeleton: Boolean = true) {
         viewModelScope.launch {
-            if (showSkeleton) _state.update { it.copy(isLoading = true, error = null) }
             val (fromDate, toDate) = neededRange()
+            if (!triedSavedCopy) showSavedCopy(fromDate, toDate)
+            // Once a month is on screen (even a saved one), a reload behind it must not bring the skeleton back.
+            if (showSkeleton) _state.update { it.copy(isLoading = loadedFrom == null, error = null) }
             val projectsCall = async { projects.projects() }
             val agendaResult = calendar.agenda(fromDate.atStartOfDay(clock.zone).toInstant(), toDate.atStartOfDay(clock.zone).toInstant())
             projectsById = projectsCall.await().getOrDefault(emptyList()).associateBy { it.id }
@@ -246,6 +250,23 @@ class CalendarViewModel @Inject constructor(
                     _state.update { it.copy(isLoading = false, error = if (it.cells.isEmpty() && it.columns.isEmpty()) e.message ?: "Couldn't load calendar" else null) }
                 }
         }
+    }
+
+    /**
+     * First load only: puts the last saved month on screen at once (no network, no skeleton) while the real request runs.
+     * Later loads never do this, so older entries can't come back after something changed. With nothing saved the skeleton
+     * stays until the server answers.
+     */
+    private suspend fun showSavedCopy(fromDate: LocalDate, toDate: LocalDate) {
+        triedSavedCopy = true
+        val savedProjects = cacheFirst { projects.projects() }
+        val saved = cacheFirst { calendar.agenda(fromDate.atStartOfDay(clock.zone).toInstant(), toDate.atStartOfDay(clock.zone).toInstant()) }
+        val items = saved.getOrNull() ?: return
+        savedProjects.onSuccess { list -> projectsById = list.associateBy { it.id } }
+        itemsByDay = items.groupBy { it.start.atZone(clock.zone).toLocalDate() }
+        loadedFrom = fromDate
+        loadedTo = toDate
+        publish()
     }
 
     // ---- building what the screen shows

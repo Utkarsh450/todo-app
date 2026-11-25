@@ -16,6 +16,7 @@ import com.utkarsh.todo.feature.calendar.ui.CalendarViewModel
 import com.utkarsh.todo.feature.projects.domain.Project
 import com.utkarsh.todo.feature.projects.domain.ProjectsRepository
 import com.utkarsh.todo.feature.tasks.domain.TasksRepository
+import com.utkarsh.todo.core.offline.CacheFirst
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -26,6 +27,7 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -73,6 +75,50 @@ class CalendarViewModelTest {
     private fun viewModel(items: List<AgendaItem> = emptyList()): CalendarViewModel {
         coEvery { calendar.agenda(any(), any()) } returns Result.success(items)
         return CalendarViewModel(calendar, projects, tasks, reminders, clock)
+    }
+
+    // --- saved copy first -------------------------------------------------------------------------------------------
+
+    private fun savedThenServer(saved: Result<List<AgendaItem>>, gate: CompletableDeferred<Result<List<AgendaItem>>>) {
+        coEvery { calendar.agenda(any(), any()) } coAnswers { if (CacheFirst.isActive()) saved else gate.await() }
+    }
+
+    @Test
+    fun `the saved month shows at once and the server's answer then replaces it`() = runTest {
+        val gate = CompletableDeferred<Result<List<AgendaItem>>>()
+        savedThenServer(Result.success(listOf(item("e-old", "Old call", "2026-11-07T11:00:00", "2026-11-07T12:00:00"))), gate)
+
+        val vm = CalendarViewModel(calendar, projects, tasks, reminders, clock)
+
+        assertFalse(vm.uiState.value.isLoading)
+        assertEquals(listOf("Old call"), vm.uiState.value.agenda.map { it.title })
+
+        gate.complete(Result.success(listOf(item("e-new", "New call", "2026-11-07T11:00:00", "2026-11-07T12:00:00"))))
+        assertEquals(listOf("New call"), vm.uiState.value.agenda.map { it.title })
+    }
+
+    @Test
+    fun `with nothing saved the Calendar keeps loading until the server answers, without an error`() = runTest {
+        val gate = CompletableDeferred<Result<List<AgendaItem>>>()
+        savedThenServer(Result.failure(RuntimeException("HTTP 504")), gate)
+
+        val vm = CalendarViewModel(calendar, projects, tasks, reminders, clock)
+
+        assertTrue(vm.uiState.value.isLoading)
+        assertNull(vm.uiState.value.error)
+        gate.complete(Result.success(emptyList()))
+        assertFalse(vm.uiState.value.isLoading)
+    }
+
+    @Test
+    fun `a later reload goes straight to the server and never replays the saved copy`() = runTest {
+        val modes = mutableListOf<Boolean>()
+        coEvery { calendar.agenda(any(), any()) } coAnswers { modes += CacheFirst.isActive(); Result.success(emptyList()) }
+
+        val vm = CalendarViewModel(calendar, projects, tasks, reminders, clock)
+        vm.reload()
+
+        assertEquals(listOf(true, false, false), modes)
     }
 
     @Test
@@ -163,32 +209,33 @@ class CalendarViewModelTest {
 
     @Test
     fun `reloads when tasks change elsewhere`() = runTest {
+        // The first load asks twice (saved copy, then server); the change adds a third.
         viewModel()
 
         changes.emit(Unit)
 
-        coVerify(exactly = 2) { calendar.agenda(any(), any()) }
+        coVerify(exactly = 3) { calendar.agenda(any(), any()) }
     }
 
     @Test
     fun `a newly created event shows up without leaving the screen`() = runTest {
         val vm = viewModel()
-        coVerify(exactly = 1) { calendar.agenda(any(), any()) }
+        coVerify(exactly = 2) { calendar.agenda(any(), any()) }
 
         eventChanges.emit(Unit)
 
-        coVerify(exactly = 2) { calendar.agenda(any(), any()) }
+        coVerify(exactly = 3) { calendar.agenda(any(), any()) }
         assertEquals(false, vm.uiState.value.isLoading)
     }
 
     @Test
     fun `a reminder made or changed elsewhere shows up without leaving the screen`() = runTest {
         val vm = viewModel()
-        coVerify(exactly = 1) { calendar.agenda(any(), any()) }
+        coVerify(exactly = 2) { calendar.agenda(any(), any()) }
 
         reminderChanges.emit(Unit)
 
-        coVerify(exactly = 2) { calendar.agenda(any(), any()) }
+        coVerify(exactly = 3) { calendar.agenda(any(), any()) }
         assertEquals(false, vm.uiState.value.isLoading)
     }
 

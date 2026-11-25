@@ -1,5 +1,6 @@
 package com.utkarsh.todo.feature.projects.ui
 
+import com.utkarsh.todo.core.offline.cacheFirst
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.utkarsh.todo.core.common.formatTime
@@ -66,9 +67,14 @@ class ProjectsViewModel @Inject constructor(
         viewModelScope.launch { tasks.changes.collect { load(showSkeleton = false) } }
     }
 
+    private var triedSavedCopy = false
+    private var hasShown = false
+
     fun load(showSkeleton: Boolean = true) {
         viewModelScope.launch {
-            if (showSkeleton) _state.update { it.copy(isLoading = true, error = null) }
+            if (!triedSavedCopy) showSavedCopy()
+            // Once any list (even an empty saved one) is on screen, a reload behind it must not bring the skeleton back.
+            if (showSkeleton) _state.update { it.copy(isLoading = !hasShown, error = null) }
             val projectsResult = projects.projects()
             val tasksResult = tasks.all()
             val failure = projectsResult.exceptionOrNull() ?: tasksResult.exceptionOrNull()
@@ -84,8 +90,24 @@ class ProjectsViewModel @Inject constructor(
             }
             val byProject = tasksResult.getOrThrow().filter { it.projectId != null }.groupBy { it.projectId }
             val rows = projectsResult.getOrThrow().map { it.toRow(byProject[it.id].orEmpty()) }
+            hasShown = true
             _state.update { it.copy(isLoading = false, error = null, rows = rows, expandedId = it.expandedId?.takeIf { id -> rows.any { r -> r.id == id } }) }
         }
+    }
+
+    /**
+     * First load only: puts the last saved answer on screen at once (no network, no skeleton) while the real request runs.
+     * Later loads never do this, so older rows can't come back after the person has changed something. With nothing saved
+     * the skeleton simply stays until the server answers.
+     */
+    private suspend fun showSavedCopy() {
+        triedSavedCopy = true
+        val (savedProjects, savedTasks) = cacheFirst { projects.projects() to tasks.all() }
+        val projectList = savedProjects.getOrNull() ?: return
+        val taskList = savedTasks.getOrNull() ?: return
+        val byProject = taskList.filter { it.projectId != null }.groupBy { it.projectId }
+        hasShown = true
+        _state.update { it.copy(isLoading = false, rows = projectList.map { p -> p.toRow(byProject[p.id].orEmpty()) }) }
     }
 
     fun toggleExpanded(id: String) = _state.update { it.copy(expandedId = if (it.expandedId == id) null else id) }

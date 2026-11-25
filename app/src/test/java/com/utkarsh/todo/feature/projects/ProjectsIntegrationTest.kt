@@ -63,14 +63,28 @@ class ProjectsIntegrationTest {
         return ProjectsViewModel(ProjectsRepositoryImpl(retrofit.create<ProjectsApi>()), TasksRepositoryImpl(retrofit.create<TasksApi>()), clock)
     }
 
+    /**
+     * The first load asks for the projects and tasks twice: once as the saved copy (cacheFirst; this test has no offline
+     * layer, so the fake server answers it) and once for real. Each pair needs its own answers.
+     */
+    private fun enqueueFirstLoad(projectsJson: String, tasksJson: String) = repeat(2) {
+        server.enqueue(json(projectsJson))
+        server.enqueue(json(tasksJson))
+    }
+
+    private fun takeFirstLoad() = repeat(4) { server.takeRequest() }
+
     private suspend fun ProjectsViewModel.loaded() = withTimeout(5_000) { uiState.first { !it.isLoading } }
 
     @Test
     fun `loads projects and their tasks from the server`() = runBlocking {
-        server.enqueue(json("[${project("p1", "Design")},${project("p2", "Home", "#2784D5")}]"))
-        server.enqueue(json("[${task("a", "p1", "DONE")},${task("b", "p1")},${task("c", "p2")}]"))
+        enqueueFirstLoad(
+            "[${project("p1", "Design")},${project("p2", "Home", "#2784D5")}]",
+            "[${task("a", "p1", "DONE")},${task("b", "p1")},${task("c", "p2")}]",
+        )
 
-        val state = viewModel().loaded()
+        val vm = viewModel()
+        val state = withTimeout(5_000) { vm.uiState.first { !it.isLoading && it.rows.firstOrNull()?.total == 2 } }
 
         assertEquals(listOf("Design", "Home"), state.rows.map { it.name })
         assertEquals(1, state.rows[0].done)
@@ -81,11 +95,10 @@ class ProjectsIntegrationTest {
 
     @Test
     fun `make, rename and delete a project end to end`() = runBlocking {
-        server.enqueue(json("[]"))
-        server.enqueue(json("[]"))
+        enqueueFirstLoad("[]", "[]")
         val vm = viewModel()
         vm.loaded()
-        server.takeRequest(); server.takeRequest()
+        takeFirstLoad()
 
         server.enqueue(json(project("p9", "Art", "#DF911A"), 201))
         vm.openNew()
@@ -116,11 +129,10 @@ class ProjectsIntegrationTest {
 
     @Test
     fun `ticking a task sends the completion and updates the progress`() = runBlocking {
-        server.enqueue(json("[${project("p1", "Design")}]"))
-        server.enqueue(json("[${task("b", "p1")}]"))
+        enqueueFirstLoad("[${project("p1", "Design")}]", "[${task("b", "p1")}]")
         val vm = viewModel()
         vm.loaded()
-        server.takeRequest(); server.takeRequest()
+        takeFirstLoad()
 
         server.enqueue(json(task("b", "p1", "DONE")))
         // A successful write makes the repository announce a change, so the screen quietly reloads afterwards.
@@ -138,10 +150,10 @@ class ProjectsIntegrationTest {
 
     @Test
     fun `a server error on delete leaves the project in the list`() = runBlocking {
-        server.enqueue(json("[${project("p1", "Design")}]"))
-        server.enqueue(json("[]"))
+        enqueueFirstLoad("[${project("p1", "Design")}]", "[]")
         val vm = viewModel()
         vm.loaded()
+        takeFirstLoad()
 
         server.enqueue(json("""{"error":"INTERNAL"}""", 500))
         vm.askDelete("p1")

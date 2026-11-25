@@ -7,6 +7,7 @@ import com.utkarsh.todo.feature.insights.domain.InsightsRepository
 import com.utkarsh.todo.feature.insights.domain.heatLevel
 import com.utkarsh.todo.feature.insights.ui.HEATMAP_WEEKS
 import com.utkarsh.todo.feature.insights.ui.InsightsViewModel
+import com.utkarsh.todo.core.offline.CacheFirst
 import io.mockk.coEvery
 import com.utkarsh.todo.feature.tasks.domain.TasksRepository
 import io.mockk.coVerify
@@ -16,11 +17,13 @@ import java.time.Clock
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -57,6 +60,50 @@ class InsightsViewModelTest {
     private fun viewModel(data: Heatmap = heatmap()): InsightsViewModel {
         coEvery { repository.heatmap(any(), any(), any()) } returns Result.success(data)
         return InsightsViewModel(repository, tasks, clock)
+    }
+
+    // --- saved copy first -------------------------------------------------------------------------------------------
+
+    private fun savedThenServer(saved: Result<Heatmap>, gate: CompletableDeferred<Result<Heatmap>>) {
+        coEvery { repository.heatmap(any(), any(), any()) } coAnswers { if (CacheFirst.isActive()) saved else gate.await() }
+    }
+
+    @Test
+    fun `the saved numbers show at once and the server's numbers then replace them`() = runTest {
+        val gate = CompletableDeferred<Result<Heatmap>>()
+        savedThenServer(Result.success(heatmap(mapOf(today to 1))), gate)
+
+        val vm = InsightsViewModel(repository, tasks, clock)
+
+        assertFalse(vm.uiState.value.isLoading)
+        assertEquals("1 tasks done", vm.uiState.value.selectedValue)
+
+        gate.complete(Result.success(heatmap(mapOf(today to 4))))
+        assertEquals("4 tasks done", vm.uiState.value.selectedValue)
+    }
+
+    @Test
+    fun `with nothing saved Insights keeps loading until the server answers, without an error`() = runTest {
+        val gate = CompletableDeferred<Result<Heatmap>>()
+        savedThenServer(Result.failure(RuntimeException("HTTP 504")), gate)
+
+        val vm = InsightsViewModel(repository, tasks, clock)
+
+        assertTrue(vm.uiState.value.isLoading)
+        assertNull(vm.uiState.value.error)
+        gate.complete(Result.success(heatmap(mapOf(today to 2))))
+        assertEquals("2 tasks done", vm.uiState.value.selectedValue)
+    }
+
+    @Test
+    fun `a later reload goes straight to the server and never replays the saved copy`() = runTest {
+        val modes = mutableListOf<Boolean>()
+        coEvery { repository.heatmap(any(), any(), any()) } coAnswers { modes += CacheFirst.isActive(); Result.success(heatmap()) }
+
+        val vm = InsightsViewModel(repository, tasks, clock)
+        vm.refresh()
+
+        assertEquals(listOf(true, false, false), modes)
     }
 
     @Test
