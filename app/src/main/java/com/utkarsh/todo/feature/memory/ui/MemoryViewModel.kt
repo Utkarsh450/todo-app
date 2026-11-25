@@ -71,13 +71,20 @@ class MemoryViewModel @Inject constructor(private val ai: AiRepository) : ViewMo
         if ((e as? AiException)?.notFound == true) "The server doesn't have the memory feature yet. Update the backend and try again."
         else e.message ?: "Couldn't load what I remember."
 
-    fun add(text: String) {
+    /** [onResult] says whether the fact was kept, so the screen can keep what was typed when it was refused. */
+    fun add(text: String, onResult: (Boolean) -> Unit = {}) {
         val clean = text.trim()
         if (clean.isEmpty()) return
         viewModelScope.launch {
             ai.addMemory(clean)
-                .onSuccess { fact -> _state.update { s -> s.copy(facts = listOf(fact) + s.facts.filterNot { it.id == fact.id }) } }
-                .onFailure(::say)
+                .onSuccess { fact ->
+                    _state.update { s -> s.copy(facts = listOf(fact) + s.facts.filterNot { it.id == fact.id }) }
+                    onResult(true)
+                }
+                .onFailure { e ->
+                    say(e)
+                    onResult(false)
+                }
         }
     }
 

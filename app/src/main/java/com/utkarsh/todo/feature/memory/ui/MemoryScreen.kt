@@ -69,7 +69,7 @@ fun MemoryRoute(onBack: () -> Unit, modifier: Modifier = Modifier, viewModel: Me
 fun MemoryScreen(
     state: MemoryUiState,
     onBack: () -> Unit,
-    onAdd: (String) -> Unit,
+    onAdd: (String, (Boolean) -> Unit) -> Unit,
     onStartEdit: (String) -> Unit,
     onSaveEdit: (String, String) -> Unit,
     onCancelEdit: () -> Unit,
@@ -149,7 +149,7 @@ fun MemoryScreen(
 
 /** A line to tell the assistant something to remember. */
 @Composable
-private fun AddRow(onAdd: (String) -> Unit) {
+private fun AddRow(onAdd: (String, (Boolean) -> Unit) -> Unit) {
     val colors = Paper.colors
     var draft by remember { mutableStateOf("") }
     val canAdd = draft.isNotBlank()
@@ -167,7 +167,7 @@ private fun AddRow(onAdd: (String) -> Unit) {
         Text(
             "Add", style = Paper.type.button, color = colors.card,
             modifier = Modifier.alpha(if (canAdd) 1f else 0.4f).clip(RoundedCornerShape(50)).background(colors.ink)
-                .clickable(enabled = canAdd) { onAdd(draft); draft = "" }.padding(horizontal = 16.dp, vertical = 9.dp).testTag("memory-add"),
+                .clickable(enabled = canAdd) { onAdd(draft) { kept -> if (kept) draft = "" } }.padding(horizontal = 16.dp, vertical = 9.dp).testTag("memory-add"),
         )
     }
 }

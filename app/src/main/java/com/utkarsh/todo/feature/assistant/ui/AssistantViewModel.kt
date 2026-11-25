@@ -22,6 +22,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.Clock
 import java.time.LocalDate
 import javax.inject.Inject
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -125,7 +126,7 @@ class AssistantViewModel @Inject constructor(
     /** Shows the newest page; questions asked meanwhile stay after it. */
     private fun showHistory(page: HistoryPage) {
         nextBefore = page.nextBefore
-        val past = turnsOf(page.messages, LocalDate.now(clock))
+        val past = turnsOf(page.messages, LocalDate.now(clock), keepNewestPending = true)
         _state.update { s -> s.copy(turns = past + s.turns.filterNot { it.fromHistory }, hasOlder = page.nextBefore != null) }
     }
 
@@ -138,7 +139,7 @@ class AssistantViewModel @Inject constructor(
             ai.history(before, HISTORY_PAGE)
                 .onSuccess { page ->
                     nextBefore = page.nextBefore
-                    val older = turnsOf(page.messages, LocalDate.now(clock))
+                    val older = turnsOf(page.messages, LocalDate.now(clock), keepNewestPending = false)
                     _state.update { s -> s.copy(turns = older + s.turns, hasOlder = page.nextBefore != null, loadingOlder = false) }
                 }
                 .onFailure { _state.update { it.copy(loadingOlder = false) } }
@@ -162,7 +163,7 @@ class AssistantViewModel @Inject constructor(
         updateTurn(turnId) { turn -> turn.copy(noted = turn.noted.map { if (it.id == memoryId) it.copy(undone = undone) else it }) }
 
     /** Pairs each question with its reply (the messages come newest first) into turns, oldest first. */
-    private fun turnsOf(newestFirst: List<StoredMessage>, today: LocalDate): List<TurnUi> {
+    private fun turnsOf(newestFirst: List<StoredMessage>, today: LocalDate, keepNewestPending: Boolean): List<TurnUi> {
         val turns = mutableListOf<TurnUi>()
         var question: StoredMessage? = null
         for (message in newestFirst.asReversed()) {
@@ -193,14 +194,20 @@ class AssistantViewModel @Inject constructor(
                 )
             }
         }
-        return turns
+        // A suggestion nobody decided on in an older turn is stale (its time or task may have changed): show it as
+        // skipped. Only the newest turn of the first page may still be accepted. Nothing is reported to the server.
+        return turns.mapIndexed { index, turn ->
+            if (keepNewestPending && index == turns.lastIndex) turn
+            else turn.copy(suggestions = turn.suggestions.map { if (it.status == SuggestionStatus.PENDING) it.copy(status = SuggestionStatus.SKIPPED) else it })
+        }
     }
 
     /** Tells the server what the owner did with a suggestion (fire and forget: a failure here must never get in the way). */
     private fun report(suggestion: SuggestionUi?, accepted: Boolean) {
         val messageId = suggestion?.messageId ?: return
         if (suggestion.serverIndex < 0) return
-        viewModelScope.launch { ai.reportOutcome(messageId, suggestion.serverIndex, accepted) }
+        // NonCancellable: leaving the screen right after the tap must not drop the report.
+        viewModelScope.launch(NonCancellable) { ai.reportOutcome(messageId, suggestion.serverIndex, accepted) }
     }
 
     /** Sends the typed text, or [prompt] when a quick prompt is tapped (a half-typed draft is left alone). */

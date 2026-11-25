@@ -31,9 +31,11 @@ import io.mockk.mockk
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneId
+import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
@@ -395,6 +397,42 @@ class AssistantViewModelTest {
         assertEquals(listOf(SuggestionStatus.ACCEPTED, SuggestionStatus.SKIPPED, SuggestionStatus.PENDING), state.turns[1].suggestions.map { it.status })
         assertEquals("a2", state.turns[1].messageId)
         assertFalse(state.hasOlder)
+    }
+
+    @Test
+    fun `suggestions nobody decided on in older turns are shown as skipped, only the newest turn can still be accepted`() {
+        coEvery { ai.history(null, any()) } returns Result.success(
+            HistoryPage(
+                listOf(message("a2", false, "R2", listOf(move)), message("u2", true, "Q2"), message("a1", false, "R1", listOf(split)), message("u1", true, "Q1")),
+                nextBefore = "u1",
+            ),
+        )
+        coEvery { ai.history("u1", any()) } returns Result.success(HistoryPage(listOf(message("a0", false, "R0", listOf(priority)), message("u0", true, "Q0")), nextBefore = null))
+        val vm = viewModel()
+
+        vm.loadOlder()
+
+        assertEquals(
+            listOf(SuggestionStatus.SKIPPED, SuggestionStatus.SKIPPED, SuggestionStatus.PENDING),
+            vm.uiState.value.turns.map { it.suggestions.single().status },
+        )
+        coVerify(exactly = 0) { ai.reportOutcome(any(), any(), any()) }
+    }
+
+    @Test
+    fun `an outcome report still finishes when the screen is left right after the tap`() {
+        val gate = CompletableDeferred<Unit>()
+        var delivered = false
+        coEvery { ai.reportOutcome(any(), any(), any()) } coAnswers { gate.await(); delivered = true; Result.success(Unit) }
+        coEvery { ai.assist(any(), any()) } returns Result.success(AssistantReply("ok", listOf(split), "m1", suggestionIndexes = listOf(0)))
+        val vm = viewModel()
+        vm.ask("x")
+
+        vm.skip(vm.uiState.value.turns.single().suggestions.single().id)
+        vm.viewModelScope.cancel() // the screen was left before the server answered
+        gate.complete(Unit)
+
+        assertTrue(delivered)
     }
 
     @Test

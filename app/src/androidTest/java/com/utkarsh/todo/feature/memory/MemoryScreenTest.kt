@@ -29,7 +29,7 @@ class MemoryScreenTest {
                 MemoryScreen(
                     state = state,
                     onBack = { events += "back" },
-                    onAdd = { events += "add:$it" },
+                    onAdd = { text, _ -> events += "add:$text" },
                     onStartEdit = { events += "start-edit:$it" },
                     onSaveEdit = { id, text -> events += "save:$id:$text" },
                     onCancelEdit = { events += "cancel-edit" },

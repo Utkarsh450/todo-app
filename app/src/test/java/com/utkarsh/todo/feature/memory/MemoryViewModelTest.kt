@@ -101,6 +101,19 @@ class MemoryViewModelTest {
     }
 
     @Test
+    fun `add tells the screen whether the fact was kept, so a refused one keeps what was typed`() {
+        coEvery { ai.addMemory("Likes tea") } returns Result.success(MemoryFact("f9", "Likes tea", "OTHER"))
+        coEvery { ai.addMemory("my password is x") } returns Result.failure(AiException("I do not keep passwords."))
+        val vm = viewModel()
+        val results = mutableListOf<Boolean>()
+
+        vm.add("Likes tea") { results += it }
+        vm.add("my password is x") { results += it }
+
+        assertEquals(listOf(true, false), results)
+    }
+
+    @Test
     fun `a refused fact shows the server's reason and changes nothing`() {
         coEvery { ai.addMemory(any()) } returns Result.failure(AiException("I do not keep passwords, keys, tokens or card and ID numbers."))
         val vm = viewModel()
