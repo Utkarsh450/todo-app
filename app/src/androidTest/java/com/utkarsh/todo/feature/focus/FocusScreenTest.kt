@@ -1,5 +1,6 @@
 package com.utkarsh.todo.feature.focus
 
+import com.utkarsh.todo.feature.focus.domain.FocusAlarm
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasText
@@ -160,7 +161,7 @@ class FocusScreenTest {
     }
 
     private fun showLive() {
-        val vm = FocusViewModel(SavedStateHandle(mapOf("taskId" to "t1")), tasks, Clock.systemUTC())
+        val vm = FocusViewModel(SavedStateHandle(mapOf("taskId" to "t1")), tasks, Clock.systemUTC(), object : FocusAlarm { override fun schedule(at: Instant, title: String) = Unit; override fun cancel() = Unit })
         compose.setContent {
             PaperTheme {
                 val state by vm.uiState.collectAsStateWithLifecycle()

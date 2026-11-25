@@ -1,6 +1,7 @@
 package com.utkarsh.todo.feature.focus
 
 import androidx.lifecycle.SavedStateHandle
+import com.utkarsh.todo.feature.focus.domain.FocusAlarm
 import com.utkarsh.todo.feature.focus.ui.FocusPhase
 import com.utkarsh.todo.feature.focus.ui.FocusUiState
 import com.utkarsh.todo.feature.focus.ui.FocusViewModel
@@ -41,10 +42,19 @@ private class TestClock(private val scheduler: TestCoroutineScheduler) : Clock()
     override fun instant(): Instant = start.plusMillis(scheduler.currentTime)
 }
 
+/** Remembers what the timer asked the system to do when time is up. */
+private class RecordingAlarm : FocusAlarm {
+    val scheduled = mutableListOf<Pair<Instant, String>>()
+    var cancels = 0
+    override fun schedule(at: Instant, title: String) { scheduled += at to title }
+    override fun cancel() { cancels += 1 }
+}
+
 @OptIn(ExperimentalCoroutinesApi::class)
 class FocusViewModelTest {
     private val dispatcher = StandardTestDispatcher()
     private val tasks = mockk<TasksRepository>()
+    private val alarm = RecordingAlarm()
 
     private fun task(done: Boolean = false) = Task(
         "t1", "Write the report", "", null, Priority.NORMAL, if (done) TaskStatus.DONE else TaskStatus.TODO, null, null, false, false, null, emptyList(),
@@ -59,7 +69,58 @@ class FocusViewModelTest {
     @After
     fun tearDown() = Dispatchers.resetMain()
 
-    private fun TestScope.viewModel() = FocusViewModel(SavedStateHandle(mapOf("taskId" to "t1")), tasks, TestClock(testScheduler)).also { runCurrent() }
+    private fun TestScope.viewModel() = FocusViewModel(SavedStateHandle(mapOf("taskId" to "t1")), tasks, TestClock(testScheduler), alarm).also { runCurrent() }
+
+    // --- the system tells you when time is up, even with the app closed ---------------------------------------------
+
+    @Test
+    fun `starting asks the system for an alarm at the end time, named after the task`() = runTest(dispatcher) {
+        val vm = viewModel()
+        vm.start(); runCurrent()
+
+        assertEquals(listOf(Instant.parse("2026-11-07T05:55:00Z") to "Write the report"), alarm.scheduled)
+    }
+
+    @Test
+    fun `a free timer's alarm is just called Focus time`() = runTest(dispatcher) {
+        val vm = FocusViewModel(SavedStateHandle(), tasks, TestClock(testScheduler), alarm).also { runCurrent() }
+        vm.start(); runCurrent()
+
+        assertEquals("Focus time", alarm.scheduled.single().second)
+    }
+
+    @Test
+    fun `pausing cancels the alarm and resuming sets it again for the new end time`() = runTest(dispatcher) {
+        val vm = viewModel()
+        vm.start(); runCurrent()
+        advanceTimeBy(60_000); runCurrent()
+        vm.pause(); runCurrent()
+        assertEquals(1, alarm.cancels)
+
+        advanceTimeBy(120_000); runCurrent() // paused for two minutes
+        vm.start(); runCurrent()
+        assertEquals(Instant.parse("2026-11-07T05:57:00Z"), alarm.scheduled.last().first) // resumed at 05:33 with 24:00 left
+        assertEquals(2, alarm.scheduled.size)
+    }
+
+    @Test
+    fun `resetting cancels the alarm`() = runTest(dispatcher) {
+        val vm = viewModel()
+        vm.start(); runCurrent()
+        vm.reset(); runCurrent()
+
+        assertEquals(1, alarm.cancels)
+    }
+
+    @Test
+    fun `when the time runs out with the screen open the alarm is cancelled, so it does not ping twice`() = runTest(dispatcher) {
+        val vm = viewModel()
+        vm.start(); runCurrent()
+        advanceTimeBy(25 * 60_000L + 1_000); runCurrent()
+
+        assertEquals(FocusPhase.FINISHED, vm.uiState.value.phase)
+        assertEquals(1, alarm.cancels)
+    }
 
     @Test
     fun `starts ready with 25 minutes and the task's title`() = runTest(dispatcher) {
@@ -72,7 +133,7 @@ class FocusViewModelTest {
 
     @Test
     fun `without a task it is a free timer, with no lookup and nothing to mark done`() = runTest(dispatcher) {
-        val vm = FocusViewModel(SavedStateHandle(), tasks, TestClock(testScheduler)).also { runCurrent() }
+        val vm = FocusViewModel(SavedStateHandle(), tasks, TestClock(testScheduler), alarm).also { runCurrent() }
 
         assertFalse(vm.uiState.value.hasTask)
         assertNull(vm.uiState.value.taskTitle)
@@ -90,7 +151,7 @@ class FocusViewModelTest {
 
     @Test
     fun `a blank task id is also a free timer`() = runTest(dispatcher) {
-        val vm = FocusViewModel(SavedStateHandle(mapOf("taskId" to "")), tasks, TestClock(testScheduler)).also { runCurrent() }
+        val vm = FocusViewModel(SavedStateHandle(mapOf("taskId" to "")), tasks, TestClock(testScheduler), alarm).also { runCurrent() }
         assertFalse(vm.uiState.value.hasTask)
         coVerify(exactly = 0) { tasks.get(any()) }
     }

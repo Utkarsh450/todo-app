@@ -53,6 +53,9 @@
             android:name=".feature.reminders.platform.ReminderReceiver"
             android:exported="false" />
         <receiver
+            android:name=".feature.focus.platform.FocusTimerReceiver"
+            android:exported="false" />
+        <receiver
             android:name=".feature.reminders.platform.BootReceiver"
             android:exported="true">
             <intent-filter>

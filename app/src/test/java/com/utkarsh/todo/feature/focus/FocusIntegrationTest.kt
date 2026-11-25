@@ -1,5 +1,7 @@
 package com.utkarsh.todo.feature.focus
 
+import com.utkarsh.todo.feature.focus.domain.FocusAlarm
+import java.time.Instant
 import androidx.lifecycle.SavedStateHandle
 import com.utkarsh.todo.core.network.buildRetrofit
 import com.utkarsh.todo.feature.focus.ui.FocusPhase
@@ -51,7 +53,7 @@ class FocusIntegrationTest {
 
     private fun viewModel(): FocusViewModel {
         val repository = TasksRepositoryImpl(buildRetrofit(server.url("/api/").toString()).create<TasksApi>())
-        return FocusViewModel(SavedStateHandle(mapOf("taskId" to "t1")), repository, Clock.systemUTC())
+        return FocusViewModel(SavedStateHandle(mapOf("taskId" to "t1")), repository, Clock.systemUTC(), object : FocusAlarm { override fun schedule(at: Instant, title: String) = Unit; override fun cancel() = Unit })
     }
 
     @Test

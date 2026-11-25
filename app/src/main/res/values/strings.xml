@@ -3,6 +3,10 @@
     <string name="reminders_channel_name">Reminders</string>
     <string name="reminders_channel_description">Alerts for tasks and reminders that are due</string>
     <string name="reminder_due_now">Due now</string>
+    <string name="focus_timer_channel_name">Focus timer</string>
+    <string name="focus_timer_channel_description">Tells you when a focus round is over while the app is closed</string>
+    <string name="focus_timer_done_title">Focus time is up</string>
+    <string name="focus_timer_default_title">Time for a break</string>
     <string name="reminder_snooze_action">Snooze 10 min</string>
     <string name="reminder_dismiss_action">Done</string>
     <string name="notifications_channel_name">Alerts</string>

@@ -87,7 +87,7 @@ fun FocusScreen(
                 state.taskTitle ?: if (state.hasTask) "…" else "Free focus", style = Paper.type.headline, color = colors.ink, textAlign = TextAlign.Center,
                 modifier = Modifier.padding(top = 10.dp, bottom = 28.dp).testTag("focus-task"),
             )
-            Text(state.clockLabel, style = Paper.type.displayLarge.copy(fontSize = 84.sp), color = colors.ink, modifier = Modifier.testTag("focus-clock"))
+            Text(state.clockLabel, style = Paper.type.displayLarge.copy(fontSize = 84.sp, fontFeatureSettings = "tnum"), color = colors.ink, modifier = Modifier.testTag("focus-clock"))
             Box(Modifier.padding(top = 18.dp).fillMaxWidth().height(5.dp).clip(RoundedCornerShape(2.dp)).background(colors.rule)) {
                 if (state.progress > 0f) Box(Modifier.fillMaxWidth(state.progress.coerceIn(0f, 1f)).height(5.dp).background(colors.accent))
             }

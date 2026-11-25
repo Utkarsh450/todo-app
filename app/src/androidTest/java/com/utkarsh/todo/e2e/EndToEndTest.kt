@@ -1,5 +1,6 @@
 package com.utkarsh.todo.e2e
 
+import com.utkarsh.todo.feature.focus.domain.FocusAlarm
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
@@ -191,7 +192,7 @@ class EndToEndTest {
 
     @Test
     fun focus_marks_the_task_done_on_the_server() {
-        val vm = FocusViewModel(SavedStateHandle(mapOf("taskId" to task.id)), tasks, clock)
+        val vm = FocusViewModel(SavedStateHandle(mapOf("taskId" to task.id)), tasks, clock, object : FocusAlarm { override fun schedule(at: Instant, title: String) = Unit; override fun cancel() = Unit })
         compose.setContent {
             PaperTheme {
                 val state by vm.uiState.collectAsStateWithLifecycle()
