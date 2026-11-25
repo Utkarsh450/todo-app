@@ -22,6 +22,12 @@ export class MemoryService {
     return rows.map(brief);
   }
 
+  /** Everything the Memory screen shows, newest first. */
+  async listFull(): Promise<(MemoryBrief & { source: 'AUTO' | 'USER'; updatedAt: Date })[]> {
+    const rows = await this.db.memory.findMany({ orderBy: { updatedAt: 'desc' } });
+    return rows.map((row) => ({ ...brief(row), source: row.source, updatedAt: row.updatedAt }));
+  }
+
   /**
    * Saves a fact. Returns null when it is refused (empty, too long, a secret, an order to the AI) or when the 100-fact
    * limit is reached. A fact that says the same as an old one refreshes the old row instead of adding another.

@@ -15,6 +15,17 @@ export const unauthorized = () => new AppError(401, 'A valid API key is required
 
 export const notFound = (what: string) => new AppError(404, `${what} not found`, 'NOT_FOUND');
 
+const MEMORY_REFUSALS = {
+  empty: 'There is nothing to remember in that.',
+  too_long: 'That is too long to remember (200 characters at most).',
+  secret: 'I do not keep passwords, keys, tokens or card and ID numbers.',
+  command: 'I keep facts about you, not rules for how I should behave.',
+  full: 'Memory is full (100 facts). Delete one first.',
+} as const;
+
+/** A fact the assistant will not keep. The message says why. */
+export const memoryRefused = (reason: keyof typeof MEMORY_REFUSALS) => new AppError(422, MEMORY_REFUSALS[reason], 'MEMORY_REFUSED');
+
 /** The AI features need a key; say exactly how to add one. */
 export const aiNotConfigured = () =>
   new AppError(503, 'AI is not set up. Add XAI_API_KEY to backend/.env and restart the server.', 'AI_NOT_CONFIGURED');

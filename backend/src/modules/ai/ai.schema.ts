@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { MEMORY_CATEGORIES } from './memory.js';
 
 export const statusResponse = z.object({ configured: z.boolean(), model: z.string() });
 
@@ -46,6 +47,27 @@ export const brainDumpResponse = z.object({
 });
 
 export const memoryItem = z.object({ id: z.uuid(), text: z.string(), category: z.string() });
+export const memoryFull = memoryItem.extend({ source: z.enum(['AUTO', 'USER']), updatedAt: z.date() });
+export const memoriesResponse = z.object({ memories: z.array(memoryFull) });
+export const memoryBody = z.object({ text: z.string().trim().min(1).max(1000), category: z.enum(MEMORY_CATEGORIES).optional() });
+export const memoryParams = z.object({ id: z.uuid() });
+
+export const historyQuery = z.object({ before: z.uuid().optional(), limit: z.coerce.number().int().min(1).max(50).default(20) });
+export const historyResponse = z.object({
+  messages: z.array(
+    z.object({
+      id: z.uuid(),
+      role: z.enum(['USER', 'ASSISTANT']),
+      content: z.string(),
+      suggestions: z.array(z.unknown()).nullable(),
+      outcomes: z.record(z.string(), z.string()).nullable(),
+      createdAt: z.date(),
+    }),
+  ),
+  nextBefore: z.uuid().nullable(),
+});
+export const messageParams = z.object({ messageId: z.uuid() });
+export const outcomeBody = z.object({ index: z.number().int().min(0), outcome: z.enum(['accepted', 'skipped']) });
 
 export const assistResponse = z.object({
   /** The saved assistant message; outcomes of its suggestions are reported against this id. */

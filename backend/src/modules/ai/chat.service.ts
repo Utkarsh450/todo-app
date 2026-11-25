@@ -5,6 +5,8 @@ import { buildSummaryMessages, clipSummary, FOLD_THRESHOLD, RECENT_WINDOW } from
 
 /** Most turns handed to the model in one fold; anything left is folded the next time. */
 const MAX_TURNS_PER_FOLD = 60;
+/** Arbitrary key of the PostgreSQL advisory lock that serialises appendPair. */
+const PAIR_LOCK = 827_364;
 
 export interface StoredMessage {
   id: string;
@@ -53,6 +55,8 @@ export class ChatService {
   /** Saves a question and its reply together (both or neither), the reply one millisecond after the question. */
   async appendPair(question: string, reply: string, suggestions: unknown[]): Promise<{ userId: string; assistantId: string }> {
     return this.db.$transaction(async (tx) => {
+      // One pair at a time, so two questions asked together never interleave or share a timestamp.
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(${PAIR_LOCK})`;
       const last = await tx.chatMessage.findFirst({ orderBy: { createdAt: 'desc' } });
       const base = Math.max(Date.now(), last ? last.createdAt.getTime() + 1 : 0);
       const user = await tx.chatMessage.create({ data: { role: 'USER', content: question, createdAt: new Date(base) } });

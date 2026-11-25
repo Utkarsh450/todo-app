@@ -42,6 +42,18 @@ describe('a protected API (integration)', () => {
     expect(res.statusCode).toBe(401);
   });
 
+  it('protects the history and memory endpoints too', async () => {
+    for (const [method, url] of [
+      ['GET', '/api/ai/history'],
+      ['DELETE', '/api/ai/history'],
+      ['GET', '/api/ai/memories'],
+      ['DELETE', '/api/ai/memories'],
+      ['POST', '/api/ai/assist/00000000-0000-4000-8000-000000000000/outcome'],
+    ] as const) {
+      expect((await app.inject({ method, url })).statusCode).toBe(401);
+    }
+  });
+
   it('lets the right key through', async () => {
     const res = await app.inject({ method: 'GET', url: '/api/tasks', headers: { 'x-api-key': KEY } });
     expect(res.statusCode).toBe(200);
