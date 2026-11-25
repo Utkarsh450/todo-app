@@ -29,6 +29,11 @@ const stored = (row: Row): StoredMessage => ({
   createdAt: row.createdAt,
 });
 
+/** Plain JSON for a JSON column: dates become ISO strings, undefined fields disappear. */
+export function jsonSafe(value: unknown[]): object[] {
+  return JSON.parse(JSON.stringify(value)) as object[];
+}
+
 /** The single running conversation: messages, what happened to the suggestions, and the rolling summary. */
 export class ChatService {
   constructor(private readonly db: Db) {}
@@ -44,7 +49,9 @@ export class ChatService {
     let where = {};
     if (before) {
       const anchor = await this.db.chatMessage.findUnique({ where: { id: before } });
-      if (anchor) where = { createdAt: { lt: anchor.createdAt } };
+      // A cursor that no longer exists (the conversation was cleared) has nothing before it.
+      if (!anchor) return { messages: [], nextBefore: null };
+      where = { createdAt: { lt: anchor.createdAt } };
     }
     const rows = await this.db.chatMessage.findMany({ where, orderBy: { createdAt: 'desc' }, take: limit + 1 });
     const more = rows.length > limit;
@@ -61,7 +68,7 @@ export class ChatService {
       const base = Math.max(Date.now(), last ? last.createdAt.getTime() + 1 : 0);
       const user = await tx.chatMessage.create({ data: { role: 'USER', content: question, createdAt: new Date(base) } });
       const assistant = await tx.chatMessage.create({
-        data: { role: 'ASSISTANT', content: reply, suggestions: suggestions as object[], createdAt: new Date(base + 1) },
+        data: { role: 'ASSISTANT', content: reply, suggestions: jsonSafe(suggestions), createdAt: new Date(base + 1) },
       });
       return { userId: user.id, assistantId: assistant.id };
     });

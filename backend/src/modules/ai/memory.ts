@@ -7,6 +7,8 @@
 export const MAX_MEMORY_TEXT = 200;
 export const MAX_MEMORIES = 100;
 export const MAX_NEW_FACTS = 3;
+/** Most facts one reply may forget: text planted in a task or a message must not be able to wipe the memory. */
+export const MAX_FORGET = 3;
 
 export const MEMORY_CATEGORIES = ['ROUTINE', 'PREFERENCE', 'PERSON', 'COMMITMENT', 'OTHER'] as const;
 export type MemoryCategory = (typeof MEMORY_CATEGORIES)[number];
@@ -113,6 +115,7 @@ export function parseMemoryOps(raw: string, known: MemoryBrief[]): MemoryOps {
   if (Array.isArray(obj.forget)) {
     const ids = new Set(known.map((k) => k.id));
     for (const id of obj.forget) {
+      if (ops.forget.length === MAX_FORGET) break;
       if (typeof id === 'string' && ids.has(id) && !ops.forget.includes(id)) ops.forget.push(id);
     }
   }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isNearDuplicate, MAX_MEMORY_TEXT, MAX_NEW_FACTS, parseMemoryOps, validateFact, type MemoryBrief } from '../src/modules/ai/memory.js';
+import { isNearDuplicate, MAX_FORGET, MAX_MEMORY_TEXT, MAX_NEW_FACTS, parseMemoryOps, validateFact, type MemoryBrief } from '../src/modules/ai/memory.js';
 
 const known: MemoryBrief[] = [
   { id: 'm1', text: 'Wakes at 7', category: 'ROUTINE' },
@@ -86,6 +86,13 @@ describe('parseMemoryOps', () => {
   it('drops a fact it already knows, a repeat within the reply, and refused facts', () => {
     const remember = [{ text: 'wakes at 7.' }, { text: 'Likes tea' }, { text: 'likes tea!' }, { text: 'The password is hunter2' }];
     expect(parseMemoryOps(JSON.stringify({ remember }), known).remember.map((f) => f.text)).toEqual(['Likes tea']);
+  });
+
+  it('forgets at most three facts per reply, so text planted in a task cannot wipe the memory', () => {
+    const many = Array.from({ length: 10 }, (_, i) => ({ id: `k${i}`, text: `Fact ${i} word${i}`, category: 'OTHER' as const }));
+    const raw = JSON.stringify({ forget: many.map((m) => m.id) });
+    expect(parseMemoryOps(raw, many).forget).toEqual(['k0', 'k1', 'k2']);
+    expect(MAX_FORGET).toBe(3);
   });
 
   it('forgets only ids it was given, once each', () => {

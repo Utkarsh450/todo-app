@@ -129,6 +129,16 @@ describe('ChatService', () => {
     expect(second.nextBefore).toBeNull();
   });
 
+  it('a cursor that does not exist any more (after a clear) gives an empty page, not the newest page again', async () => {
+    await chat.appendPair('q', 'r', []);
+    expect(await chat.page('00000000-0000-4000-8000-000000000000', 10)).toEqual({ messages: [], nextBefore: null });
+  });
+
+  it('suggestions with dates are stored as plain JSON', async () => {
+    const { assistantId } = await chat.appendPair('q', 'r', [{ kind: 'MOVE', dueAt: new Date('2026-11-09T03:30:00.000Z') }]);
+    expect((await chat.recent(10)).find((m) => m.id === assistantId)!.suggestions).toEqual([{ kind: 'MOVE', dueAt: '2026-11-09T03:30:00.000Z' }]);
+  });
+
   it('clear removes every message and the summary', async () => {
     await chat.appendPair('q', 'r', []);
     await db.chatSummary.upsert({ where: { id: 1 }, create: { id: 1, text: 'Old notes' }, update: { text: 'Old notes' } });

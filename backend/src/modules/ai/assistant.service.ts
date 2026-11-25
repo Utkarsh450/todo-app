@@ -63,7 +63,8 @@ export class AssistantService {
     const ops = parseMemoryOps(raw, facts);
 
     const { assistantId } = await this.chat.appendPair(message, reply.reply, reply.suggestions);
-    const { noted, forgotten } = await this.memory.applyOps(ops);
+    // The reply is already saved: if remembering fails the answer must still go out (a retry would ask the question twice).
+    const { noted, forgotten } = await this.memory.applyOps(ops).catch(() => ({ noted: [] as MemoryBrief[], forgotten: [] as string[] }));
     // Folding old turns into the summary is housekeeping: if it fails the answer still goes out.
     await this.chat.foldIfNeeded(this.client).catch(() => undefined);
 
