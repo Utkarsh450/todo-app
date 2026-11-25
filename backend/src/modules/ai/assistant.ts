@@ -57,6 +57,23 @@ export interface AssistantReply {
 
 export const MAX_RECENT_TURN = 400;
 export const MAX_SUMMARY = 1200;
+/**
+ * How much of the prompt the remembered facts may take (their text plus about 40 characters of JSON each): roughly 1,500
+ * tokens. Facts come newest first, so when there are more than fit, the oldest are left out of the prompt (they stay saved).
+ */
+export const MAX_MEMORY_PROMPT_CHARS = 6000;
+const FACT_OVERHEAD = 40;
+
+function factsWithinBudget(facts: MemoryBrief[]): MemoryBrief[] {
+  const kept: MemoryBrief[] = [];
+  let used = 0;
+  for (const fact of facts) {
+    used += fact.text.length + FACT_OVERHEAD;
+    if (used > MAX_MEMORY_PROMPT_CHARS) break;
+    kept.push(fact);
+  }
+  return kept;
+}
 
 /** What the assistant is told besides today's lists: what it knows about the owner and how the conversation went so far. */
 export interface PromptMemory {
@@ -116,7 +133,7 @@ export function buildAssistantMessages(
   // turns, actions, then today's lists, and the question last.
   const context = {
     ...(memory && {
-      memory: memory.facts.map((f) => ({ id: f.id, text: f.text, category: f.category })),
+      memory: factsWithinBudget(memory.facts).map((f) => ({ id: f.id, text: f.text, category: f.category })),
       summary: clip(memory.summary, MAX_SUMMARY),
       recent: memory.recent.map((t) => ({ who: t.who, text: clip(t.text, MAX_RECENT_TURN) })),
       actions: memory.actions,
