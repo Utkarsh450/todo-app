@@ -40,7 +40,36 @@ data class DumpedTask(
     val projectName: String?,
 )
 
-data class AssistantReply(val reply: String, val suggestions: List<AssistantSuggestion>)
+/** A fact the assistant keeps about the owner ("Wakes at 7"). [category] is ROUTINE, PREFERENCE, PERSON, COMMITMENT or OTHER. */
+data class MemoryFact(val id: String, val text: String, val category: String)
+
+/**
+ * The assistant's answer. [messageId] is the saved message (null from a server that predates memory) and outcomes of
+ * its suggestions are reported against it. [noted] are the facts it saved by itself in this turn, [forgotten] the ids it dropped.
+ * [suggestionIndexes] holds each suggestion's position in the server's list: the app drops suggestions it cannot read,
+ * so the positions can skip, and an outcome must be reported with the server's own index.
+ */
+data class AssistantReply(
+    val reply: String,
+    val suggestions: List<AssistantSuggestion>,
+    val messageId: String? = null,
+    val noted: List<MemoryFact> = emptyList(),
+    val forgotten: List<String> = emptyList(),
+    val suggestionIndexes: List<Int> = suggestions.indices.toList(),
+)
+
+/** One saved message of the conversation. [outcomes] maps the server's suggestion index to "accepted" or "skipped". */
+data class StoredMessage(
+    val id: String,
+    val fromOwner: Boolean,
+    val text: String,
+    val suggestions: List<AssistantSuggestion> = emptyList(),
+    val suggestionIndexes: List<Int> = suggestions.indices.toList(),
+    val outcomes: Map<Int, String> = emptyMap(),
+)
+
+/** A page of history, newest message first. [nextBefore] is the cursor for the next (older) page, null at the end. */
+data class HistoryPage(val messages: List<StoredMessage>, val nextBefore: String?)
 
 interface AiRepository {
     /**
@@ -54,4 +83,21 @@ interface AiRepository {
 
     /** Sorts a rambling note into separate tasks. Returns an empty list when the note holds none. */
     suspend fun brainDump(text: String, zone: ZoneId): Result<List<DumpedTask>>
+
+    /** One page of the saved conversation, newest first. Pass the previous page's `nextBefore` as [before] for older ones. */
+    suspend fun history(before: String? = null, limit: Int = 20): Result<HistoryPage>
+
+    /** Deletes the whole conversation (what the assistant remembers about the owner is kept). */
+    suspend fun clearHistory(): Result<Unit>
+
+    /** Tells the server what the owner did with suggestion [index] (the server's position) of a message. */
+    suspend fun reportOutcome(messageId: String, index: Int, accepted: Boolean): Result<Unit>
+
+    suspend fun memories(): Result<List<MemoryFact>>
+
+    /** Adds a fact by hand. Fails with the server's reason when it is refused (too long, a secret, memory full). */
+    suspend fun addMemory(text: String): Result<MemoryFact>
+    suspend fun updateMemory(id: String, text: String): Result<MemoryFact>
+    suspend fun deleteMemory(id: String): Result<Unit>
+    suspend fun deleteAllMemories(): Result<Unit>
 }

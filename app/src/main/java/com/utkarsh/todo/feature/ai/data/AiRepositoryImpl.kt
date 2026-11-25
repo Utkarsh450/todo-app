@@ -10,6 +10,9 @@ import com.utkarsh.todo.feature.ai.domain.AiRepository
 import com.utkarsh.todo.feature.ai.domain.AssistantReply
 import com.utkarsh.todo.feature.ai.domain.AssistantSuggestion
 import com.utkarsh.todo.feature.ai.domain.DumpedTask
+import com.utkarsh.todo.feature.ai.domain.HistoryPage
+import com.utkarsh.todo.feature.ai.domain.MemoryFact
+import com.utkarsh.todo.feature.ai.domain.StoredMessage
 import com.utkarsh.todo.feature.tasks.domain.Priority
 import dagger.Binds
 import dagger.Module
@@ -29,7 +32,12 @@ import okhttp3.OkHttpClient
 import retrofit2.HttpException
 import retrofit2.create
 import retrofit2.http.Body
+import retrofit2.http.DELETE
+import retrofit2.http.GET
+import retrofit2.http.PATCH
 import retrofit2.http.POST
+import retrofit2.http.Path
+import retrofit2.http.Query
 
 @Serializable
 data class BreakdownRequest(
@@ -81,7 +89,47 @@ data class SuggestionDto(
     }
 }
 
-@Serializable data class AssistResponse(val reply: String, val suggestions: List<SuggestionDto> = emptyList())
+@Serializable data class MemoryFactDto(val id: String, val text: String, val category: String = "OTHER") {
+    fun toDomain() = MemoryFact(id, text, category)
+}
+
+@Serializable
+data class AssistResponse(
+    val reply: String,
+    val suggestions: List<SuggestionDto> = emptyList(),
+    val messageId: String? = null,
+    val noted: List<MemoryFactDto> = emptyList(),
+    val forgotten: List<String> = emptyList(),
+)
+
+@Serializable
+data class StoredMessageDto(
+    val id: String,
+    val role: String,
+    val content: String,
+    val suggestions: List<SuggestionDto>? = null,
+    val outcomes: Map<String, String>? = null,
+) {
+    fun toDomain(): StoredMessage {
+        val readable = suggestions.orEmpty().mapIndexedNotNull { index, dto -> dto.toDomain()?.let { index to it } }
+        return StoredMessage(
+            id = id,
+            fromOwner = role == "USER",
+            text = content,
+            suggestions = readable.map { it.second },
+            suggestionIndexes = readable.map { it.first },
+            outcomes = outcomes.orEmpty().mapNotNull { (key, value) -> key.toIntOrNull()?.let { it to value } }.toMap(),
+        )
+    }
+}
+
+@Serializable data class HistoryResponse(val messages: List<StoredMessageDto> = emptyList(), val nextBefore: String? = null)
+
+@Serializable data class OutcomeRequest(val index: Int, val outcome: String)
+
+@Serializable data class MemoryRequest(val text: String)
+
+@Serializable data class MemoriesResponse(val memories: List<MemoryFactDto> = emptyList())
 
 @Serializable data class BrainDumpRequest(val text: String, val timeZone: String)
 
@@ -115,6 +163,30 @@ interface AiApi {
 
     @POST("ai/breakdown")
     suspend fun breakdown(@Body body: BreakdownRequest): BreakdownResponse
+
+    @GET("ai/history")
+    suspend fun history(@Query("before") before: String?, @Query("limit") limit: Int): HistoryResponse
+
+    @DELETE("ai/history")
+    suspend fun clearHistory()
+
+    @POST("ai/assist/{id}/outcome")
+    suspend fun outcome(@Path("id") messageId: String, @Body body: OutcomeRequest)
+
+    @GET("ai/memories")
+    suspend fun memories(): MemoriesResponse
+
+    @POST("ai/memories")
+    suspend fun addMemory(@Body body: MemoryRequest): MemoryFactDto
+
+    @PATCH("ai/memories/{id}")
+    suspend fun updateMemory(@Path("id") id: String, @Body body: MemoryRequest): MemoryFactDto
+
+    @DELETE("ai/memories/{id}")
+    suspend fun deleteMemory(@Path("id") id: String)
+
+    @DELETE("ai/memories")
+    suspend fun deleteAllMemories()
 }
 
 @Singleton
@@ -128,8 +200,41 @@ class AiRepositoryImpl @Inject constructor(private val api: AiApi) : AiRepositor
             .recoverCatching { throw it.toAiException() }
 
     override suspend fun assist(message: String, zone: ZoneId): Result<AssistantReply> =
-        resultOf { api.assist(AssistRequest(message, zone.id)).let { r -> AssistantReply(r.reply, r.suggestions.mapNotNull(SuggestionDto::toDomain)) } }
+        resultOf {
+            api.assist(AssistRequest(message, zone.id)).let { r ->
+                val readable = r.suggestions.mapIndexedNotNull { index, dto -> dto.toDomain()?.let { index to it } }
+                AssistantReply(
+                    reply = r.reply,
+                    suggestions = readable.map { it.second },
+                    messageId = r.messageId,
+                    noted = r.noted.map(MemoryFactDto::toDomain),
+                    forgotten = r.forgotten,
+                    suggestionIndexes = readable.map { it.first },
+                )
+            }
+        }.recoverCatching { throw it.toAiException() }
+
+    override suspend fun history(before: String?, limit: Int): Result<HistoryPage> =
+        resultOf { api.history(before, limit).let { HistoryPage(it.messages.map(StoredMessageDto::toDomain), it.nextBefore) } }
             .recoverCatching { throw it.toAiException() }
+
+    override suspend fun clearHistory(): Result<Unit> = resultOf { api.clearHistory() }.recoverCatching { throw it.toAiException() }
+
+    override suspend fun reportOutcome(messageId: String, index: Int, accepted: Boolean): Result<Unit> =
+        resultOf { api.outcome(messageId, OutcomeRequest(index, if (accepted) "accepted" else "skipped")) }.recoverCatching { throw it.toAiException() }
+
+    override suspend fun memories(): Result<List<MemoryFact>> =
+        resultOf { api.memories().memories.map(MemoryFactDto::toDomain) }.recoverCatching { throw it.toAiException() }
+
+    override suspend fun addMemory(text: String): Result<MemoryFact> =
+        resultOf { api.addMemory(MemoryRequest(text)).toDomain() }.recoverCatching { throw it.toAiException() }
+
+    override suspend fun updateMemory(id: String, text: String): Result<MemoryFact> =
+        resultOf { api.updateMemory(id, MemoryRequest(text)).toDomain() }.recoverCatching { throw it.toAiException() }
+
+    override suspend fun deleteMemory(id: String): Result<Unit> = resultOf { api.deleteMemory(id) }.recoverCatching { throw it.toAiException() }
+
+    override suspend fun deleteAllMemories(): Result<Unit> = resultOf { api.deleteAllMemories() }.recoverCatching { throw it.toAiException() }
 }
 
 /** Turns a transport or HTTP failure into a message a person can act on. */
@@ -143,7 +248,8 @@ internal fun Throwable.toAiException(): Throwable = when (this) {
         when {
             code == "AI_NOT_CONFIGURED" -> AiException(message ?: "AI is not set up on the server.", notConfigured = true)
             code == "VALIDATION_ERROR" -> AiException("The assistant couldn't read that request.")
-            message != null && code?.startsWith("AI_") == true -> AiException(message)
+            message != null && (code?.startsWith("AI_") == true || code == "MEMORY_REFUSED") -> AiException(message)
+            code == "NOT_FOUND" -> AiException("That is not there any more.")
             else -> AiException("The server had a problem (${code()}). Try again.")
         }
     }
