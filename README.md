@@ -68,6 +68,15 @@ signed; without all four you get `app-release-unsigned.apk`. `./gradlew :app:ins
 to try it on an emulator. GitHub Actions: `CI` (backend tests, Android unit tests + builds, emulator tests) runs on every push and pull request; `Release APK`
 is run by hand and needs the four secrets above plus `RELEASE_KEYSTORE_BASE64`.
 
+## Deploy the backend (Vercel)
+The hosted API is the Vercel project `paper-todo-api` (Neon PostgreSQL). One-time setup: `npm i -g vercel`, `vercel login`, then in `backend/` run `vercel link` and pick the project.
+After that:
+```powershell
+.\scripts\deploy-backend.ps1 -DryRun   # show the plan, change nothing
+.\scripts\deploy-backend.ps1           # install + typecheck, ask, deploy, then check /health (200), no key (401), with key (200)
+```
+The key for the last check comes from the `PAPER_API_KEY` environment variable and is never printed; `DATABASE_URL`, `API_KEY` and the `XAI_*` settings live in the Vercel project settings, not in the repo.
+
 ## API (prefix `/api`)
 `GET /health` · `projects` · `tasks` (+ `/complete`, `/reopen`, `/subtasks`) · `subtasks/:id` · `reminders`
 (+ `/grouped`, `/:id/snooze`) · `events` · `calendar/agenda` · `habits` (+ `/:id/logs/:date`) · `notes/:date` ·

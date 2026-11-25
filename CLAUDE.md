@@ -182,6 +182,8 @@ Focus (11) is built (`feature/focus/ui`; "Focus · 25:00" on the task page -> `D
 - Nav: bottom bar is Today · Calendar · + · Timer · Projects · Insights (`PaperNavBar` takes 4-6 items). Timer is `Destination.Timer` = `FocusRoute(onBack = null)`: a free timer (empty `taskId`); the clock runs only while the app process lives, there is no notification when it ends in the background (not built).
 - Today has no Blocks/Plan switch any more; "Today's list" is a card with "n / m done", a progress bar, the rows and "Next: ...". Due soon banner kept on purpose.
 
+- Deploying the backend: `scripts/deploy-backend.ps1` (see README). It needs the Vercel CLI, `vercel login` and `vercel link` in `backend/` (none of them set up on the Windows PC yet). Deploying is the owner's call: run it only when they say so. It was only tested against a fake `vercel` plus read-only checks of the live API.
+
 ## PENDING WORK FOR THE NEXT AGENT (as of 25 Nov 2026)
 Done on 25 Nov: shrunk build on the phone, saved-copy-first Today, paper splash, Timer tab, progress card, sync (see Gotchas). Still open from the owner's list: AI memory (saved chat history, short and long term memory, guardrails, better prompts, optimisation), a deploy script (the live API is on Vercel; the owner said Render, unconfirmed), saved-copy-first on the other tabs, timer notification when the app is closed. Backend redeploy (item 4 below) is still pending and needs the owner.
 
