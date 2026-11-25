@@ -37,7 +37,7 @@ import com.utkarsh.todo.core.designsystem.theme.PaperRadius
 import com.utkarsh.todo.core.designsystem.theme.paperSurface
 
 @Composable
-fun FocusRoute(onBack: () -> Unit, modifier: Modifier = Modifier, viewModel: FocusViewModel = hiltViewModel()) {
+fun FocusRoute(onBack: (() -> Unit)?, modifier: Modifier = Modifier, viewModel: FocusViewModel = hiltViewModel()) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     FocusScreen(state, onBack, viewModel::setMinutes, viewModel::start, viewModel::pause, viewModel::reset, viewModel::markTaskDone, modifier)
 }
@@ -45,7 +45,8 @@ fun FocusRoute(onBack: () -> Unit, modifier: Modifier = Modifier, viewModel: Foc
 @Composable
 fun FocusScreen(
     state: FocusUiState,
-    onBack: () -> Unit,
+    /** Null in the Timer tab, which has nothing to go back to. */
+    onBack: (() -> Unit)?,
     onMinutes: (Int) -> Unit,
     onStart: () -> Unit,
     onPause: () -> Unit,
@@ -65,7 +66,11 @@ fun FocusScreen(
 
     Column(modifier.fillMaxSize().paperSurface().statusBarsPadding().navigationBarsPadding()) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 14.dp)) {
-            Text("‹ Back", style = Paper.type.button, color = colors.ink, modifier = Modifier.clickable(onClick = onBack).padding(end = 12.dp, top = 4.dp, bottom = 4.dp).testTag("focus-back"))
+            if (onBack != null) {
+                Text("‹ Back", style = Paper.type.button, color = colors.ink, modifier = Modifier.clickable(onClick = onBack).padding(end = 12.dp, top = 4.dp, bottom = 4.dp).testTag("focus-back"))
+            } else {
+                MonoLabel("Timer", color = colors.muted, modifier = Modifier.padding(vertical = 4.dp))
+            }
         }
         Column(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
             MonoLabel(
@@ -79,7 +84,7 @@ fun FocusScreen(
                 modifier = Modifier.testTag("focus-phase"),
             )
             Text(
-                state.taskTitle ?: "…", style = Paper.type.headline, color = colors.ink, textAlign = TextAlign.Center,
+                state.taskTitle ?: if (state.hasTask) "…" else "Free focus", style = Paper.type.headline, color = colors.ink, textAlign = TextAlign.Center,
                 modifier = Modifier.padding(top = 10.dp, bottom = 28.dp).testTag("focus-task"),
             )
             Text(state.clockLabel, style = Paper.type.displayLarge.copy(fontSize = 84.sp), color = colors.ink, modifier = Modifier.testTag("focus-clock"))

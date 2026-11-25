@@ -83,6 +83,18 @@ object PaperIcons {
         }
     }
 
+    /** Stopwatch: the Timer tab. */
+    val Timer: ImageVector by lazy {
+        icon("Timer") {
+            strokePath(1.5f) { circle(10f, 11.5f, 5.5f) }
+            strokePath(1.5f, round = true) {
+                moveTo(8f, 2.5f); horizontalLineTo(12f)
+                moveTo(10f, 2.5f); verticalLineTo(6f)
+                moveTo(10f, 11.5f); lineTo(12.3f, 9.2f)
+            }
+        }
+    }
+
     val Insights: ImageVector by lazy {
         icon("Insights") {
             strokePath(1.7f, round = true) {

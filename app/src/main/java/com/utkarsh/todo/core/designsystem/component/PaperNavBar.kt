@@ -26,8 +26,8 @@ import com.utkarsh.todo.core.designsystem.theme.Paper
 data class NavBarItem(val key: String, val label: String, val icon: ImageVector)
 
 /**
- * Bottom navigation: two destinations, a centre [AddFab], two destinations.
- * [items] must hold exactly four entries (left pair, right pair).
+ * Bottom navigation: the first two destinations, the [AddFab], then the rest (two or more).
+ * With four items the button sits in the middle; each extra tab shifts it a little to the left.
  */
 @Composable
 fun PaperNavBar(
@@ -37,7 +37,7 @@ fun PaperNavBar(
     onAdd: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    require(items.size == 4) { "PaperNavBar expects exactly 4 items, got ${items.size}" }
+    require(items.size in 4..6) { "PaperNavBar expects 4 to 6 items, got ${items.size}" }
     val colors = Paper.colors
     Row(
         modifier = modifier

@@ -71,6 +71,36 @@ class FocusViewModelTest {
     }
 
     @Test
+    fun `without a task it is a free timer, with no lookup and nothing to mark done`() = runTest(dispatcher) {
+        val vm = FocusViewModel(SavedStateHandle(), tasks, TestClock(testScheduler)).also { runCurrent() }
+
+        assertFalse(vm.uiState.value.hasTask)
+        assertNull(vm.uiState.value.taskTitle)
+
+        vm.start(); runCurrent()
+        advanceTimeBy(10_000); runCurrent()
+        assertEquals(FocusPhase.RUNNING, vm.uiState.value.phase)
+        assertEquals("24:50", vm.uiState.value.clockLabel)
+
+        vm.markTaskDone(); runCurrent()
+        coVerify(exactly = 0) { tasks.get(any()) }
+        coVerify(exactly = 0) { tasks.setDone(any(), any()) }
+        assertNull(vm.uiState.value.message)
+    }
+
+    @Test
+    fun `a blank task id is also a free timer`() = runTest(dispatcher) {
+        val vm = FocusViewModel(SavedStateHandle(mapOf("taskId" to "")), tasks, TestClock(testScheduler)).also { runCurrent() }
+        assertFalse(vm.uiState.value.hasTask)
+        coVerify(exactly = 0) { tasks.get(any()) }
+    }
+
+    @Test
+    fun `with a task the screen knows it has one`() = runTest(dispatcher) {
+        assertTrue(viewModel().uiState.value.hasTask)
+    }
+
+    @Test
     fun `the clock label pads minutes and seconds`() {
         assertEquals("05:09", FocusUiState(remainingSeconds = 309).clockLabel)
         assertEquals("00:00", FocusUiState(remainingSeconds = 0).clockLabel)

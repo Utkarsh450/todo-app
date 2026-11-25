@@ -20,6 +20,8 @@ import kotlinx.coroutines.launch
 enum class FocusPhase { IDLE, RUNNING, PAUSED, FINISHED }
 
 data class FocusUiState(
+    /** False for the Timer tab, a timer that is not tied to any task. */
+    val hasTask: Boolean = true,
     val taskTitle: String? = null,
     val taskDone: Boolean = false,
     val minutes: Int = DEFAULT_MINUTES,
@@ -48,17 +50,21 @@ class FocusViewModel @Inject constructor(
     private val tasks: TasksRepository,
     private val clock: Clock,
 ) : ViewModel() {
-    private val taskId: String = checkNotNull(savedStateHandle["taskId"]) { "taskId argument missing" }
+    /** Empty when opened from the Timer tab: then it is a free timer with no task. */
+    private val taskId: String = savedStateHandle.get<String>("taskId").orEmpty()
+    private val hasTask = taskId.isNotEmpty()
 
-    private val _state = MutableStateFlow(FocusUiState())
+    private val _state = MutableStateFlow(FocusUiState(hasTask = hasTask))
     val uiState: StateFlow<FocusUiState> = _state.asStateFlow()
 
     private var endsAt: Instant? = null
     private var ticker: Job? = null
 
     init {
-        viewModelScope.launch {
-            tasks.get(taskId).onSuccess { task -> _state.update { it.copy(taskTitle = task.title, taskDone = task.isDone) } }
+        if (hasTask) {
+            viewModelScope.launch {
+                tasks.get(taskId).onSuccess { task -> _state.update { it.copy(taskTitle = task.title, taskDone = task.isDone) } }
+            }
         }
     }
 
@@ -99,6 +105,7 @@ class FocusViewModel @Inject constructor(
     }
 
     fun markTaskDone() {
+        if (!hasTask) return
         viewModelScope.launch {
             tasks.setDone(taskId, true)
                 .onSuccess { _state.update { it.copy(taskDone = true, message = null) } }

@@ -36,12 +36,12 @@ class FocusScreenTest {
 
     private val events = mutableListOf<String>()
 
-    private fun show(state: FocusUiState) {
+    private fun show(state: FocusUiState, withBack: Boolean = true) {
         events.clear()
         compose.setContent {
             PaperTheme {
                 FocusScreen(
-                    state, onBack = { events += "back" }, onMinutes = { events += "min:$it" }, onStart = { events += "start" },
+                    state, onBack = if (withBack) ({ events += "back" }) else null, onMinutes = { events += "min:$it" }, onStart = { events += "start" },
                     onPause = { events += "pause" }, onReset = { events += "reset" }, onMarkDone = { events += "done" },
                 )
             }
@@ -49,6 +49,16 @@ class FocusScreenTest {
     }
 
     private val ready = FocusUiState(taskTitle = "Write the report")
+
+    @Test
+    fun the_timer_tab_has_no_back_button_and_no_task_so_it_says_free_focus() {
+        show(FocusUiState(hasTask = false), withBack = false)
+
+        compose.onNodeWithTag("focus-back").assertDoesNotExist()
+        compose.onNodeWithText("Free focus").assertIsDisplayed()
+        compose.onNodeWithTag("focus-start").assertIsDisplayed()
+        compose.onNodeWithTag("focus-done").assertDoesNotExist()
+    }
 
     @Test
     fun ready_shows_the_task_the_length_and_a_start_button() {

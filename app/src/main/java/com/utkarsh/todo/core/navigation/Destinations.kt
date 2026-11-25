@@ -8,6 +8,8 @@ sealed interface Destination {
     @Serializable data object Calendar : Destination
     @Serializable data object DueSoon : Destination
     @Serializable data object Insights : Destination
+    /** The Timer tab: a focus countdown that is not tied to a task (the one on a task page is [Focus]). */
+    @Serializable data object Timer : Destination
     @Serializable data object Customize : Destination
     @Serializable data object Assistant : Destination
     @Serializable data object BrainDump : Destination

@@ -49,6 +49,7 @@ private data class TopLevel(val key: String, val label: String, val route: Desti
 private val topLevel = listOf(
     TopLevel("today", "Today", Destination.Today, Destination.Today::class, PaperIcons.Today),
     TopLevel("calendar", "Calendar", Destination.Calendar, Destination.Calendar::class, PaperIcons.Calendar),
+    TopLevel("timer", "Timer", Destination.Timer, Destination.Timer::class, PaperIcons.Timer),
     TopLevel("projects", "Projects", Destination.Projects, Destination.Projects::class, PaperIcons.Projects),
     TopLevel("insights", "Insights", Destination.Insights, Destination.Insights::class, PaperIcons.Insights),
 )
@@ -92,6 +93,7 @@ fun AppNavHost(modifier: Modifier = Modifier) {
             }
             composable<Destination.DueSoon> { DueSoonRoute() }
             composable<Destination.Insights> { InsightsRoute() }
+            composable<Destination.Timer> { FocusRoute(onBack = null) }
             composable<Destination.Projects> {
                 ProjectsRoute(onOpenTask = { nav.navigate(Destination.TaskDetail(it)) })
             }

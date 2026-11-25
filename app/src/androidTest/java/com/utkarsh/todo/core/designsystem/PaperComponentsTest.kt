@@ -3,11 +3,13 @@ package com.utkarsh.todo.core.designsystem
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -78,6 +80,24 @@ class PaperComponentsTest {
         compose.onNodeWithContentDescription("Add").performClick()
         assertEquals("calendar", selectedKey)
         assertEquals(true, added)
+    }
+
+    @Test
+    fun nav_bar_takes_five_tabs_with_the_add_button_after_the_first_two() {
+        var selectedKey = "today"
+        val items = listOf(
+            NavBarItem("today", "Today", Icons.Filled.Home),
+            NavBarItem("calendar", "Calendar", Icons.Filled.DateRange),
+            NavBarItem("timer", "Timer", Icons.Filled.Notifications),
+            NavBarItem("projects", "Projects", Icons.Filled.Star),
+            NavBarItem("insights", "Insights", Icons.Filled.Info),
+        )
+        compose.setContent { PaperTheme { PaperNavBar(items, selectedKey, { selectedKey = it }, {}) } }
+
+        compose.onNodeWithText("Timer").assertIsDisplayed()
+        compose.onNodeWithText("Insights").assertIsDisplayed()
+        compose.onNodeWithText("Timer").performClick()
+        assertEquals("timer", selectedKey)
     }
 
     @Test
