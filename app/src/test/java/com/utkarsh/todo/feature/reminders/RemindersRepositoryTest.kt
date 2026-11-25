@@ -11,6 +11,9 @@ import com.utkarsh.todo.feature.reminders.domain.ReminderScheduler
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneOffset
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
@@ -59,6 +62,34 @@ class RemindersRepositoryTest {
 
     private fun json(body: String, code: Int = 200) =
         MockResponse.Builder().code(code).addHeader("Content-Type", "application/json").body(body).build()
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun `every successful write announces a change, and a failed one does not`() = runTest {
+        val seen = mutableListOf<Unit>()
+        val watcher = launch(UnconfinedTestDispatcher(testScheduler)) { repository.changes.collect { seen += it } }
+
+        server.enqueue(json(reminder(), 201))
+        repository.create(NewReminder("Drink water", Instant.parse("2026-11-07T14:00:00Z"))).getOrThrow()
+        server.enqueue(json(reminder(enabled = false)))
+        repository.setEnabled("r1", false).getOrThrow()
+        server.enqueue(json(reminder()))
+        repository.snooze("r1", 10).getOrThrow()
+        server.enqueue(json(reminder()))
+        repository.snoozeUntil("r1", Instant.parse("2026-11-08T09:00:00Z")).getOrThrow()
+        server.enqueue(json(reminder()))
+        repository.reschedule("r1", Instant.parse("2026-11-09T09:00:00Z")).getOrThrow()
+        server.enqueue(MockResponse.Builder().code(204).build())
+        repository.delete("r1").getOrThrow()
+        assertEquals(6, seen.size)
+
+        server.enqueue(json("""{"error":"NOT_FOUND"}""", 404))
+        assertTrue(repository.delete("r1").isFailure)
+        server.enqueue(json("""{"error":"BAD"}""", 400))
+        assertTrue(repository.create(NewReminder("x", Instant.parse("2026-11-07T14:00:00Z"))).isFailure)
+        assertEquals(6, seen.size)
+        watcher.cancel()
+    }
 
     @Test
     fun `creating a future reminder schedules an alarm`() = runTest {

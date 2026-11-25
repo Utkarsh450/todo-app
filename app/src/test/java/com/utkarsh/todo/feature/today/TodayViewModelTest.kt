@@ -45,6 +45,8 @@ class TodayViewModelTest {
     private val range = clock.dayRange()
 
     private val changes = MutableSharedFlow<Unit>()
+    private val reminderChanges = MutableSharedFlow<Unit>()
+    private val projectChanges = MutableSharedFlow<Unit>()
     private val tasks = mockk<TasksRepository>()
     private val projects = mockk<ProjectsRepository>()
     private val reminders = mockk<RemindersRepository>()
@@ -67,6 +69,8 @@ class TodayViewModelTest {
         Dispatchers.setMain(UnconfinedTestDispatcher())
         coEvery { projects.projects() } returns Result.success(listOf(Project("p1", "Design", "#935EDF")))
         every { tasks.changes } returns changes
+        every { reminders.changes } returns reminderChanges
+        every { projects.changes } returns projectChanges
         coEvery { reminders.grouped(any(), any(), any()) } returns Result.success(ReminderGroups())
     }
 
@@ -230,6 +234,47 @@ class TodayViewModelTest {
         val vm = viewModel(task("a"))
         assertEquals(true, vm.uiState.value.dueSoon.isEmpty)
         assertEquals(1, vm.uiState.value.left)
+    }
+
+    // --- staying in step with the rest of the app ---------------------------------------------------------------------
+
+    @Test
+    fun `a new alert made elsewhere updates the due soon banner without reloading the list`() = runTest {
+        val vm = viewModel(task("a"))
+        assertEquals(true, vm.uiState.value.dueSoon.isEmpty)
+
+        coEvery { reminders.grouped(any(), any(), any()) } returns Result.success(ReminderGroups(today = listOf(alert("t1"), alert("t2"))))
+        reminderChanges.emit(Unit)
+
+        assertEquals(2, vm.uiState.value.dueSoon.today)
+        // The first load asked for the tasks twice (saved copy, then server); the alert change must not add a third.
+        coVerify(exactly = 2) { tasks.dueBetween(range.start, range.end) }
+    }
+
+    @Test
+    fun `renaming a project elsewhere updates the names on the rows`() = runTest {
+        val vm = viewModel(task("a", projectId = "p1"))
+        assertEquals("Design", vm.uiState.value.items.single().projectName)
+
+        coEvery { projects.projects() } returns Result.success(listOf(Project("p1", "Design 2", "#112233")))
+        projectChanges.emit(Unit)
+
+        assertEquals("Design 2", vm.uiState.value.items.single().projectName)
+        assertEquals("#112233", vm.uiState.value.items.single().projectColorHex)
+        coVerify(exactly = 2) { tasks.dueBetween(range.start, range.end) } // no third load for a project change
+    }
+
+    @Test
+    fun `a failing refresh of the banner or the names keeps what is shown`() = runTest {
+        val vm = viewModel(task("a", projectId = "p1"))
+        coEvery { reminders.grouped(any(), any(), any()) } returns Result.failure(RuntimeException("offline"))
+        coEvery { projects.projects() } returns Result.failure(RuntimeException("offline"))
+
+        reminderChanges.emit(Unit)
+        projectChanges.emit(Unit)
+
+        assertEquals("Design", vm.uiState.value.items.single().projectName)
+        assertNull(vm.uiState.value.errorMessage)
     }
 
     @Test

@@ -3,6 +3,9 @@ package com.utkarsh.todo.feature.projects
 import com.utkarsh.todo.core.network.buildRetrofit
 import com.utkarsh.todo.feature.projects.data.ProjectsApi
 import com.utkarsh.todo.feature.projects.data.ProjectsRepositoryImpl
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import mockwebserver3.MockResponse
 import mockwebserver3.MockWebServer
@@ -51,6 +54,30 @@ class ProjectsRepositoryTest {
         assertEquals("POST", request.method)
         assertEquals("""{"name":"Home","color":"#112233"}""", request.body?.utf8())
         assertEquals("2", created.id)
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun `create, update and delete announce a change, failures and reads do not`() = runTest {
+        val seen = mutableListOf<Unit>()
+        val watcher = launch(UnconfinedTestDispatcher(testScheduler)) { repository.changes.collect { seen += it } }
+
+        server.enqueue(json("""[{"id":"1","name":"Design","color":"#935EDF","createdAt":"2026-11-07T00:00:00.000Z"}]"""))
+        repository.projects().getOrThrow()
+        assertEquals(0, seen.size) // reading is not a change
+
+        server.enqueue(json("""{"id":"2","name":"Home","color":"#112233","createdAt":"2026-11-07T00:00:00.000Z"}""", 201))
+        repository.create("Home", "#112233").getOrThrow()
+        server.enqueue(json("""{"id":"2","name":"Home 2","color":"#112233","createdAt":"2026-11-07T00:00:00.000Z"}"""))
+        repository.update("2", name = "Home 2").getOrThrow()
+        server.enqueue(MockResponse.Builder().code(204).build())
+        repository.delete("2").getOrThrow()
+        assertEquals(3, seen.size)
+
+        server.enqueue(json("""{"error":"CONFLICT"}""", 409))
+        assertTrue(repository.create("Home", "#112233").isFailure)
+        assertEquals(3, seen.size)
+        watcher.cancel()
     }
 
     @Test

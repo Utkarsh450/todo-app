@@ -8,7 +8,9 @@ import com.utkarsh.todo.feature.insights.domain.heatLevel
 import com.utkarsh.todo.feature.insights.ui.HEATMAP_WEEKS
 import com.utkarsh.todo.feature.insights.ui.InsightsViewModel
 import io.mockk.coEvery
+import com.utkarsh.todo.feature.tasks.domain.TasksRepository
 import io.mockk.coVerify
+import io.mockk.every
 import io.mockk.mockk
 import java.time.Clock
 import java.time.Instant
@@ -16,6 +18,7 @@ import java.time.LocalDate
 import java.time.ZoneId
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
@@ -34,9 +37,14 @@ class InsightsViewModelTest {
     private val today = LocalDate.of(2026, 11, 7)
     private val firstDay = LocalDate.of(2026, 7, 5) // Sunday, 17 weeks before this week's Sunday (1 Nov)
     private val repository = mockk<InsightsRepository>()
+    private val tasks = mockk<TasksRepository>()
+    private val taskChanges = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
 
     @Before
-    fun setUp() = Dispatchers.setMain(UnconfinedTestDispatcher())
+    fun setUp() {
+        Dispatchers.setMain(UnconfinedTestDispatcher())
+        every { tasks.changes } returns taskChanges
+    }
 
     @After
     fun tearDown() = Dispatchers.resetMain()
@@ -48,7 +56,23 @@ class InsightsViewModelTest {
 
     private fun viewModel(data: Heatmap = heatmap()): InsightsViewModel {
         coEvery { repository.heatmap(any(), any(), any()) } returns Result.success(data)
-        return InsightsViewModel(repository, clock)
+        return InsightsViewModel(repository, tasks, clock)
+    }
+
+    @Test
+    fun `finishing or adding a task elsewhere refreshes the numbers without bringing the skeleton back`() {
+        val vm = viewModel(heatmap(mapOf(today to 1)))
+        assertEquals("1 tasks done", vm.uiState.value.selectedValue)
+
+        var loadingDuringRefresh: Boolean? = null
+        coEvery { repository.heatmap(any(), any(), any()) } coAnswers {
+            loadingDuringRefresh = vm.uiState.value.isLoading
+            Result.success(heatmap(mapOf(today to 3)))
+        }
+        taskChanges.tryEmit(Unit)
+
+        assertEquals("3 tasks done", vm.uiState.value.selectedValue)
+        assertEquals(false, loadingDuringRefresh)
     }
 
     @Test
@@ -132,7 +156,7 @@ class InsightsViewModelTest {
     @Test
     fun `load failure is reported and refresh recovers`() {
         coEvery { repository.heatmap(any(), any(), any()) } returns Result.failure(RuntimeException("offline"))
-        val vm = InsightsViewModel(repository, clock)
+        val vm = InsightsViewModel(repository, tasks, clock)
         assertEquals("offline", vm.uiState.value.error)
         assertTrue(vm.uiState.value.weeks.isEmpty())
 

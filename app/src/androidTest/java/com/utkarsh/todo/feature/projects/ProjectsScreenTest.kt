@@ -54,6 +54,7 @@ class ProjectsScreenTest {
     private val opened = mutableListOf<String>()
 
     private val projects = object : ProjectsRepository {
+        override val changes: Flow<Unit> = MutableSharedFlow()
         override suspend fun projects() = if (failLoad) Result.failure(RuntimeException("Server is down")) else Result.success(projectList.toList())
         override suspend fun create(name: String, colorHex: String): Result<Project> =
             Result.success(Project("p${projectList.size + 1}", name, colorHex).also { projectList += it })

@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.utkarsh.todo.feature.insights.domain.Heatmap
 import com.utkarsh.todo.feature.insights.domain.InsightsRepository
 import com.utkarsh.todo.feature.insights.domain.heatLevel
+import com.utkarsh.todo.feature.tasks.domain.TasksRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.Clock
 import java.time.DayOfWeek
@@ -44,6 +45,7 @@ data class InsightsUiState(
 @HiltViewModel
 class InsightsViewModel @Inject constructor(
     private val repository: InsightsRepository,
+    private val tasks: TasksRepository,
     private val clock: Clock,
 ) : ViewModel() {
 
@@ -57,6 +59,9 @@ class InsightsViewModel @Inject constructor(
 
     init {
         load()
+        // Insights counts finished tasks, and this tab stays alive in the background: a task ticked or added anywhere
+        // (Today, the assistant, a task page) must show here without leaving and coming back.
+        viewModelScope.launch { tasks.changes.collect { load(quiet = true) } }
     }
 
     fun select(date: LocalDate) {
@@ -67,13 +72,14 @@ class InsightsViewModel @Inject constructor(
 
     fun refresh() = load()
 
-    private fun load() {
+    /** [quiet] keeps what is on screen while the numbers are fetched again (no skeleton). */
+    private fun load(quiet: Boolean = false) {
         viewModelScope.launch {
-            _state.update { it.copy(isLoading = true, error = null) }
+            if (!quiet) _state.update { it.copy(isLoading = true, error = null) }
             val offsetMinutes = clock.zone.rules.getOffset(clock.instant()).totalSeconds / 60
             repository.heatmap(firstDay, today, offsetMinutes)
                 .onSuccess { heatmap = it; publish() }
-                .onFailure { e -> _state.update { it.copy(isLoading = false, error = e.message ?: "Couldn't load insights") } }
+                .onFailure { e -> if (!quiet || heatmap == null) _state.update { it.copy(isLoading = false, error = e.message ?: "Couldn't load insights") } }
         }
     }
 

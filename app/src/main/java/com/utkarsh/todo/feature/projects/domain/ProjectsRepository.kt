@@ -1,6 +1,11 @@
 package com.utkarsh.todo.feature.projects.domain
 
+import kotlinx.coroutines.flow.Flow
+
 interface ProjectsRepository {
+    /** Emits after a project is created, renamed, recoloured or deleted, so screens showing project names can refresh. */
+    val changes: Flow<Unit>
+
     suspend fun projects(): Result<List<Project>>
     suspend fun create(name: String, colorHex: String): Result<Project>
 

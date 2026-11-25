@@ -133,6 +133,8 @@ class CalendarViewModel @Inject constructor(
         load()
         viewModelScope.launch { tasks.changes.collect { load(showSkeleton = false) } }
         viewModelScope.launch { calendar.changes.collect { load(showSkeleton = false) } }
+        // Stand-alone reminders are drawn on the calendar, so one made or changed elsewhere (Create, the assistant) must show up.
+        viewModelScope.launch { reminders.changes.collect { load(showSkeleton = false) } }
     }
 
     // ---- moving around

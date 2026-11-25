@@ -79,6 +79,22 @@ class TodayViewModel @Inject constructor(
     init {
         refresh()
         viewModelScope.launch { tasks.changes.collect { load(clearError = false) } }
+        // An alert made, changed or snoozed anywhere (Create, the assistant, an event, Due soon) only moves the banner.
+        viewModelScope.launch { reminders.changes.collect { refreshDueSoon() } }
+        // A project renamed or recoloured anywhere only changes the names and colours on the rows.
+        viewModelScope.launch { projects.changes.collect { refreshProjects() } }
+    }
+
+    private suspend fun refreshDueSoon() {
+        val range = clock.dayRange()
+        reminders.grouped(clock.instant(), range.end, range.end).onSuccess { groups -> showDueSoon(groups) }
+    }
+
+    private suspend fun refreshProjects() {
+        projects.projects().onSuccess { list ->
+            projectsById = list.associateBy { it.id }
+            if (hasShownList) publish()
+        }
     }
 
     fun refresh() = load(clearError = true)

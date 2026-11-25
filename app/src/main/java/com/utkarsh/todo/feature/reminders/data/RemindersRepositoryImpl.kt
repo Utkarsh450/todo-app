@@ -12,17 +12,27 @@ import com.utkarsh.todo.feature.reminders.domain.RemindersRepository
 import java.time.Clock
 import java.time.Instant
 import javax.inject.Inject
+import javax.inject.Singleton
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 
-/** Talks to the API and keeps the device alarms in step with every change. */
+/**
+ * Talks to the API and keeps the device alarms in step with every change. A singleton, so [changes] reaches every screen
+ * (the same as the tasks and calendar repositories).
+ */
+@Singleton
 class RemindersRepositoryImpl @Inject constructor(
     private val api: RemindersApi,
     private val scheduler: ReminderScheduler,
     private val clock: Clock,
     private val store: ReminderAlarmStore,
 ) : RemindersRepository {
+    private val _changes = MutableSharedFlow<Unit>(extraBufferCapacity = 8)
+    override val changes: Flow<Unit> = _changes.asSharedFlow()
 
     override suspend fun grouped(now: Instant, endOfToday: Instant, endOfWeek: Instant) = resultOf {
         val dto = api.grouped(now.toString(), endOfToday.toString(), endOfWeek.toString())
@@ -53,7 +63,12 @@ class RemindersRepositoryImpl @Inject constructor(
         }).toDomain()
     }.synced()
 
-    override suspend fun delete(id: String) = resultOf { api.delete(id) }.also { result -> result.onSuccess { scheduler.cancel(id) } }
+    override suspend fun delete(id: String) = resultOf { api.delete(id) }.also { result ->
+        result.onSuccess {
+            scheduler.cancel(id)
+            _changes.tryEmit(Unit)
+        }
+    }
 
     override suspend fun forTask(taskId: String) = resultOf { api.list().map { it.toDomain() }.firstOrNull { it.taskId == taskId } }
 
@@ -76,7 +91,10 @@ class RemindersRepositoryImpl @Inject constructor(
         }
     }
 
-    private fun Result<Reminder>.synced() = onSuccess(::apply)
+    private fun Result<Reminder>.synced() = onSuccess { reminder ->
+        apply(reminder)
+        _changes.tryEmit(Unit)
+    }
 
     /** Registers (or cancels) the alarm for [reminder] and returns what was registered, null if none. */
     private fun apply(reminder: Reminder): Reminder? {

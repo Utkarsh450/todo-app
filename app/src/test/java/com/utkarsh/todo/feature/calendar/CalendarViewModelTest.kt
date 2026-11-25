@@ -51,6 +51,7 @@ class CalendarViewModelTest {
     private val reminders = mockk<RemindersRepository>()
     private val changes = MutableSharedFlow<Unit>()
     private val eventChanges = MutableSharedFlow<Unit>()
+    private val reminderChanges = MutableSharedFlow<Unit>()
 
     private fun item(id: String, title: String, startIst: String, endIst: String? = null, project: String? = "p-eng", kind: AgendaKind = AgendaKind.EVENT, allDay: Boolean = false, done: Boolean = false) =
         AgendaItem(kind, id, title, ist(startIst), endIst?.let(::ist), allDay, project, done)
@@ -62,6 +63,7 @@ class CalendarViewModelTest {
         Dispatchers.setMain(UnconfinedTestDispatcher())
         every { tasks.changes } returns changes
         every { calendar.changes } returns eventChanges
+        every { reminders.changes } returns reminderChanges
         coEvery { projects.projects() } returns Result.success(listOf(Project("p-eng", "Engineering", "#2784D5"), Project("p-des", "Design", "#935EDF")))
     }
 
@@ -174,6 +176,17 @@ class CalendarViewModelTest {
         coVerify(exactly = 1) { calendar.agenda(any(), any()) }
 
         eventChanges.emit(Unit)
+
+        coVerify(exactly = 2) { calendar.agenda(any(), any()) }
+        assertEquals(false, vm.uiState.value.isLoading)
+    }
+
+    @Test
+    fun `a reminder made or changed elsewhere shows up without leaving the screen`() = runTest {
+        val vm = viewModel()
+        coVerify(exactly = 1) { calendar.agenda(any(), any()) }
+
+        reminderChanges.emit(Unit)
 
         coVerify(exactly = 2) { calendar.agenda(any(), any()) }
         assertEquals(false, vm.uiState.value.isLoading)

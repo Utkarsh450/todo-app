@@ -1,8 +1,12 @@
 package com.utkarsh.todo.feature.reminders.domain
 
 import java.time.Instant
+import kotlinx.coroutines.flow.Flow
 
 interface RemindersRepository {
+    /** Emits after every successful create, change, snooze or delete, so screens that show alerts can refresh. */
+    val changes: Flow<Unit>
+
     /** Reminders bucketed for the client's day boundaries. */
     suspend fun grouped(now: Instant, endOfToday: Instant, endOfWeek: Instant): Result<ReminderGroups>
     suspend fun create(reminder: NewReminder): Result<Reminder>
