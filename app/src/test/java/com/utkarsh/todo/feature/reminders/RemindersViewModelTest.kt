@@ -1,5 +1,8 @@
 package com.utkarsh.todo.feature.reminders
 
+import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.CompletableDeferred
+import com.utkarsh.todo.core.offline.CacheFirst
 import com.utkarsh.todo.feature.reminders.domain.NewReminder
 import com.utkarsh.todo.feature.reminders.domain.Reminder
 import com.utkarsh.todo.feature.reminders.domain.ReminderGroups
@@ -51,6 +54,22 @@ class RemindersViewModelTest {
     private fun load(groups: ReminderGroups): RemindersViewModel {
         coEvery { repository.grouped(now, endOfToday, endOfWeek) } returns Result.success(groups)
         return RemindersViewModel(repository, clock)
+    }
+
+    @Test
+    fun `the saved list shows at once and the server's list then replaces it`() = runTest {
+        val gate = CompletableDeferred<Result<ReminderGroups>>()
+        coEvery { repository.grouped(now, endOfToday, endOfWeek) } coAnswers {
+            if (CacheFirst.isActive()) Result.success(ReminderGroups(today = listOf(reminder("old", "2026-11-07T08:30:00Z")))) else gate.await()
+        }
+
+        val vm = RemindersViewModel(repository, clock)
+
+        assertFalse(vm.uiState.value.isLoading)
+        assertEquals(1, vm.uiState.value.sections.sumOf { it.rows.size })
+
+        gate.complete(Result.success(ReminderGroups(today = listOf(reminder("a", "2026-11-07T08:30:00Z"), reminder("b", "2026-11-07T09:30:00Z")))))
+        assertEquals(2, vm.uiState.value.sections.sumOf { it.rows.size })
     }
 
     @Test
@@ -124,7 +143,7 @@ class RemindersViewModelTest {
         vm.setEnabled("t", false)
 
         coVerify { repository.setEnabled("t", false) }
-        coVerify(exactly = 2) { repository.grouped(now, endOfToday, endOfWeek) }
+        coVerify(exactly = 3) { repository.grouped(now, endOfToday, endOfWeek) } // first load asks twice (saved copy, server), then the reload
     }
 
     @Test

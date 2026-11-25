@@ -1,5 +1,6 @@
 package com.utkarsh.todo.feature.taskdetail.ui
 
+import com.utkarsh.todo.core.offline.cacheFirst
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -87,9 +88,19 @@ class TaskDetailViewModel @Inject constructor(
         load()
     }
 
+    private var triedSavedCopy = false
+
     fun load() {
         viewModelScope.launch {
-            _state.update { it.copy(isLoading = true, error = null) }
+            // First load only: the last saved copy of this task is on screen at once, the server's answer replaces it.
+            if (!triedSavedCopy) {
+                triedSavedCopy = true
+                cacheFirst { tasks.get(taskId) }.onSuccess { saved ->
+                    reminder = cacheFirst { reminders.forTask(taskId) }.getOrNull()
+                    _state.value = TaskDetailUiState(isLoading = false, task = toUi(saved))
+                }
+            }
+            _state.update { it.copy(isLoading = it.task == null, error = null) }
             tasks.get(taskId)
                 .onSuccess { loaded ->
                     reminder = reminders.forTask(taskId).getOrNull()

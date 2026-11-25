@@ -1,5 +1,7 @@
 package com.utkarsh.todo.feature.taskdetail
 
+import kotlinx.coroutines.CompletableDeferred
+import com.utkarsh.todo.core.offline.CacheFirst
 import androidx.lifecycle.SavedStateHandle
 import app.cash.turbine.test
 import com.utkarsh.todo.core.common.formatRelativeDue
@@ -59,6 +61,20 @@ class TaskDetailViewModelTest {
     fun tearDown() = Dispatchers.resetMain()
 
     private fun viewModel() = TaskDetailViewModel(SavedStateHandle(mapOf("taskId" to "t1")), tasks, projects, reminders, clock)
+
+    @Test
+    fun `the saved task shows at once and the server's answer then replaces it`() = runTest {
+        val gate = CompletableDeferred<Result<Task>>()
+        coEvery { tasks.get("t1") } coAnswers { if (CacheFirst.isActive()) Result.success(base) else gate.await() }
+
+        val vm = viewModel()
+
+        assertEquals(false, vm.uiState.value.isLoading)
+        assertEquals(false, vm.uiState.value.task!!.done)
+
+        gate.complete(Result.success(base.copy(status = TaskStatus.DONE)))
+        assertEquals(true, vm.uiState.value.task!!.done)
+    }
 
     @Test
     fun `loads and maps the task for display`() {

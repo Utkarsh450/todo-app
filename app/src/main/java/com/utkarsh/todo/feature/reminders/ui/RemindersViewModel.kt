@@ -1,5 +1,6 @@
 package com.utkarsh.todo.feature.reminders.ui
 
+import com.utkarsh.todo.core.offline.cacheFirst
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.utkarsh.todo.core.common.dayRange
@@ -72,13 +73,21 @@ class RemindersViewModel @Inject constructor(
         refresh()
     }
 
+    private var triedSavedCopy = false
+    private var hasShown = false
+
     fun refresh() {
         viewModelScope.launch {
-            _state.update { it.copy(isLoading = true, error = null) }
             val today = LocalDate.now(clock)
             val endOfWeek = today.with(TemporalAdjusters.next(DayOfWeek.MONDAY)).atStartOfDay(clock.zone).toInstant()
+            // First load only: the last saved list is on screen at once, the server's answer replaces it.
+            if (!triedSavedCopy) {
+                triedSavedCopy = true
+                cacheFirst { repository.grouped(clock.instant(), clock.dayRange().end, endOfWeek) }.onSuccess { saved -> groups = saved; hasShown = true; publish() }
+            }
+            _state.update { it.copy(isLoading = !hasShown, error = null) }
             repository.grouped(clock.instant(), clock.dayRange().end, endOfWeek)
-                .onSuccess { groups = it; publish() }
+                .onSuccess { groups = it; hasShown = true; publish() }
                 .onFailure { e -> _state.update { it.copy(isLoading = false, error = e.message ?: "Couldn't load reminders") } }
         }
     }
