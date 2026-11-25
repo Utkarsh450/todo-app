@@ -36,6 +36,13 @@ Keep screens Hilt-free so they can be tested with fake state; wire extra blocks 
 - Kotlin warnings are errors (`allWarningsAsErrors`). Fix the warning, don't suppress it.
 - The disk was nearly full once (a build failed with "No space left on device"). If a Gradle step dies oddly, run `df -h`.
 
+## Environment (the owner's Windows PC, from 25 Nov 2026)
+- **Gradle only works in the Terminal panel**, not in the agent's own shell: there Java's `Pipe`/`Selector` fail ("Unable to establish loopback connection"). Run it with `mcp__terminal__run_in_terminal` (a script file for anything long).
+- Android SDK is `C:\Users\<user>\AppData\Local\Android\Sdk` (API 36, build-tools 36.0.0/35.0.0); `local.properties` (git-ignored) points at it. The `ANDROID_HOME` variable on this PC is wrong. JDK 17 or 21 both work.
+- Phone: Samsung Galaxy A13 over adb. Sideload `assembleR8check` (shrunk, debug-signed with this PC's key); the Mac-signed APK had to be uninstalled once. The server key comes from `PAPER_API_KEY` or `-PapiKey`, never the repo.
+- No PostgreSQL here, so backend tests can't run locally. `DataStoreSettingsRepositoryTest.simultaneous_updates_...` fails on Windows (temp-file rename); it is not a feature bug.
+- Measuring smoothness: `am start -W` (cold start), `dumpsys gfxinfo <pkg>` (jank), `screenrecord` + `ffmpeg -vf fps=10,tile` (what is on screen over time). Debug build ~2.5 s cold start; shrunk build ~0.8 s.
+
 ## Commands
 ```bash
 # Android (from repo root)
@@ -170,7 +177,15 @@ Focus (11) is built (`feature/focus/ui`; "Focus · 25:00" on the task page -> `D
 - Reading the design project without the CLI: with Claude in Chrome connected, open the design URL once, then in `javascript_tool` call `fetch('/design/anthropic.omelette.api.v1alpha.OmeletteService/GetFile', {method:'POST', headers:{'content-type':'application/json','connect-protocol-version':'1'}, body: JSON.stringify({projectId, path})})` (`ListFiles` for the file list); `content` is base64. Output containing `=`, `?` or `&` can be blocked by the tool, so replace them before returning text.
 - The Android emulator on this Mac often dies under memory pressure in long runs (`device 'emulator-5554' not found`, tests then report an empty `<failure>`). Start it with `emulator -avd Pixel_6 -no-snapshot-save -no-boot-anim -no-audio`, close other apps, and re-run only the class that was interrupted.
 
-## PENDING WORK FOR THE NEXT AGENT (as of 11 Nov 2026)
+- Saved copy first: `cacheFirst { repo.call() }` (core/offline/CacheFirst.kt) answers the GETs inside it from `OfflineStore` only (504 if none saved, never touches the network or the offline flag); TodayViewModel uses it once, on its first load, then refreshes normally. The mark is set in `CacheFirstCallFactory` (OkHttp interceptors run on other threads) and removed by `OfflineCacheInterceptor`. For parallel reads inside the block use `coroutineScope { async {} }`. The saved copy ignores a `now` query parameter. Tests can read `CacheFirst.isActive()` in a fake to play the saved copy.
+- Staying in sync: every repository that changes data exposes `changes` (tasks, calendar, notes, reminders, projects) and is a `@Singleton`. Long-lived tab view-models (Today, Calendar, Projects, Insights) collect the ones they depend on; a new write path must go through the repository so it emits. Due soon is not a tab (new view-model per visit) so it only reads fresh on open.
+- Nav: bottom bar is Today · Calendar · + · Timer · Projects · Insights (`PaperNavBar` takes 4-6 items). Timer is `Destination.Timer` = `FocusRoute(onBack = null)`: a free timer (empty `taskId`); the clock runs only while the app process lives, there is no notification when it ends in the background (not built).
+- Today has no Blocks/Plan switch any more; "Today's list" is a card with "n / m done", a progress bar, the rows and "Next: ...". Due soon banner kept on purpose.
+
+## PENDING WORK FOR THE NEXT AGENT (as of 25 Nov 2026)
+Done on 25 Nov: shrunk build on the phone, saved-copy-first Today, paper splash, Timer tab, progress card, sync (see Gotchas). Still open from the owner's list: AI memory (saved chat history, short and long term memory, guardrails, better prompts, optimisation), a deploy script (the live API is on Vercel; the owner said Render, unconfirmed), saved-copy-first on the other tabs, timer notification when the app is closed. Backend redeploy (item 4 below) is still pending and needs the owner.
+
+## OLDER PENDING WORK (as of 11 Nov 2026)
 Do these in order. Read "Hard rules" first: one commit per finished feature, tests green, no push without being asked, never commit keys.
 
 1. **Re-verify on the emulator (first).** The last batch (dark full-screen alert, overlay permission, tap-a-date-to-create, edit event, `GET /events/:id`) passed all JVM unit tests (and backend 194) and 43 of 44 emulator tests in `reminders`, `calendar`, `create`. The 44th, `CreateScreenTest.picking_a_date_opens_the_full_date_picker`, was running when the emulator died, so its result is unknown. Run it alone, then the whole `./gradlew :app:connectedDebugAndroidTest` (about 25 min). Fix anything red.
