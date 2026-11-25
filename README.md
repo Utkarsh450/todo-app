@@ -20,6 +20,9 @@ note, Grok sorts it into tasks with dates, priority, repeat and project, you unt
 · **Ringing reminders**: a due reminder takes over the screen (even locked) with the alarm sound, a pulsing clock, 5/10/30/60 min snooze and Dismiss; the notification has the same buttons.
 · **Google-style calendar**: Schedule, Day, Week and Month views, events/tasks/reminders as bars and blocks, a now-line, tap any empty slot (or the + menu) to create an event, task or reminder; events get a 30-minute alert by default.
 
+## AI secretary (memory)
+The assistant (✦ on Today) keeps your conversation and learns lasting facts about you ("wakes at 7", "gym on Mondays"). When it saves one, the chat shows "Noted: ... Undo"; **Memory** in the assistant's header lists everything it knows, where you can edit or delete any fact or forget everything. It never keeps passwords, keys or card/ID numbers, never takes rules for how to behave, and still only changes your tasks when you tap Accept. History and memory live on the server (PostgreSQL), so they survive reinstalling the app. The server needs the `ai_memory` migration (`pnpm prisma:deploy`, or a Vercel deploy).
+
 ## AI (Grok or Groq)
 AI calls go through the backend, so the key never lives on the phone. Get a key at <https://console.x.ai>, then put it
 in `backend/.env` and restart the backend:

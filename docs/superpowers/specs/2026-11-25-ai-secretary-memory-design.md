@@ -1,6 +1,7 @@
 # AI secretary: memory, history and guardrails (design)
 
-Status: **waiting for the owner's approval.** Nothing is built yet. Written 25 Nov 2026.
+Status: **approved by the owner and built** on branch `feature/ai-secretary` (plan: `docs/superpowers/plans/2026-11-25-ai-secretary-memory.md`). Written 25 Nov 2026.
+Not yet live: the backend needs a redeploy with the new migration, and the database-backed backend tests (`memory-chat`, `ai-memory-routes`, the memory cases in `assistant` and `api-key`) have not been run (no PostgreSQL on the Windows PC). One change from this document: facts take at most 6,000 characters of the prompt, newest first (100 facts of 200 characters would be about 5,000 tokens, not 2,000).
 
 ## Intent
 The owner will use the AI more than anything else in the app. They want it to behave like a **personal secretary**: it
