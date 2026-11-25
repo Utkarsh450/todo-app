@@ -93,6 +93,66 @@ describe('xAI client', () => {
     expect((error as Error).message).not.toContain('upstream body');
   });
 
+  describe('when the model is busy', () => {
+    /** Answers with the given statuses in turn (200 means a good answer) and records every call and pause. */
+    function scripted(statuses: number[]) {
+      const calls: number[] = [];
+      const pauses: number[] = [];
+      const client = createXaiClient({
+        ...base,
+        sleep: async (ms) => void pauses.push(ms),
+        fetchImpl: async () => {
+          const status = statuses[Math.min(calls.length, statuses.length - 1)]!;
+          calls.push(status);
+          return status === 200 ? reply('second try') : new Response('busy', { status });
+        },
+      });
+      return { client, calls, pauses };
+    }
+
+    it('retries a 429 once after 500 ms and returns the second answer', async () => {
+      const { client, calls, pauses } = scripted([429, 200]);
+      expect(await client.complete(messages)).toBe('second try');
+      expect(calls).toEqual([429, 200]);
+      expect(pauses).toEqual([500]);
+    });
+
+    it('gives the existing busy message after two 429s, having tried exactly twice', async () => {
+      const { client, calls, pauses } = scripted([429, 429]);
+      const error = await client.complete(messages).catch((e: Error) => e);
+      expect(error).toMatchObject({ code: 'AI_UPSTREAM_ERROR', statusCode: 502 });
+      expect((error as Error).message).toMatch(/busy/);
+      expect(calls).toHaveLength(2);
+      expect(pauses).toEqual([500]);
+    });
+
+    it('retries a 503 once', async () => {
+      const { client, calls } = scripted([503, 200]);
+      expect(await client.complete(messages)).toBe('second try');
+      expect(calls).toEqual([503, 200]);
+    });
+
+    it.each([401, 404])('does not retry a %i', async (status) => {
+      const { client, calls, pauses } = scripted([status]);
+      await expect(client.complete(messages)).rejects.toMatchObject({ code: 'AI_UPSTREAM_ERROR' });
+      expect(calls).toHaveLength(1);
+      expect(pauses).toEqual([]);
+    });
+
+    it('does not retry a timeout', async () => {
+      const pauses: number[] = [];
+      let calls = 0;
+      const client = createXaiClient({
+        ...base,
+        sleep: async (ms) => void pauses.push(ms),
+        fetchImpl: async () => ((calls += 1), Promise.reject(Object.assign(new Error('timed out'), { name: 'TimeoutError' }))),
+      });
+      await expect(client.complete(messages)).rejects.toMatchObject({ code: 'AI_TIMEOUT' });
+      expect(calls).toBe(1);
+      expect(pauses).toEqual([]);
+    });
+  });
+
   it('maps a network failure and a timeout', async () => {
     const down = createXaiClient({ ...base, fetchImpl: async () => Promise.reject(new TypeError('fetch failed')) });
     await expect(down.complete(messages)).rejects.toMatchObject({ code: 'AI_UPSTREAM_ERROR' });

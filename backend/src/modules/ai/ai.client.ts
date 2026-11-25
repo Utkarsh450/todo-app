@@ -21,9 +21,12 @@ export interface XaiOptions {
   logger?: Logger;
   /** Injected in tests; defaults to the global `fetch`. */
   fetchImpl?: typeof fetch;
+  /** Injected in tests; the pause before the one retry. */
+  sleep?: (ms: number) => Promise<void>;
 }
 
 const SNIPPET = 200;
+const RETRY_DELAY_MS = 500;
 
 /**
  * Talks to xAI's OpenAI-style chat endpoint. Errors are turned into short messages that are safe to show:
@@ -34,25 +37,37 @@ export function createXaiClient(options: XaiOptions): AiClient {
   const url = `${options.baseUrl.replace(/\/+$/, '')}/chat/completions`;
   const doFetch = options.fetchImpl ?? fetch;
 
+  const sleep = options.sleep ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
+
   return {
     configured: Boolean(apiKey),
     model,
     async complete(messages) {
       if (!apiKey) throw aiNotConfigured();
 
-      let response: Response;
-      try {
-        response = await doFetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-          body: JSON.stringify({ model, messages, stream: false }),
-          signal: AbortSignal.timeout(timeoutMs),
-        });
-      } catch (e) {
-        const name = (e as { name?: string }).name;
-        if (name === 'TimeoutError' || name === 'AbortError') throw aiTimeout();
-        logger?.warn('ai request failed', { reason: (e as Error).message });
-        throw aiUpstream('Could not reach the AI service. Check your internet connection.');
+      const send = async (): Promise<Response> => {
+        try {
+          return await doFetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+            body: JSON.stringify({ model, messages, stream: false }),
+            signal: AbortSignal.timeout(timeoutMs),
+          });
+        } catch (e) {
+          const name = (e as { name?: string }).name;
+          if (name === 'TimeoutError' || name === 'AbortError') throw aiTimeout();
+          logger?.warn('ai request failed', { reason: (e as Error).message });
+          throw aiUpstream('Could not reach the AI service. Check your internet connection.');
+        }
+      };
+
+      let response = await send();
+      // Busy (429) or broken for a moment (5xx): one more try after a short pause, then the usual clear message.
+      if (response.status === 429 || response.status >= 500) {
+        await response.body?.cancel().catch(() => undefined);
+        logger?.warn('ai service busy, retrying once', { status: response.status });
+        await sleep(RETRY_DELAY_MS);
+        response = await send();
       }
 
       if (!response.ok) {
