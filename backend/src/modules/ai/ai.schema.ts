@@ -45,8 +45,16 @@ export const brainDumpResponse = z.object({
   ),
 });
 
+export const memoryItem = z.object({ id: z.uuid(), text: z.string(), category: z.string() });
+
 export const assistResponse = z.object({
+  /** The saved assistant message; outcomes of its suggestions are reported against this id. */
+  messageId: z.uuid(),
   reply: z.string(),
+  /** Facts the assistant saved about the owner in this turn ("Noted: ..."). */
+  noted: z.array(memoryItem),
+  /** Ids of facts it forgot in this turn. */
+  forgotten: z.array(z.uuid()),
   suggestions: z.array(
     z.discriminatedUnion('kind', [
       z.object({ kind: z.literal('MOVE'), ...suggestionBase, dueAt: z.date() }),

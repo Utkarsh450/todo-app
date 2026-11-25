@@ -21,7 +21,7 @@ export const aiRoutes: FastifyPluginAsyncZod = async (app) => {
   app.post('/ai/assist', { schema: { body: assistBody, response: { 200: assistResponse } } }, async (req) => {
     const started = Date.now();
     const result = await assistant.ask(req.body.message, req.body.timeZone);
-    app.appLogger.info('ai assist', { suggestions: result.suggestions.length, ms: Date.now() - started });
+    app.appLogger.info('ai assist', { suggestions: result.suggestions.length, noted: result.noted.length, forgotten: result.forgotten.length, ms: Date.now() - started });
     return result;
   });
 
