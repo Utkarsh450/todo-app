@@ -2,6 +2,7 @@ package com.utkarsh.todo.core.network
 
 import android.content.Context
 import com.utkarsh.todo.BuildConfig
+import com.utkarsh.todo.core.offline.CacheFirstCallFactory
 import com.utkarsh.todo.core.offline.FileOfflineStore
 import com.utkarsh.todo.core.offline.HealthApi
 import com.utkarsh.todo.core.offline.OfflineCacheInterceptor
@@ -33,7 +34,7 @@ val ApiJson: Json = Json {
 fun buildRetrofit(baseUrl: String, client: OkHttpClient = OkHttpClient()): Retrofit =
     Retrofit.Builder()
         .baseUrl(baseUrl)
-        .client(client)
+        .callFactory(CacheFirstCallFactory(client))
         .addConverterFactory(ApiJson.asConverterFactory("application/json".toMediaType()))
         .build()
 

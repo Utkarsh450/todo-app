@@ -194,6 +194,73 @@ class OfflineCacheInterceptorTest {
         assertFalse(monitor.offline.value)
     }
 
+    private fun getCacheFirst(path: String) =
+        client.newCall(Request.Builder().url(base + path).header(CACHE_FIRST_HEADER, "1").build()).execute()
+
+    @Test
+    fun `cache first answers from the saved copy without calling the server`() {
+        server.enqueue(json("""["saved"]"""))
+        get("tasks").use { it.body.string() }
+        val callsBefore = server.requestCount
+
+        getCacheFirst("tasks").use { response ->
+            assertEquals(200, response.code)
+            assertEquals("""["saved"]""", response.body.string())
+            assertEquals("1", response.header(SAVED_FIRST_HEADER))
+            assertNull(response.header(OFFLINE_CACHE_HEADER)) // this is not an offline answer
+        }
+        assertEquals(callsBefore, server.requestCount)
+        assertFalse(monitor.offline.value)
+    }
+
+    @Test
+    fun `cache first with nothing saved answers 504 and does not call the server`() {
+        getCacheFirst("tasks").use { response ->
+            assertEquals(504, response.code)
+            assertNull(response.header(SAVED_FIRST_HEADER))
+        }
+        assertEquals(0, server.requestCount)
+        assertFalse(monitor.offline.value)
+    }
+
+    @Test
+    fun `cache first never flips the offline state even when the server is gone`() {
+        server.enqueue(json("[1]"))
+        get("tasks").use { it.body.string() }
+        server.close()
+
+        getCacheFirst("tasks").use { assertEquals(200, it.code) }
+        getCacheFirst("projects").use { assertEquals(504, it.code) }
+        assertFalse(monitor.offline.value)
+    }
+
+    @Test
+    fun `a changing now parameter does not make every call a different saved copy`() {
+        server.enqueue(json("""["grouped"]"""))
+        get("reminders/grouped?now=2026-11-25T04:27:24.388556Z&endOfToday=2026-11-25T18:30:00Z").use { it.body.string() }
+
+        // a later call: another instant, same day boundaries
+        getCacheFirst("reminders/grouped?now=2026-11-25T06:01:02.000001Z&endOfToday=2026-11-25T18:30:00Z").use { response ->
+            assertEquals(200, response.code)
+            assertEquals("""["grouped"]""", response.body.string())
+        }
+        // a different day is still a different copy
+        getCacheFirst("reminders/grouped?now=2026-11-26T04:00:00Z&endOfToday=2026-11-26T18:30:00Z").use { assertEquals(504, it.code) }
+
+        server.close() // and offline fallback benefits too
+        get("reminders/grouped?now=2026-11-25T09:00:00Z&endOfToday=2026-11-25T18:30:00Z").use { assertEquals("""["grouped"]""", it.body.string()) }
+    }
+
+    @Test
+    fun `the cache first marker is removed before a write reaches the server`() {
+        server.enqueue(json("""{"id":"1"}""", 201))
+        client.newCall(
+            Request.Builder().url(base + "tasks").header(CACHE_FIRST_HEADER, "1").post("{}".toRequestBody()).build(),
+        ).execute().use { assertEquals(201, it.code) }
+
+        assertNull(server.takeRequest().headers[CACHE_FIRST_HEADER])
+    }
+
     @Test
     fun `a broken saved file is ignored`() {
         server.enqueue(json("[1]"))

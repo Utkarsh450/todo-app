@@ -1,0 +1,10 @@
+<resources>
+    <!-- Android 12+ shows a system splash before the first frame; without this it is black on some phones and flashes before the paper-coloured app. -->
+    <style name="Theme.Todo" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">#F4F0E7</item>
+        <item name="android:statusBarColor">#F4F0E7</item>
+        <item name="android:navigationBarColor">#FFFDF8</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowSplashScreenBackground">#F4F0E7</item>
+    </style>
+</resources>
