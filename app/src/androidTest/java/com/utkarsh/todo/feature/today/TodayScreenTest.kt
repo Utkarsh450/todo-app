@@ -12,7 +12,6 @@ import androidx.compose.ui.test.swipeRight
 import com.utkarsh.todo.core.designsystem.theme.PaperTheme
 import com.utkarsh.todo.feature.tasks.domain.Priority
 import com.utkarsh.todo.feature.today.domain.TaskItem
-import com.utkarsh.todo.feature.today.domain.TodayView
 import com.utkarsh.todo.feature.today.domain.UndoPrompt
 import com.utkarsh.todo.feature.today.ui.DueSoonSummary
 import com.utkarsh.todo.feature.today.ui.TodayScreen
@@ -32,13 +31,12 @@ class TodayScreenTest {
 
     private val events = mutableListOf<String>()
 
-    private fun show(state: TodayUiState, withDueSoon: Boolean = false) {
+    private fun show(state: TodayUiState, withDueSoon: Boolean = false, withAddTask: Boolean = false) {
         events.clear()
         compose.setContent {
             PaperTheme {
                 TodayScreen(
                     state = state,
-                    onViewChange = { events += "view:$it" },
                     onToggle = { events += "toggle:$it" },
                     onOpen = { events += "open:$it" },
                     onMoveToTomorrow = { events += "move:$it" },
@@ -47,13 +45,14 @@ class TodayScreenTest {
                     onDismissUndo = {},
                     onRetry = { events += "retry" },
                     onDueSoon = if (withDueSoon) ({ events += "due-soon" }) else null,
+                    onAddTask = if (withAddTask) ({ events += "add-task" }) else null,
                 )
             }
         }
     }
 
-    private fun loaded(vararg items: TaskItem, view: TodayView = TodayView.BLOCKS, undo: UndoPrompt? = null) =
-        TodayUiState(isLoading = false, caption = "SAT 7 NOV · W45", items = items.toList(), view = view, undo = undo)
+    private fun loaded(vararg items: TaskItem, undo: UndoPrompt? = null) =
+        TodayUiState(isLoading = false, caption = "SAT 7 NOV · W45", items = items.toList(), undo = undo)
 
     @Test
     fun shows_header_remaining_count_and_tasks() {
@@ -62,7 +61,42 @@ class TodayScreenTest {
         compose.onNodeWithText("SAT 7 NOV · W45").assertIsDisplayed()
         compose.onNodeWithTag("today-title").assertIsDisplayed()
         compose.onNodeWithText("Review PR").assertIsDisplayed()
-        compose.onNodeWithText("1 LEFT").assertIsDisplayed()
+        compose.onNodeWithText("1 / 2 DONE").assertIsDisplayed()
+        compose.onNodeWithTag("today-progress").assertIsDisplayed()
+    }
+
+    @Test
+    fun the_card_points_at_the_next_open_task_with_its_time() {
+        show(loaded(item("a", "Groceries", done = true), item("b", "Review PR")))
+
+        compose.onNodeWithTag("today-next").assertIsDisplayed()
+        compose.onNodeWithText("Next: Review PR · 9:00 AM").assertIsDisplayed()
+    }
+
+    @Test
+    fun a_finished_day_has_no_next_line() {
+        show(loaded(item("a", "Groceries", done = true)))
+
+        compose.onNodeWithTag("today-next").assertDoesNotExist()
+    }
+
+    @Test
+    fun an_empty_day_says_so_hides_the_count_and_offers_to_add_a_task() {
+        show(loaded(), withAddTask = true)
+
+        compose.onNodeWithText("Nothing planned.").assertIsDisplayed()
+        compose.onNodeWithTag("today-progress").assertDoesNotExist()
+        compose.onNodeWithTag("today-next").assertDoesNotExist()
+        compose.onNodeWithTag("add-task-empty").performClick()
+
+        assertEquals(listOf("add-task"), events)
+    }
+
+    @Test
+    fun an_empty_day_without_an_add_handler_shows_no_button() {
+        show(loaded())
+
+        compose.onNodeWithTag("add-task-empty").assertDoesNotExist()
     }
 
     @Test
@@ -113,21 +147,12 @@ class TodayScreenTest {
     }
 
     @Test
-    fun view_switch_reports_plan() {
+    fun there_is_no_blocks_or_plan_switch_only_the_list() {
         show(loaded(item("a", "Review PR")))
 
-        compose.onNodeWithText("Plan").performClick()
-
-        assertEquals(listOf("view:PLAN"), events)
-    }
-
-    @Test
-    fun plan_view_lists_agenda_with_project_tag() {
-        show(loaded(item("a", "Review PR"), view = TodayView.PLAN))
-
+        compose.onNodeWithText("Blocks").assertDoesNotExist()
+        compose.onNodeWithText("Plan").assertDoesNotExist()
         compose.onNodeWithText("Review PR").assertIsDisplayed()
-        compose.onNodeWithText("DESIGN").assertIsDisplayed()
-        compose.onNodeWithText("Evening is free.").assertIsDisplayed()
     }
 
     @Test

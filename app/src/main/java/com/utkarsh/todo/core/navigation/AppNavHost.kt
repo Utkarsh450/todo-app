@@ -75,6 +75,7 @@ fun AppNavHost(modifier: Modifier = Modifier) {
                     onBrainDump = { nav.navigate(Destination.BrainDump) },
                     onDueSoon = { nav.navigate(Destination.DueSoon) },
                     onSearch = { nav.navigate(Destination.Search) },
+                    onAddTask = { nav.navigate(Destination.Create()) },
                 )
             }
             composable<Destination.Calendar> {

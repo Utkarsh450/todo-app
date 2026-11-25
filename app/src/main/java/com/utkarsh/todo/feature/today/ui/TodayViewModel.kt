@@ -2,11 +2,14 @@ package com.utkarsh.todo.feature.today.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.utkarsh.todo.core.common.DayRange
 import com.utkarsh.todo.core.common.dayRange
 import com.utkarsh.todo.core.common.formatDayCaption
 import com.utkarsh.todo.core.common.formatTime
+import com.utkarsh.todo.core.offline.cacheFirst
 import com.utkarsh.todo.feature.projects.domain.Project
 import com.utkarsh.todo.feature.projects.domain.ProjectsRepository
+import com.utkarsh.todo.feature.reminders.domain.ReminderGroups
 import com.utkarsh.todo.feature.reminders.domain.RemindersRepository
 import com.utkarsh.todo.feature.tasks.domain.Field
 import com.utkarsh.todo.feature.tasks.domain.Task
@@ -14,7 +17,6 @@ import com.utkarsh.todo.feature.tasks.domain.TaskPatch
 import com.utkarsh.todo.feature.tasks.domain.TaskStatus
 import com.utkarsh.todo.feature.tasks.domain.TasksRepository
 import com.utkarsh.todo.feature.today.domain.TaskItem
-import com.utkarsh.todo.feature.today.domain.TodayView
 import com.utkarsh.todo.feature.today.domain.UndoPrompt
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.Clock
@@ -37,11 +39,18 @@ data class TodayUiState(
     val errorMessage: String? = null,
     val caption: String = "",
     val items: List<TaskItem> = emptyList(),
-    val view: TodayView = TodayView.BLOCKS,
     val dueSoon: DueSoonSummary = DueSoonSummary(0, 0),
     val undo: UndoPrompt? = null,
 ) {
     val left: Int get() = items.count { !it.done }
+    val total: Int get() = items.size
+    val doneCount: Int get() = items.count { it.done }
+
+    /** 0..1 for the card's progress bar; an empty day has none. */
+    val progress: Float get() = if (items.isEmpty()) 0f else doneCount / total.toFloat()
+
+    /** The first task not done yet, in the order the list is shown. */
+    val next: TaskItem? get() = items.firstOrNull { !it.done }
     val pinned: TaskItem? get() = items.firstOrNull { it.pinned && !it.done }
 }
 
@@ -64,6 +73,8 @@ class TodayViewModel @Inject constructor(
     private var current: List<Task> = emptyList()
     private var projectsById: Map<String, Project> = emptyMap()
     private var pendingUndo: UndoAction? = null
+    private var triedSavedCopy = false
+    private var hasShownList = false
 
     init {
         refresh()
@@ -75,22 +86,38 @@ class TodayViewModel @Inject constructor(
     /** Reloads from the server; [clearError] = false keeps a message explaining why we are reloading. */
     private fun load(clearError: Boolean) {
         viewModelScope.launch {
-            _state.update { it.copy(isLoading = true, errorMessage = if (clearError) null else it.errorMessage) }
             val range = clock.dayRange()
+            if (!triedSavedCopy) showSavedCopy(range)
+            // Once any list (even an empty saved one) is on screen, a refresh behind it must not bring the skeleton back.
+            _state.update { it.copy(isLoading = !hasShownList, errorMessage = if (clearError) null else it.errorMessage) }
             val tasksResult = async { tasks.dueBetween(range.start, range.end) }
             val projectsResult = async { projects.projects() }
             val dueSoonResult = async { reminders.grouped(clock.instant(), range.end, range.end) }
             projectsById = projectsResult.await().getOrDefault(emptyList()).associateBy { it.id }
-            dueSoonResult.await().onSuccess { groups ->
-                _state.update { it.copy(dueSoon = DueSoonSummary(groups.overdue.count { r -> r.enabled }, groups.today.count { r -> r.enabled })) }
-            }
+            dueSoonResult.await().onSuccess { groups -> showDueSoon(groups) }
             tasksResult.await()
                 .onSuccess { current = it; publish() }
                 .onFailure { e -> _state.update { it.copy(isLoading = false, errorMessage = e.message ?: "Couldn't load tasks") } }
         }
     }
 
-    fun setView(view: TodayView) = _state.update { it.copy(view = view) }
+    /**
+     * First load only: puts the last saved answer on screen at once (no network, no skeleton) while the real request
+     * runs. Later loads never do this, so older rows can't come back after the person has changed something.
+     * A day with no saved copy (a new day, a fresh install) simply keeps the skeleton until the server answers.
+     */
+    private suspend fun showSavedCopy(range: DayRange) {
+        triedSavedCopy = true
+        cacheFirst { projects.projects() }.onSuccess { list -> projectsById = list.associateBy { it.id } }
+        cacheFirst { reminders.grouped(clock.instant(), range.end, range.end) }.onSuccess { groups -> showDueSoon(groups) }
+        cacheFirst { tasks.dueBetween(range.start, range.end) }.onSuccess { saved ->
+            current = saved
+            publish()
+        }
+    }
+
+    private fun showDueSoon(groups: ReminderGroups) =
+        _state.update { it.copy(dueSoon = DueSoonSummary(groups.overdue.count { r -> r.enabled }, groups.today.count { r -> r.enabled })) }
 
     fun toggleDone(id: String) {
         val task = current.firstOrNull { it.id == id } ?: return
@@ -167,6 +194,7 @@ class TodayViewModel @Inject constructor(
     }
 
     private fun publish() = _state.update { state ->
+        hasShownList = true
         state.copy(isLoading = false, items = current.map(::toItem))
     }
 

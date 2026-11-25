@@ -15,7 +15,6 @@ import com.utkarsh.todo.core.designsystem.theme.PaperTheme
 import com.utkarsh.todo.feature.customize.domain.TodayBlock
 import com.utkarsh.todo.feature.tasks.domain.Priority
 import com.utkarsh.todo.feature.today.domain.TaskItem
-import com.utkarsh.todo.feature.today.domain.TodayView
 import com.utkarsh.todo.feature.today.ui.TodayScreen
 import com.utkarsh.todo.feature.today.ui.TodayUiState
 import org.junit.Assert.assertEquals
@@ -30,7 +29,7 @@ class TodayBlocksTest {
 
     private val pinned = TaskItem("p", "Ship the redesign", "9:00 AM", false, Priority.HIGH, true, null, null, 1, 3)
     private val plain = TaskItem("t", "Water the plants", "10:00 AM", false, Priority.NORMAL, false, null, null, 0, 0)
-    private val state = TodayUiState(isLoading = false, caption = "SAT 7 NOV · W45", items = listOf(pinned, plain), view = TodayView.BLOCKS)
+    private val state = TodayUiState(isLoading = false, caption = "SAT 7 NOV · W45", items = listOf(pinned, plain))
     private var opened = 0
 
     private var askedGrok = 0
@@ -41,7 +40,7 @@ class TodayBlocksTest {
         compose.setContent {
             PaperTheme {
                 TodayScreen(
-                    state = state, onViewChange = {}, onToggle = {}, onOpen = {}, onMoveToTomorrow = {}, onArchive = {},
+                    state = state, onToggle = {}, onOpen = {}, onMoveToTomorrow = {}, onArchive = {},
                     onUndo = {}, onDismissUndo = {}, onRetry = {},
                     noteContent = { Box(Modifier.fillMaxWidth().height(40.dp).testTag("note-slot")) },
                     blocks = blocks ?: TodayBlock.entries,

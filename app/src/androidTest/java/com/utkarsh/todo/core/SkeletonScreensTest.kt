@@ -37,7 +37,7 @@ class SkeletonScreensTest {
     @Test
     fun today_shows_a_skeleton_while_loading() {
         compose.setContent {
-            PaperTheme { TodayScreen(TodayUiState(isLoading = true), {}, {}, {}, {}, {}, {}, {}, {}) }
+            PaperTheme { TodayScreen(TodayUiState(isLoading = true), {}, {}, {}, {}, {}, {}, {}) }
         }
         compose.onNodeWithTag("today-skeleton").assertIsDisplayed()
         compose.onNodeWithContentDescription("Loading today's tasks").assertIsDisplayed()
@@ -47,7 +47,7 @@ class SkeletonScreensTest {
     @Test
     fun today_drops_the_skeleton_once_loaded() {
         compose.setContent {
-            PaperTheme { TodayScreen(TodayUiState(isLoading = false), {}, {}, {}, {}, {}, {}, {}, {}) }
+            PaperTheme { TodayScreen(TodayUiState(isLoading = false), {}, {}, {}, {}, {}, {}, {}) }
         }
         compose.onNodeWithTag("today-skeleton").assertDoesNotExist()
     }

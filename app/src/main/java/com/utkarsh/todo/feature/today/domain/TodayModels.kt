@@ -2,8 +2,6 @@ package com.utkarsh.todo.feature.today.domain
 
 import com.utkarsh.todo.feature.tasks.domain.Priority
 
-enum class TodayView { BLOCKS, PLAN }
-
 /** Display model of a task row on the Today screen. */
 data class TaskItem(
     val id: String,

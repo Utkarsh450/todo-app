@@ -7,12 +7,12 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -48,18 +48,15 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.utkarsh.todo.core.designsystem.component.MonoLabel
 import com.utkarsh.todo.core.designsystem.component.PaperCard
-import com.utkarsh.todo.core.designsystem.component.PaperSegmentedControl
-import com.utkarsh.todo.core.designsystem.component.ProjectTag
 import com.utkarsh.todo.core.designsystem.component.UndoSnackbar
 import com.utkarsh.todo.core.designsystem.icon.PaperIcons
 import com.utkarsh.todo.core.designsystem.theme.Paper
 import com.utkarsh.todo.core.designsystem.theme.paperSurface
-import com.utkarsh.todo.core.designsystem.theme.parseHexColor
 import com.utkarsh.todo.feature.customize.domain.TodayBlock
 import com.utkarsh.todo.feature.customize.ui.CustomizeViewModel
 import com.utkarsh.todo.feature.notes.ui.NoteBlock
 import com.utkarsh.todo.feature.today.domain.TaskItem
-import com.utkarsh.todo.feature.today.domain.TodayView
+import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
 
 private const val UNDO_VISIBLE_MS = 4_000L
@@ -72,6 +69,7 @@ fun TodayRoute(
     onBrainDump: () -> Unit,
     onDueSoon: () -> Unit,
     onSearch: () -> Unit,
+    onAddTask: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: TodayViewModel = hiltViewModel(),
     settingsViewModel: CustomizeViewModel = hiltViewModel(),
@@ -81,7 +79,6 @@ fun TodayRoute(
     OnReconnect { viewModel.refresh() }
     TodayScreen(
         state = state,
-        onViewChange = viewModel::setView,
         onToggle = viewModel::toggleDone,
         onOpen = onOpenTask,
         onMoveToTomorrow = viewModel::moveToTomorrow,
@@ -97,13 +94,13 @@ fun TodayRoute(
         onBrainDump = onBrainDump,
         onDueSoon = onDueSoon,
         onSearch = onSearch,
+        onAddTask = onAddTask,
     )
 }
 
 @Composable
 fun TodayScreen(
     state: TodayUiState,
-    onViewChange: (TodayView) -> Unit,
     onToggle: (String) -> Unit,
     onOpen: (String) -> Unit,
     onMoveToTomorrow: (String) -> Unit,
@@ -126,6 +123,8 @@ fun TodayScreen(
     onDueSoon: (() -> Unit)? = null,
     /** Adds "Search" to the ⋯ menu when set. */
     onSearch: (() -> Unit)? = null,
+    /** Shows "+ Add a task" on an empty day when set. */
+    onAddTask: (() -> Unit)? = null,
 ) {
     val colors = Paper.colors
     LaunchedEffect(state.undo) { if (state.undo != null) { delay(UNDO_VISIBLE_MS); onDismissUndo() } }
@@ -147,12 +146,6 @@ fun TodayScreen(
                     )
                 }
                 MoreMenu(onSearch = onSearch, onCustomize = onCustomize)
-                PaperSegmentedControl(
-                    options = TodayView.entries,
-                    selected = state.view,
-                    onSelect = onViewChange,
-                    labelOf = { if (it == TodayView.BLOCKS) "Blocks" else "Plan" },
-                )
             }
             Text(
                 text = buildAnnotatedString {
@@ -167,8 +160,7 @@ fun TodayScreen(
             when {
                 state.isLoading && state.items.isEmpty() -> TodaySkeleton()
                 state.errorMessage != null && state.items.isEmpty() -> ErrorState(state.errorMessage, onRetry)
-                state.view == TodayView.BLOCKS -> BlocksView(state, blocks, onToggle, onOpen, onMoveToTomorrow, onArchive, noteContent)
-                else -> PlanView(state.items)
+                else -> BlocksView(state, blocks, onToggle, onOpen, onMoveToTomorrow, onArchive, onAddTask, noteContent)
             }
         }
         state.undo?.let {
@@ -235,6 +227,7 @@ private fun BlocksView(
     onOpen: (String) -> Unit,
     onMoveToTomorrow: (String) -> Unit,
     onArchive: (String) -> Unit,
+    onAddTask: (() -> Unit)?,
     noteContent: (@Composable () -> Unit)?,
 ) {
     LazyColumn(Modifier.fillMaxSize().padding(horizontal = 14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -242,7 +235,7 @@ private fun BlocksView(
             when (block) {
                 TodayBlock.PINNED -> state.pinned?.let { pinned -> item(key = "block-pinned") { PinnedBlock(pinned) } }
                 TodayBlock.TASKS -> item(key = "block-tasks") {
-                    TasksBlock(state.items, state.left, onToggle, onOpen, onMoveToTomorrow, onArchive)
+                    TasksBlock(state, onToggle, onOpen, onMoveToTomorrow, onArchive, onAddTask)
                 }
                 TodayBlock.SCRATCHPAD -> noteContent?.let { content -> item(key = "block-note") { BlockCard(title = "Scratchpad", count = "", content = content) } }
             }
@@ -292,18 +285,21 @@ private fun ProgressSegments(done: Int, total: Int, modifier: Modifier = Modifie
 
 @Composable
 private fun TasksBlock(
-    items: List<TaskItem>,
-    left: Int,
+    state: TodayUiState,
     onToggle: (String) -> Unit,
     onOpen: (String) -> Unit,
     onMoveToTomorrow: (String) -> Unit,
     onArchive: (String) -> Unit,
+    onAddTask: (() -> Unit)?,
 ) {
-    BlockCard(title = "Today's list", count = "$left left") {
-        if (items.isEmpty()) {
-            Text("Nothing planned. Tap + to add a task.", style = Paper.type.note, color = Paper.colors.muted, modifier = Modifier.padding(14.dp))
+    BlockCard(title = "Today's list", count = if (state.total == 0) "" else "${state.doneCount} / ${state.total} done") {
+        if (state.total > 0) {
+            ProgressBar(state.progress, Modifier.padding(start = 14.dp, end = 14.dp, bottom = 12.dp))
         }
-        items.forEach { item ->
+        if (state.items.isEmpty()) {
+            EmptyDay(onAddTask)
+        }
+        state.items.forEach { item ->
             RowDivider()
             SwipeableTaskRow(
                 item = item,
@@ -314,35 +310,50 @@ private fun TasksBlock(
                 modifier = Modifier.testTag("task-${item.id}"),
             )
         }
+        state.next?.let { next ->
+            RowDivider()
+            val time = if (next.timeLabel.isEmpty()) "" else " · ${next.timeLabel}"
+            Text(
+                "Next: ${next.title}$time",
+                style = Paper.type.bodySmall,
+                color = Paper.colors.muted,
+                maxLines = 1,
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp).testTag("today-next"),
+            )
+        }
+    }
+}
+
+/** A thin bar, filled in the accent colour as far as [progress] (0..1). */
+@Composable
+private fun ProgressBar(progress: Float, modifier: Modifier = Modifier) {
+    val colors = Paper.colors
+    Box(
+        modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)).background(colors.rule)
+            .semantics { contentDescription = "${(progress * 100).roundToInt()} percent of today's tasks done" }
+            .testTag("today-progress"),
+    ) {
+        Box(Modifier.fillMaxWidth(progress.coerceIn(0f, 1f)).fillMaxHeight().background(colors.accent))
+    }
+}
+
+@Composable
+private fun EmptyDay(onAddTask: (() -> Unit)?) {
+    Column(Modifier.fillMaxWidth().padding(start = 14.dp, end = 14.dp, bottom = 14.dp)) {
+        Text("Nothing planned.", style = Paper.type.note, color = Paper.colors.muted)
+        if (onAddTask != null) {
+            Text(
+                "+ Add a task",
+                style = Paper.type.button,
+                color = Paper.colors.accent,
+                modifier = Modifier.padding(top = 8.dp).clip(RoundedCornerShape(8.dp)).clickable(onClick = onAddTask).padding(vertical = 8.dp, horizontal = 2.dp).testTag("add-task-empty"),
+            )
+        }
     }
 }
 
 @Composable
 private fun RowDivider() = HorizontalDivider(color = Paper.colors.rule)
-
-@Composable
-private fun PlanView(items: List<TaskItem>) {
-    LazyColumn(Modifier.fillMaxSize().padding(horizontal = 14.dp)) {
-        item {
-            PaperCard(Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(horizontal = 14.dp, vertical = 4.dp)) {
-                    items.forEach { task ->
-                        Row(Modifier.fillMaxWidth().padding(vertical = 14.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            Text(task.timeLabel.replace(" AM", "").replace(" PM", ""), style = Paper.type.monoMeta.copy(fontSize = 12.sp), color = Paper.colors.muted, modifier = Modifier.padding(top = 2.dp).width(52.dp))
-                            Column {
-                                Text(task.title, style = Paper.type.title, color = Paper.colors.ink)
-                                task.projectName?.let { ProjectTag(it, parseHexColor(task.projectColorHex.orEmpty()), Modifier.padding(top = 5.dp)) }
-                            }
-                        }
-                        HorizontalDivider(color = Paper.colors.rule)
-                    }
-                    Text("Evening is free.", style = Paper.type.note.copy(fontSize = 17.sp), color = Paper.colors.muted, modifier = Modifier.padding(vertical = 14.dp))
-                }
-            }
-        }
-    }
-}
-
 
 @Composable
 private fun ErrorState(message: String, onRetry: () -> Unit) {
