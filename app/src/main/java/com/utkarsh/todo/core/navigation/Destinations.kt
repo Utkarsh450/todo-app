@@ -12,6 +12,8 @@ sealed interface Destination {
     @Serializable data object Timer : Destination
     @Serializable data object Customize : Destination
     @Serializable data object Assistant : Destination
+    /** What the assistant remembers about the owner (opened from the assistant). */
+    @Serializable data object Memory : Destination
     @Serializable data object BrainDump : Destination
     @Serializable data object Projects : Destination
     @Serializable data object Search : Destination

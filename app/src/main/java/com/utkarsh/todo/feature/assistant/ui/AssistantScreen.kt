@@ -66,7 +66,7 @@ import com.utkarsh.todo.core.designsystem.theme.paperSurface
 val QuickPrompts = listOf("Plan my day", "What's slipping?", "Review my week", "Remind me to…", "Schedule a meeting…")
 
 @Composable
-fun AssistantRoute(onBack: () -> Unit, modifier: Modifier = Modifier, viewModel: AssistantViewModel = hiltViewModel()) {
+fun AssistantRoute(onBack: () -> Unit, onOpenMemory: () -> Unit, modifier: Modifier = Modifier, viewModel: AssistantViewModel = hiltViewModel()) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     // Voice goes through the system speech dialog (no microphone permission); the button only shows when a recogniser exists.
     val context = LocalContext.current
@@ -95,6 +95,7 @@ fun AssistantRoute(onBack: () -> Unit, modifier: Modifier = Modifier, viewModel:
         onUndoNoted = viewModel::undoNoted,
         onLoadOlder = viewModel::loadOlder,
         onDismissNotice = viewModel::dismissNotice,
+        onOpenMemory = onOpenMemory,
         modifier = modifier,
     )
 }
@@ -117,6 +118,8 @@ fun AssistantScreen(
     onUndoNoted: (Int, String) -> Unit = { _, _ -> },
     onLoadOlder: () -> Unit = {},
     onDismissNotice: () -> Unit = {},
+    /** Shows a "Memory" link to what the assistant remembers when set. */
+    onOpenMemory: (() -> Unit)? = null,
 ) {
     val colors = Paper.colors
     val listState = rememberLazyListState()
@@ -133,6 +136,12 @@ fun AssistantScreen(
             )
             Text("✦ Ask Grok", style = Paper.type.title, color = colors.ink, modifier = Modifier.testTag("assistant-title"))
             Box(Modifier.weight(1f))
+            onOpenMemory?.let { open ->
+                Text(
+                    "Memory", style = Paper.type.button, color = colors.accent,
+                    modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable(onClick = open).padding(horizontal = 10.dp, vertical = 6.dp).testTag("open-memory"),
+                )
+            }
             MonoLabel("Sees your open tasks")
         }
         HorizontalDivider(Modifier.padding(top = 10.dp), color = colors.rule)

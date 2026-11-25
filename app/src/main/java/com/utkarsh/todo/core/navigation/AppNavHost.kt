@@ -40,6 +40,7 @@ import com.utkarsh.todo.feature.reminders.ui.AlertPermissionPrompt
 import com.utkarsh.todo.feature.reminders.ui.DueSoonRoute
 import com.utkarsh.todo.feature.assistant.ui.AssistantRoute
 import com.utkarsh.todo.feature.braindump.ui.BrainDumpRoute
+import com.utkarsh.todo.feature.memory.ui.MemoryRoute
 import com.utkarsh.todo.feature.taskdetail.ui.TaskDetailRoute
 import com.utkarsh.todo.feature.today.ui.TodayRoute
 import kotlin.reflect.KClass
@@ -101,7 +102,8 @@ fun AppNavHost(modifier: Modifier = Modifier) {
                 SearchRoute(onBack = { nav.popBackStack() }, onOpenTask = { nav.navigate(Destination.TaskDetail(it)) })
             }
             composable<Destination.BrainDump> { BrainDumpRoute(onBack = { nav.popBackStack() }) }
-            composable<Destination.Assistant> { AssistantRoute(onBack = { nav.popBackStack() }) }
+            composable<Destination.Assistant> { AssistantRoute(onBack = { nav.popBackStack() }, onOpenMemory = { nav.navigate(Destination.Memory) }) }
+            composable<Destination.Memory> { MemoryRoute(onBack = { nav.popBackStack() }) }
             composable<Destination.Customize> { CustomizeRoute(onBack = { nav.popBackStack() }) }
             composable<Destination.TaskDetail> { entry ->
                 TaskDetailRoute(onBack = { nav.popBackStack() }, onFocus = { nav.navigate(Destination.Focus(entry.toRoute<Destination.TaskDetail>().taskId)) })

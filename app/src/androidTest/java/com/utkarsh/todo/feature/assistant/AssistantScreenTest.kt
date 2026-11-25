@@ -66,6 +66,15 @@ class AssistantScreenTest {
     }
 
     @Test
+    fun the_memory_link_opens_what_the_assistant_remembers() {
+        show(AssistantUiState())
+
+        compose.onNodeWithTag("open-memory").performClick()
+
+        assertEquals(listOf("memory"), events)
+    }
+
+    @Test
     fun a_notice_shows_and_a_tap_dismisses_it() {
         show(AssistantUiState(notice = "Couldn't undo that. Try again."))
 
@@ -92,6 +101,7 @@ class AssistantScreenTest {
                     onUndoNoted = { turn, memory -> events += "undo-noted:$turn:$memory" },
                     onLoadOlder = { events += "older" },
                     onDismissNotice = { events += "notice-dismissed" },
+                    onOpenMemory = { events += "memory" },
                 )
             }
         }
