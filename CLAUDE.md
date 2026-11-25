@@ -185,7 +185,7 @@ Focus (11) is built (`feature/focus/ui`; "Focus · 25:00" on the task page -> `D
 - Deploying the backend: `scripts/deploy-backend.ps1` (see README). It needs the Vercel CLI, `vercel login` and `vercel link` in `backend/` (none of them set up on the Windows PC yet). Deploying is the owner's call: run it only when they say so. It was only tested against a fake `vercel` plus read-only checks of the live API.
 
 ## PENDING WORK FOR THE NEXT AGENT (as of 25 Nov 2026)
-Done on 25 Nov: shrunk build on the phone, saved-copy-first Today, paper splash, Timer tab, progress card, sync (see Gotchas). Still open from the owner's list: AI memory (saved chat history, short and long term memory, guardrails, better prompts, optimisation), a deploy script (the live API is on Vercel; the owner said Render, unconfirmed), saved-copy-first on the other tabs, timer notification when the app is closed. Backend redeploy (item 4 below) is still pending and needs the owner.
+Done on 25 Nov: shrunk build on the phone, saved-copy-first Today, paper splash, Timer tab, progress card, sync (see Gotchas). All of the owner's 25 Nov list is built (AI memory, deploy script, saved-copy-first on every tab except Search, timer notification, Satoshi font). Still open and needing the owner: deploy the backend (migration `20261125120000_ai_memory`; scripts/deploy-backend.ps1), run the DB-backed backend tests on the Mac or CI first, and push (keep the repo private: the Satoshi licence forbids passing the font files on). The timer notification was checked on the phone (it arrived with the app in the background).
 
 ## OLDER PENDING WORK (as of 11 Nov 2026)
 Do these in order. Read "Hard rules" first: one commit per finished feature, tests green, no push without being asked, never commit keys.
