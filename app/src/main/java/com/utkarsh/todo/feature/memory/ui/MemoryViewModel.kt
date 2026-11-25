@@ -62,9 +62,14 @@ class MemoryViewModel @Inject constructor(private val ai: AiRepository) : ViewMo
             cacheFirst { ai.memories() }.onSuccess { saved -> _state.update { it.copy(facts = saved) } }
             ai.memories()
                 .onSuccess { facts -> _state.update { it.copy(isLoading = false, facts = facts, error = null) } }
-                .onFailure { e -> _state.update { it.copy(isLoading = false, error = if (it.facts.isEmpty()) e.message ?: "Couldn't load what I remember." else null) } }
+                .onFailure { e -> _state.update { it.copy(isLoading = false, error = if (it.facts.isEmpty()) loadError(e) else null) } }
         }
     }
+
+    /** A server that answers "not found" is an older one that has no memory yet: say that, not "not there any more". */
+    private fun loadError(e: Throwable): String =
+        if ((e as? AiException)?.notFound == true) "The server doesn't have the memory feature yet. Update the backend and try again."
+        else e.message ?: "Couldn't load what I remember."
 
     fun add(text: String) {
         val clean = text.trim()

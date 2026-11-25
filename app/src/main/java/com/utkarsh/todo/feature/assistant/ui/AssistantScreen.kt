@@ -142,8 +142,8 @@ fun AssistantScreen(
                     modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable(onClick = open).padding(horizontal = 10.dp, vertical = 6.dp).testTag("open-memory"),
                 )
             }
-            MonoLabel("Sees your open tasks")
         }
+        MonoLabel("Sees your open tasks", Modifier.padding(start = 20.dp, top = 2.dp))
         HorizontalDivider(Modifier.padding(top = 10.dp), color = colors.rule)
         LazyColumn(Modifier.weight(1f), state = listState, contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 20.dp, vertical = 8.dp)) {
             item {

@@ -79,6 +79,15 @@ class MemoryViewModelTest {
     }
 
     @Test
+    fun `a server that has no memory yet says so instead of that is not there any more`() {
+        coEvery { ai.memories() } returns Result.failure(AiException("That is not there any more.", notFound = true))
+
+        val state = viewModel().uiState.value
+
+        assertEquals("The server doesn't have the memory feature yet. Update the backend and try again.", state.error)
+    }
+
+    @Test
     fun `adding puts the new fact first, and a blank text is never sent`() {
         coEvery { ai.addMemory("Pays rent on the 1st") } returns Result.success(MemoryFact("f9", "Pays rent on the 1st", "OTHER"))
         val vm = viewModel()
