@@ -70,8 +70,7 @@ Dates in API: ISO strings; day-only values `YYYY-MM-DD`. Day boundaries are comp
 ## Design (Paper System)
 Source file was a private claude.ai design ("Todo Components.dc.html"), unpacked from a shared bundle. Tokens live in
 `core/designsystem/theme`: paper `#F4F0E7`, card `#FFFDF8`, rule `#E3DCCD`, ink `#2B2824`, muted `#8A8377`, accent
-vermilion `#C4532F`. Fonts: Newsreader (serif), Schibsted Grotesk (sans), IBM Plex Mono (labels) are **bundled** in `res/font`
-(OFL, licence texts in `assets/licenses`; Newsreader/Schibsted are variable fonts, set per weight in `PaperFonts` in `Type.kt`). Launcher icon:
+vermilion `#C4532F`. Font: **Satoshi** (Indian Type Foundry, Fontshare Free Font licence, text in `assets/licenses/Satoshi-FFL.txt`) is the only family, for display, UI and labels; it is **bundled** in `res/font` (`satoshi.ttf`, `satoshi_italic.ttf`, variable fonts, set per weight in `PaperFonts` in `Type.kt`). The licence allows embedding in our own app but not passing the files on: keep the repo private. It replaced Newsreader / Schibsted Grotesk / IBM Plex Mono on 25 Nov 2026. Launcher icon:
 adaptive vector (paper + ink checkbox + vermilion dot, with a themed monochrome layer) in `res/drawable/ic_launcher_*` and `res/mipmap-anydpi-v26`.
 Screens (updated design, see **Design handoff**): Today, Task page, Create (+), Due soon, Calendar, Projects, Insights, Customize, Assistant, Focus, Search.
 

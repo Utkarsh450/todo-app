@@ -16,18 +16,14 @@ class AppResourcesTest {
 
     @Test
     fun every_bundled_font_loads() {
-        listOf(
-            R.font.newsreader, R.font.newsreader_italic, R.font.schibsted_grotesk,
-            R.font.ibm_plex_mono_regular, R.font.ibm_plex_mono_medium,
-        ).forEach { id -> assertNotNull("font $id", ResourcesCompat.getFont(context, id)) }
+        listOf(R.font.satoshi, R.font.satoshi_italic).forEach { id -> assertNotNull("font $id", ResourcesCompat.getFont(context, id)) }
     }
 
     @Test
     fun the_font_licences_ship_with_the_app() {
-        listOf("Newsreader-OFL.txt", "SchibstedGrotesk-OFL.txt", "IBMPlexMono-OFL.txt").forEach { name ->
-            val text = context.assets.open("licenses/$name").bufferedReader().use { it.readText() }
-            assertTrue(name, text.contains("SIL Open Font License"))
-        }
+        val text = context.assets.open("licenses/Satoshi-FFL.txt").bufferedReader().use { it.readText() }
+        assertTrue(text.contains("Indian Type Foundry"))
+        assertTrue(text.contains("Mobile or Desktop Applications"))
     }
 
     @Test

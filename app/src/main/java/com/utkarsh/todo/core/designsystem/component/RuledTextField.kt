@@ -19,7 +19,7 @@ import com.utkarsh.todo.core.designsystem.theme.Paper
 
 private val RuleSpacing = 32.dp
 
-/** Large serif input drawn on ruled-paper lines (25sp Newsreader on 32dp rules). */
+/** Large display input drawn on ruled-paper lines (25sp Satoshi on 32dp rules). */
 @Composable
 fun RuledTextField(
     value: String,

@@ -14,59 +14,55 @@ import androidx.compose.ui.unit.sp
 import com.utkarsh.todo.R
 
 /**
- * Three-family type system from the design:
- * Newsreader (serif display), Schibsted Grotesk (UI sans) and IBM Plex Mono (labels/meta).
- * The font files are bundled in res/font, so the app looks the same offline.
+ * One-family type system: Satoshi everywhere (display, UI text and the small uppercase labels), so the whole app reads as
+ * one voice. The roles keep their names (serif / sans / mono helpers) so every screen still asks for "display" or
+ * "monoLabel"; they only differ in size, weight and letter spacing now. The font files are bundled in res/font, so the
+ * app looks the same offline.
  */
 data class PaperTypography(
-    val displayLarge: TextStyle = serif(46.sp, tracking = (-0.025).em, lineHeight = 46.sp),
-    val display: TextStyle = serif(34.sp, tracking = (-0.02).em),
-    val headline: TextStyle = serif(24.sp, tracking = (-0.02).em, lineHeight = 26.sp),
-    val title: TextStyle = serif(20.sp, lineHeight = 23.sp),
-    val note: TextStyle = serif(19.sp, lineHeight = 26.sp).copy(fontStyle = FontStyle.Italic),
+    val displayLarge: TextStyle = display(46.sp, tracking = (-0.03).em, lineHeight = 48.sp),
+    val display: TextStyle = display(34.sp, tracking = (-0.025).em),
+    val headline: TextStyle = display(24.sp, tracking = (-0.02).em, lineHeight = 28.sp),
+    val title: TextStyle = display(20.sp, lineHeight = 25.sp),
+    val note: TextStyle = display(19.sp, lineHeight = 26.sp).copy(fontStyle = FontStyle.Italic),
     val body: TextStyle = sans(14.5.sp, lineHeight = 19.sp),
     val bodySmall: TextStyle = sans(13.sp),
     val label: TextStyle = sans(12.sp, FontWeight.Medium),
     val button: TextStyle = sans(13.sp, FontWeight.SemiBold),
     val navLabel: TextStyle = sans(10.5.sp, FontWeight.SemiBold),
-    val monoLabel: TextStyle = mono(10.5.sp, FontWeight.Medium, tracking = 0.1.em),
-    val monoMeta: TextStyle = mono(11.sp),
+    val monoLabel: TextStyle = sans(10.5.sp, FontWeight.Bold, tracking = 0.1.em),
+    val monoMeta: TextStyle = sans(11.sp, FontWeight.Medium),
 )
 
-private fun serif(size: TextUnit, tracking: TextUnit = TextUnit.Unspecified, lineHeight: TextUnit = TextUnit.Unspecified) =
-    TextStyle(fontFamily = PaperFonts.Serif, fontSize = size, fontWeight = FontWeight.Normal, letterSpacing = tracking, lineHeight = lineHeight)
+/** Big headings: Satoshi Medium, so they keep some weight at large sizes. */
+private fun display(size: TextUnit, tracking: TextUnit = TextUnit.Unspecified, lineHeight: TextUnit = TextUnit.Unspecified) =
+    TextStyle(fontFamily = PaperFonts.Satoshi, fontSize = size, fontWeight = FontWeight.Medium, letterSpacing = tracking, lineHeight = lineHeight)
 
-private fun sans(size: TextUnit, weight: FontWeight = FontWeight.Normal, lineHeight: TextUnit = TextUnit.Unspecified) =
-    TextStyle(fontFamily = PaperFonts.Sans, fontSize = size, fontWeight = weight, lineHeight = lineHeight)
-
-private fun mono(size: TextUnit, weight: FontWeight = FontWeight.Normal, tracking: TextUnit = TextUnit.Unspecified) =
-    TextStyle(fontFamily = PaperFonts.Mono, fontSize = size, fontWeight = weight, letterSpacing = tracking)
+private fun sans(
+    size: TextUnit,
+    weight: FontWeight = FontWeight.Normal,
+    lineHeight: TextUnit = TextUnit.Unspecified,
+    tracking: TextUnit = TextUnit.Unspecified,
+) = TextStyle(fontFamily = PaperFonts.Satoshi, fontSize = size, fontWeight = weight, lineHeight = lineHeight, letterSpacing = tracking)
 
 /**
- * The bundled fonts (all SIL Open Font License, texts in assets/licenses). Newsreader and Schibsted Grotesk are variable
- * fonts, so one file serves every weight; IBM Plex Mono ships one file per weight.
+ * The bundled font: Satoshi by Indian Type Foundry (Fontshare Free Font licence, text in assets/licenses: free for
+ * commercial use and for embedding in our own app, but the files must not be passed on to others). Both files are variable
+ * fonts, so one file serves every weight.
  */
 @OptIn(ExperimentalTextApi::class)
 internal object PaperFonts {
     private fun variable(resId: Int, weight: FontWeight, style: FontStyle = FontStyle.Normal) =
         Font(resId, weight, style, variationSettings = FontVariation.Settings(FontVariation.weight(weight.weight)))
 
-    val Serif: FontFamily = FontFamily(
-        variable(R.font.newsreader, FontWeight.Normal),
-        variable(R.font.newsreader, FontWeight.Medium),
-        variable(R.font.newsreader, FontWeight.SemiBold),
-        variable(R.font.newsreader_italic, FontWeight.Normal, FontStyle.Italic),
-        variable(R.font.newsreader_italic, FontWeight.Medium, FontStyle.Italic),
-    )
-    val Sans: FontFamily = FontFamily(
-        variable(R.font.schibsted_grotesk, FontWeight.Normal),
-        variable(R.font.schibsted_grotesk, FontWeight.Medium),
-        variable(R.font.schibsted_grotesk, FontWeight.SemiBold),
-        variable(R.font.schibsted_grotesk, FontWeight.Bold),
-    )
-    val Mono: FontFamily = FontFamily(
-        Font(R.font.ibm_plex_mono_regular, FontWeight.Normal),
-        Font(R.font.ibm_plex_mono_medium, FontWeight.Medium),
+    val Satoshi: FontFamily = FontFamily(
+        variable(R.font.satoshi, FontWeight.Normal),
+        variable(R.font.satoshi, FontWeight.Medium),
+        variable(R.font.satoshi, FontWeight.SemiBold),
+        variable(R.font.satoshi, FontWeight.Bold),
+        variable(R.font.satoshi_italic, FontWeight.Normal, FontStyle.Italic),
+        variable(R.font.satoshi_italic, FontWeight.Medium, FontStyle.Italic),
+        variable(R.font.satoshi_italic, FontWeight.SemiBold, FontStyle.Italic),
     )
 }
 
